@@ -66,6 +66,15 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _getMapUrl(BuildContext context) {
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    if (isDarkMode) {
+      return 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+    } else {
+      return 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
+    }
+  }
+
   void _navigateToPrivateChat(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Abrindo bate-papo privado...')),
@@ -109,8 +118,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate: _getMapUrl(context),
                       ),
                       MarkerLayer(
                         markers: [
