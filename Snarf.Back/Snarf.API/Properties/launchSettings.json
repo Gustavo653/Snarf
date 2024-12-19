@@ -1,0 +1,41 @@
+{
+  "profiles": {
+    "Snarf": {
+      "commandName": "Project",
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "development",
+        "DatabaseConnection": "Server=138.199.145.61;Database=db-snarf-dev;User Id=postgres;Password=UL^q^84Vcm83fYdgGdZu;"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5007",
+      "launchBrowser": true
+    },
+    "Docker": {
+      "commandName": "Docker",
+      "launchBrowser": true,
+      "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
+      "publishAllPorts": true,
+      "useSSL": true
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "launchBrowser": true,
+      "launchUrl": "https://localhost:7007/swagger",
+      "environmentVariables": {
+        "ASPNETCORE_URLS": "https://localhost:7007;http://localhost:5007",
+        "DOTNET_ENVIRONMENT": "development"
+      },
+      "distributionName": ""
+    }
+  },
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:2634",
+      "sslPort": 44302
+    }
+  }
+}

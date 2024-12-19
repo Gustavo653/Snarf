@@ -7,24 +7,24 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["FloralImage.API/FloralImage.API.csproj", "FloralImage.API/"]
-COPY ["FloralImage.DTO/FloralImage.DTO.csproj", "FloralImage.DTO/"]
-COPY ["FloralImage.Domain/FloralImage.Domain.csproj", "FloralImage.Domain/"]
-COPY ["FloralImage.Persistence/FloralImage.Persistence.csproj", "FloralImage.Persistence/"]
-COPY ["FloralImage.Service/FloralImage.Service.csproj", "FloralImage.Service/"]
-COPY ["FloralImage.DataAccess/FloralImage.DataAccess.csproj", "FloralImage.DataAccess/"]
-COPY ["FloralImage.Infrastructure/FloralImage.Infrastructure.csproj", "FloralImage.Infrastructure/"]
-COPY ["FloralImage.Utils/FloralImage.Utils.csproj", "FloralImage.Utils/"]
-RUN dotnet restore "FloralImage.API/FloralImage.API.csproj"
+COPY ["Snarf.API/Snarf.API.csproj", "Snarf.API/"]
+COPY ["Snarf.DTO/Snarf.DTO.csproj", "Snarf.DTO/"]
+COPY ["Snarf.Domain/Snarf.Domain.csproj", "Snarf.Domain/"]
+COPY ["Snarf.Persistence/Snarf.Persistence.csproj", "Snarf.Persistence/"]
+COPY ["Snarf.Service/Snarf.Service.csproj", "Snarf.Service/"]
+COPY ["Snarf.DataAccess/Snarf.DataAccess.csproj", "Snarf.DataAccess/"]
+COPY ["Snarf.Infrastructure/Snarf.Infrastructure.csproj", "Snarf.Infrastructure/"]
+COPY ["Snarf.Utils/Snarf.Utils.csproj", "Snarf.Utils/"]
+RUN dotnet restore "Snarf.API/Snarf.API.csproj"
 COPY . .
-WORKDIR "/src/FloralImage.API"
-RUN dotnet build "FloralImage.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/Snarf.API"
+RUN dotnet build "Snarf.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "FloralImage.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "Snarf.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "FloralImage.API.dll"]
+ENTRYPOINT ["dotnet", "Snarf.API.dll"]
