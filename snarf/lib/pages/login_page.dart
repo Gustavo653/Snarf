@@ -36,15 +36,16 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final success = await ApiService.login(email, password);
-      if (success) {
+      final loginResponse = await ApiService.login(email, password);
+
+      if (loginResponse == null) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
       } else {
         setState(() {
-          _errorMessage = 'Credenciais inválidas. Tente novamente.';
+          _errorMessage = loginResponse;
         });
       }
     } catch (e) {
@@ -57,6 +58,7 @@ class _LoginPageState extends State<LoginPage> {
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

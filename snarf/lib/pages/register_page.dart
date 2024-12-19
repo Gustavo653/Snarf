@@ -35,10 +35,11 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final success = await ApiService.register(email, name, password);
-      if (success) {
-        final loginSuccess = await ApiService.login(email, password);
-        if (loginSuccess) {
+      final createResponse = await ApiService.register(email, name, password);
+
+      if (createResponse == null) {
+        final loginResponse = await ApiService.login(email, password);
+        if (loginResponse == null) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomePage()),
@@ -50,7 +51,7 @@ class _RegisterPageState extends State<RegisterPage> {
         }
       } else {
         setState(() {
-          _errorMessage = 'Erro ao realizar cadastro. Tente novamente.';
+          _errorMessage = createResponse;
         });
       }
     } catch (e) {

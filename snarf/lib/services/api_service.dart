@@ -6,7 +6,7 @@ import 'package:snarf/utils/api_constants.dart';
 class ApiService {
   static const _secureStorage = FlutterSecureStorage();
 
-  static Future<bool> login(String email, String password) async {
+  static Future<String?> login(String email, String password) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/Account/Login');
     final headers = {
       'Content-Type': 'application/json',
@@ -28,17 +28,18 @@ class ApiService {
 
           await _secureStorage.write(key: 'token', value: token);
 
-          return true;
+          return null; // Login bem-sucedido, sem mensagem de erro
         }
       }
 
-      return false;
+      final responseData = jsonDecode(response.body);
+      return responseData['message'] ?? 'Erro desconhecido';
     } catch (e) {
-      return false;
+      return 'Erro ao conectar à API: $e';
     }
   }
 
-  static Future<bool> register(String email, String name, String password) async {
+  static Future<String?> register(String email, String name, String password) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/Account');
     final headers = {
       'Content-Type': 'application/json',
@@ -52,13 +53,14 @@ class ApiService {
     try {
       final response = await http.post(url, headers: headers, body: body);
 
-      if (response.statusCode == 200) {
-        return true;
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        return responseData['message'] ?? 'Erro desconhecido';
       }
-
-      return false;
     } catch (e) {
-      return false;
+      return 'Erro ao conectar à API: $e';
     }
   }
 
