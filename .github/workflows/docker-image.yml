@@ -1,0 +1,19 @@
+name: Docker Image CI
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build_and_push_back:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Compilar back
+        run: |
+          cd Snarf.Back
+          docker build . --file dockerfile --tag gustavo1rx7/snarf-back:${{ github.ref_name }}
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker push gustavo1rx7/snarf-back:${{ github.ref_name }}

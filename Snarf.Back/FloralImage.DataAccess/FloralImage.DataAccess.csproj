@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FloralImage.Domain\FloralImage.Domain.csproj" />
+    <ProjectReference Include="..\FloralImage.Infrastructure\FloralImage.Infrastructure.csproj" />
+    <ProjectReference Include="..\FloralImage.Persistence\FloralImage.Persistence.csproj" />
+    <ProjectReference Include="..\FloralImage.Utils\FloralImage.Utils.csproj" />
+  </ItemGroup>
+
+</Project>
