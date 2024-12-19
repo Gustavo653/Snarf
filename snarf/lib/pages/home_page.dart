@@ -115,6 +115,9 @@ class _HomePageState extends State<HomePage> {
                         _currentLocation.longitude!,
                       ),
                       initialZoom: 15.0,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                      ),
                     ),
                     children: [
                       TileLayer(
