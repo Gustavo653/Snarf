@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:snarf/pages/initial_page.dart';
 import '../components/expandable_fab_component.dart';
 import '../services/api_service.dart';
 import '../pages/login_page.dart';
@@ -16,13 +17,13 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late LocationData _currentLocation;
   bool _isLocationLoaded = false;
-  late MapController _mapController; // Controller for the map to change its center.
-  late Marker _userLocationMarker; // Marker for user's location.
+  late MapController _mapController;
+  late Marker _userLocationMarker;
 
   @override
   void initState() {
     super.initState();
-    _mapController = MapController(); // Initialize the map controller.
+    _mapController = MapController();
     _getCurrentLocation();
   }
 
@@ -62,31 +63,7 @@ class _HomePageState extends State<HomePage> {
     await ApiService.logout();
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const LoginPage()),
-    );
-  }
-
-  void _showTokenBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return FutureBuilder<String?>(
-          future: ApiService.getToken(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasData && snapshot.data != null) {
-              return ListTile(
-                title: Text('Token: ${snapshot.data}'),
-              );
-            } else {
-              return const ListTile(
-                title: Text('Nenhum token encontrado.'),
-              );
-            }
-          },
-        );
-      },
+      MaterialPageRoute(builder: (context) => const InitialPage()),
     );
   }
 
@@ -114,30 +91,30 @@ class _HomePageState extends State<HomePage> {
       body: Center(
         child: _isLocationLoaded
             ? Stack(
-          children: [
-            FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: LatLng(
-                    _currentLocation.latitude!,
-                    _currentLocation.longitude!),
-                initialZoom: 15.0,
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.example.app',
-                ),
-                MarkerLayer(
-                  markers: [
-                    _userLocationMarker,
-                  ],
-                ),
-              ],
-            ),
-          ],
-        )
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      initialCenter: LatLng(
+                        _currentLocation.latitude!,
+                        _currentLocation.longitude!,
+                      ),
+                      initialZoom: 15.0,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate:
+                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          _userLocationMarker,
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              )
             : const CircularProgressIndicator(),
       ),
       floatingActionButton: ExpandableFab(
@@ -146,11 +123,7 @@ class _HomePageState extends State<HomePage> {
           ActionButton(
             onPressed: _recentralizeMap,
             icon: const Icon(Icons.my_location),
-          ),
-          ActionButton(
-            onPressed: () => _showTokenBottomSheet(context),
-            icon: const Icon(Icons.token),
-          ),
+          )
         ],
       ),
     );

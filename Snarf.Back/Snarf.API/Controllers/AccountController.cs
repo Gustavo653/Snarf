@@ -30,6 +30,7 @@ namespace Snarf.API.Controllers
         }
 
         [HttpPost("")]
+        [AllowAnonymous]
         public async Task<IActionResult> CreateUser([FromBody] UserDTO userDTO)
         {
             var user = await accountService.CreateUser(userDTO);

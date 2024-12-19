@@ -1,57 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'pages/login_page.dart';
-import 'pages/home_page.dart';
+import 'package:provider/provider.dart';
+import 'package:snarf/pages/initial_page.dart';
+import 'package:snarf/utils/app_themes.dart';
+import 'providers/theme_provider.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: SnarfApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
+class SnarfApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Login App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const RootPage(),
+      title: 'snarf',
+      themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      theme: AppThemes.lightTheme,
+      darkTheme: AppThemes.darkTheme,
+      home: const InitialPage(),
     );
-  }
-}
-
-class RootPage extends StatefulWidget {
-  const RootPage({Key? key}) : super(key: key);
-
-  @override
-  State<RootPage> createState() => _RootPageState();
-}
-
-class _RootPageState extends State<RootPage> {
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
-  bool _isLoggedIn = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkLoginStatus();
-  }
-
-  Future<void> _checkLoginStatus() async {
-    // Recuperar o token armazenado de forma segura
-    final token = await _secureStorage.read(key: 'token');
-    setState(() {
-      _isLoggedIn = token != null; // Verifica se o token existe
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Navega para a HomePage se estiver logado ou LoginPage se não estiver
-    return _isLoggedIn ? const HomePage() : const LoginPage();
   }
 }
