@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import 'package:snarf/pages/initial_page.dart';
-import '../components/expandable_fab_component.dart';
+import 'package:snarf/providers/theme_provider.dart';
 import '../services/api_service.dart';
-import '../pages/login_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -59,12 +59,8 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<void> _logout(BuildContext context) async {
-    await ApiService.logout();
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const InitialPage()),
-    );
+  void _toggleTheme(BuildContext context) {
+    Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
   }
 
   void _recentralizeMap() {
@@ -83,8 +79,8 @@ class _HomePageState extends State<HomePage> {
         title: const Text('Home'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
+            icon: const Icon(Icons.brightness_6),
+            onPressed: () => _toggleTheme(context),
           ),
         ],
       ),
@@ -116,15 +112,6 @@ class _HomePageState extends State<HomePage> {
                 ],
               )
             : const CircularProgressIndicator(),
-      ),
-      floatingActionButton: ExpandableFab(
-        distance: 112,
-        children: [
-          ActionButton(
-            onPressed: _recentralizeMap,
-            icon: const Icon(Icons.my_location),
-          )
-        ],
       ),
     );
   }
