@@ -15,10 +15,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late LocationData _currentLocation;
   bool _isLocationLoaded = false;
+  late MapController _mapController;  // Controller for the map to change its center.
 
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();  // Initialize the map controller.
     _getCurrentLocation();
   }
 
@@ -78,6 +80,16 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // Method to recentralize the map to user's current location.
+  void _recentralizeMap() {
+    if (_isLocationLoaded) {
+      _mapController.move(
+        LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
+        15.0,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,36 +105,41 @@ class _HomePageState extends State<HomePage> {
       body: Center(
         child: _isLocationLoaded
             ? Stack(
-                children: [
-                  FlutterMap(
-                    options: MapOptions(
-                      initialCenter: LatLng(_currentLocation.latitude!,
-                          _currentLocation.longitude!),
-                      initialZoom: 15.0,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.app',
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: ElevatedButton(
-                        onPressed: () => _showTokenBottomSheet(context),
-                        child: const Text('Exibir Token'),
-                      ),
-                    ),
-                  ),
-                ],
-              )
+          children: [
+            FlutterMap(
+              mapController: _mapController,  // Assign the map controller.
+              options: MapOptions(
+                initialCenter: LatLng(_currentLocation.latitude!,
+                    _currentLocation.longitude!),
+                initialZoom: 15.0,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.app',
+                ),
+              ],
+            ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton(
+                  onPressed: () => _showTokenBottomSheet(context),
+                  child: const Text('Exibir Token'),
+                ),
+              ),
+            ),
+          ],
+        )
             : const CircularProgressIndicator(),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _recentralizeMap,  // Call method to recentralize the map.
+        child: const Icon(Icons.my_location),
       ),
     );
   }
