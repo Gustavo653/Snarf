@@ -3,12 +3,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import 'package:snarf/pages/initial_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
-import '../services/api_service.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -50,17 +48,13 @@ class _HomePageState extends State<HomePage> {
       _isLocationLoaded = true;
       _userLocationMarker = Marker(
         point: LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
-        child: Icon(
+        child: const Icon(
           Icons.location_on,
           color: Colors.red,
           size: 40,
         ),
       );
     });
-  }
-
-  void _toggleTheme(BuildContext context) {
-    Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
   }
 
   void _recentralizeMap() {
@@ -70,6 +64,22 @@ class _HomePageState extends State<HomePage> {
         15.0,
       );
     }
+  }
+
+  void _navigateToPrivateChat(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Abrindo bate-papo privado...')),
+    );
+  }
+
+  void _navigateToPublicChat(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Abrindo bate-papo público...')),
+    );
+  }
+
+  void _toggleTheme(BuildContext context) {
+    Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
   }
 
   @override
@@ -113,27 +123,29 @@ class _HomePageState extends State<HomePage> {
               )
             : const CircularProgressIndicator(),
       ),
-    );
-  }
-}
-
-class ActionButton extends StatelessWidget {
-  final VoidCallback? onPressed;
-  final Widget icon;
-
-  const ActionButton({super.key, this.onPressed, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      color: Colors.blue,
-      elevation: 4,
-      child: IconButton(
-        onPressed: onPressed,
-        icon: icon,
-        color: Colors.white,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _recentralizeMap,
+        child: const Icon(Icons.my_location),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: BottomNavigationBar(
+        onTap: (int index) {
+          if (index == 0) {
+            _navigateToPrivateChat(context);
+          } else if (index == 1) {
+            _navigateToPublicChat(context);
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
+            label: 'Privado',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.group),
+            label: 'Público',
+          ),
+        ],
       ),
     );
   }
