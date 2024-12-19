@@ -4,10 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:snarf/utils/api_constants.dart';
 
 class ApiService {
-  // Instância do FlutterSecureStorage
   static const _secureStorage = FlutterSecureStorage();
 
-  // Método para fazer login
   static Future<bool> login(String email, String password) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/Account/Login');
     final headers = {
@@ -19,38 +17,55 @@ class ApiService {
     });
 
     try {
-      // Fazer requisição POST para o endpoint de login
       final response = await http.post(url, headers: headers, body: body);
 
-      // Verificar status da resposta
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
 
-        // Verificar se o token foi retornado
-        if (responseData['object'] != null && responseData['object']['token'] != null) {
+        if (responseData['object'] != null &&
+            responseData['object']['token'] != null) {
           final token = responseData['object']['token'];
 
-          // Armazenar o token de forma segura
           await _secureStorage.write(key: 'token', value: token);
 
-          return true; // Login bem-sucedido
+          return true;
         }
       }
 
-      return false; // Falha no login (status != 200 ou sem token)
+      return false;
     } catch (e) {
-      // Exibir erro no console (apenas para debugging)
-      print('Erro na requisição de login: $e');
-      return false; // Retornar falso em caso de erro
+      return false;
     }
   }
 
-  // Método para recuperar o token armazenado
+  static Future<bool> register(String email, String name, String password) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/Account');
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+    final body = jsonEncode({
+      'email': email,
+      'name': name,
+      'password': password,
+    });
+
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   static Future<String?> getToken() async {
     return await _secureStorage.read(key: 'token');
   }
 
-  // Método para remover o token (logout)
   static Future<void> logout() async {
     await _secureStorage.delete(key: 'token');
   }
