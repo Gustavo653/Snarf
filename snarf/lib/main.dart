@@ -7,7 +7,7 @@ import 'providers/theme_provider.dart';
 
 void main() {
   const isRelease = bool.fromEnvironment('dart.vm.product');
-  ApiConstants.baseUrl = isRelease ? "https://snarf.inovitech.inf.br" : ApiConstants.baseUrl;
+  ApiConstants.baseUrl = isRelease ? "https://snarf.inovitech.inf.br/api" : ApiConstants.baseUrl;
 
   runApp(
     ChangeNotifierProvider(
