@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
+import '../components/expandable_fab_component.dart';
 import '../services/api_service.dart';
 import '../pages/login_page.dart';
 
@@ -15,8 +16,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late LocationData _currentLocation;
   bool _isLocationLoaded = false;
-  late MapController
-      _mapController; // Controller for the map to change its center.
+  late MapController _mapController; // Controller for the map to change its center.
   late Marker _userLocationMarker; // Marker for user's location.
 
   @override
@@ -90,7 +90,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Method to recentralize the map to user's current location.
   void _recentralizeMap() {
     if (_isLocationLoaded) {
       _mapController.move(
@@ -115,46 +114,66 @@ class _HomePageState extends State<HomePage> {
       body: Center(
         child: _isLocationLoaded
             ? Stack(
-                children: [
-                  FlutterMap(
-                    mapController: _mapController, // Assign the map controller.
-                    options: MapOptions(
-                      initialCenter: LatLng(_currentLocation.latitude!,
-                          _currentLocation.longitude!),
-                      initialZoom: 15.0,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.app',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          _userLocationMarker, // Add the user's location marker.
-                        ],
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: ElevatedButton(
-                        onPressed: () => _showTokenBottomSheet(context),
-                        child: const Text('Exibir Token'),
-                      ),
-                    ),
-                  ),
-                ],
-              )
+          children: [
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: LatLng(
+                    _currentLocation.latitude!,
+                    _currentLocation.longitude!),
+                initialZoom: 15.0,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.app',
+                ),
+                MarkerLayer(
+                  markers: [
+                    _userLocationMarker,
+                  ],
+                ),
+              ],
+            ),
+          ],
+        )
             : const CircularProgressIndicator(),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _recentralizeMap, // Call method to recentralize the map.
-        child: const Icon(Icons.my_location),
+      floatingActionButton: ExpandableFab(
+        distance: 112,
+        children: [
+          ActionButton(
+            onPressed: _recentralizeMap,
+            icon: const Icon(Icons.my_location),
+          ),
+          ActionButton(
+            onPressed: () => _showTokenBottomSheet(context),
+            icon: const Icon(Icons.token),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ActionButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final Widget icon;
+
+  const ActionButton({super.key, this.onPressed, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      color: Colors.blue,
+      elevation: 4,
+      child: IconButton(
+        onPressed: onPressed,
+        icon: icon,
+        color: Colors.white,
       ),
     );
   }
