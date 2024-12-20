@@ -14,7 +14,7 @@ namespace Snarf.API.Controllers
 
             _userLocations[Context.ConnectionId] = (latitude, longitude);
 
-            await Clients.Others.SendAsync("ReceiveLocation", latitude, longitude);
+            await Clients.Others.SendAsync("ReceiveLocation", Context.ConnectionId, latitude, longitude);
         }
 
         public override async Task OnConnectedAsync()
@@ -23,7 +23,7 @@ namespace Snarf.API.Controllers
 
             foreach (var userLocation in _userLocations)
             {
-                await Clients.Caller.SendAsync("ReceiveLocation", userLocation.Value.latitude, userLocation.Value.longitude);
+                await Clients.Caller.SendAsync("ReceiveLocation", userLocation.Key, userLocation.Value.latitude, userLocation.Value.longitude);
             }
 
             await base.OnConnectedAsync();
@@ -39,9 +39,10 @@ namespace Snarf.API.Controllers
                 Log.Warning($"Erro durante desconexão de {connectionId}: {exception.Message}");
             }
 
-            _userLocations.TryRemove(connectionId, out var userLocation);
-
-            await Clients.Others.SendAsync("UserDisconnected", userLocation.latitude, userLocation.longitude);
+            if (_userLocations.TryRemove(connectionId, out var _))
+            {
+                await Clients.Others.SendAsync("UserDisconnected", connectionId);
+            }
 
             await base.OnDisconnectedAsync(exception);
         }

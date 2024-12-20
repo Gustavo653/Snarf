@@ -21,7 +21,7 @@ class _HomePageState extends State<HomePage> {
   bool _isLocationLoaded = false;
   late MapController _mapController;
   late Marker _userLocationMarker;
-  List<Marker> _otherUserMarkers = [];
+  Map<String, Marker> _userMarkers = {};
   late HubConnection _hubConnection;
 
   @override
@@ -29,8 +29,51 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _mapController = MapController();
     _getCurrentLocation();
+    _startLocationUpdates();
     _setupSignalRConnection();
   }
+
+  Future<void> _startLocationUpdates() async {
+    Location location = Location();
+
+    bool serviceEnabled = await location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await location.requestService();
+      if (!serviceEnabled) {
+        return;
+      }
+    }
+
+    PermissionStatus permissionGranted = await location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) {
+        return;
+      }
+    }
+
+    location.changeSettings(
+      accuracy: LocationAccuracy.high,
+      interval: 10000,
+    );
+
+    location.onLocationChanged.listen((LocationData newLocation) {
+      setState(() {
+        _currentLocation = newLocation;
+        _userLocationMarker = Marker(
+          point: LatLng(newLocation.latitude!, newLocation.longitude!),
+          child: const Icon(
+            Icons.person_pin_circle_outlined,
+            color: Colors.red,
+            size: 40,
+          ),
+        );
+      });
+
+      _sendLocationUpdate();
+    });
+  }
+
 
   Future<void> _getCurrentLocation() async {
     Location location = Location();
@@ -56,14 +99,12 @@ class _HomePageState extends State<HomePage> {
       _userLocationMarker = Marker(
         point: LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
         child: const Icon(
-          Icons.location_on,
+          Icons.person_pin_circle_outlined,
           color: Colors.red,
           size: 40,
         ),
       );
     });
-
-    _sendLocationUpdate();
   }
 
   void _sendLocationUpdate() async {
@@ -85,30 +126,28 @@ class _HomePageState extends State<HomePage> {
 
     _hubConnection.on("ReceiveLocation", (args) {
       log('Evento ReceiveLocation recebido');
-      final latitude = args?[0] as double;
-      final longitude = args?[1] as double;
+      final connectionId = args?[0] as String;
+      final latitude = args?[1] as double;
+      final longitude = args?[2] as double;
       setState(() {
-        _otherUserMarkers.add(Marker(
+        _userMarkers[connectionId] = Marker(
           point: LatLng(latitude, longitude),
           width: 30,
           height: 30,
           child: const Icon(
-            Icons.location_on,
+            Icons.person_pin_circle_outlined,
             color: Colors.blue,
             size: 30,
           ),
-        ));
+        );
       });
     });
 
     _hubConnection.on("UserDisconnected", (args) {
       log('Evento UserDisconnected recebido');
-      final latitude = args?[0] as double;
-      final longitude = args?[1] as double;
+      final connectionId = args?[0] as String;
       setState(() {
-        _otherUserMarkers.removeWhere((marker) =>
-            marker.point.latitude == latitude &&
-            marker.point.longitude == longitude);
+        _userMarkers.remove(connectionId);
       });
     });
 
@@ -193,7 +232,7 @@ class _HomePageState extends State<HomePage> {
                       MarkerLayer(
                         markers: [
                           _userLocationMarker,
-                          ..._otherUserMarkers,
+                          ..._userMarkers.values,
                         ],
                       ),
                     ],
