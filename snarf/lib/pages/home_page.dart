@@ -7,6 +7,7 @@ import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/api_constants.dart';
+import 'dart:developer';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -28,7 +29,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _mapController = MapController();
     _getCurrentLocation();
-    _setupSignalR();
+    _setupSignalRConnection();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -65,19 +66,28 @@ class _HomePageState extends State<HomePage> {
     _sendLocationUpdate();
   }
 
-  void _setupSignalR() {
-    // Criação da conexão SignalR com o Hub
+  void _sendLocationUpdate() async {
+    if (_hubConnection.state == HubConnectionState.Connected) {
+      await _hubConnection.invoke(
+        "UpdateLocation",
+        args: [
+          _currentLocation.latitude!,
+          _currentLocation.longitude!,
+        ],
+      );
+    }
+  }
+
+  void _setupSignalRConnection() {
     _hubConnection = HubConnectionBuilder()
-        .withUrl(
-            '${ApiConstants.baseUrl.replaceAll('/api', '')}/locationHub') // URL do seu SignalR Hub
+        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/locationHub')
         .build();
 
-    // Ouve por atualizações de localização de outros usuários
     _hubConnection.on("ReceiveLocation", (args) {
+      log('Evento ReceiveLocation recebido');
       final latitude = args?[0] as double;
       final longitude = args?[1] as double;
       setState(() {
-        // Adiciona a localização recebida à lista de marcadores de outros usuários
         _otherUserMarkers.add(Marker(
           point: LatLng(latitude, longitude),
           width: 30,
@@ -91,21 +101,25 @@ class _HomePageState extends State<HomePage> {
       });
     });
 
-    _hubConnection.start()?.catchError((err) {
-      print("Erro ao iniciar a conexão SignalR: $err");
+    _hubConnection.on("UserDisconnected", (args) {
+      log('Evento UserDisconnected recebido');
+      final latitude = args?[0] as double;
+      final longitude = args?[1] as double;
+      setState(() {
+        _otherUserMarkers.removeWhere((marker) =>
+            marker.point.latitude == latitude &&
+            marker.point.longitude == longitude);
+      });
     });
-  }
 
-  void _sendLocationUpdate() async {
-    // Envia a localização atualizada para o Hub SignalR
-    if (_hubConnection.state == HubConnectionState.Connected) {
-      await _hubConnection.invoke("UpdateLocation",
-          args: [_currentLocation.latitude!, _currentLocation.longitude!]);
-    }
+    _hubConnection.start()?.catchError((err) {
+      log("Erro ao iniciar a conexão SignalR: $err");
+    });
   }
 
   void _recentralizeMap() {
     if (_isLocationLoaded) {
+      _getCurrentLocation();
       _mapController.move(
         LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
         15.0,
@@ -180,7 +194,6 @@ class _HomePageState extends State<HomePage> {
                         markers: [
                           _userLocationMarker,
                           ..._otherUserMarkers,
-                          // Adiciona os marcadores dos outros usuários
                         ],
                       ),
                     ],
