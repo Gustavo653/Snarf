@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
+import 'package:snarf/pages/initial_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/api_constants.dart';
@@ -46,7 +47,8 @@ class _HomePageState extends State<HomePage> {
 
   /// Mostra uma SnackBar com uma mensagem
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Centraliza o controle de permissões e localização
@@ -78,7 +80,8 @@ class _HomePageState extends State<HomePage> {
     _currentLocation = await _location.getLocation();
     setState(() {
       _isLocationLoaded = true;
-      _updateUserMarker(_currentLocation.latitude!, _currentLocation.longitude!);
+      _updateUserMarker(
+          _currentLocation.latitude!, _currentLocation.longitude!);
     });
   }
 
@@ -98,7 +101,8 @@ class _HomePageState extends State<HomePage> {
   void _startLocationUpdates() {
     _location.changeSettings(accuracy: LocationAccuracy.high, interval: 10000);
 
-    _locationSubscription = _location.onLocationChanged.listen((LocationData newLocation) {
+    _locationSubscription =
+        _location.onLocationChanged.listen((LocationData newLocation) {
       setState(() {
         _currentLocation = newLocation;
         _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
@@ -121,7 +125,8 @@ class _HomePageState extends State<HomePage> {
     try {
       await _hubConnection.start();
       if (_connectionId != null) {
-        await _hubConnection.invoke("RegisterConnectionId", args: [_connectionId!]);
+        await _hubConnection
+            .invoke("RegisterConnectionId", args: [_connectionId!]);
       }
       _connectionId = _hubConnection.connectionId;
       await _secureStorage.write(key: 'connectionId', value: _connectionId);
@@ -204,37 +209,47 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.brightness_6),
-            onPressed: () => Provider.of<ThemeProvider>(context, listen: false).toggleTheme(),
+            onPressed: () => Provider.of<ThemeProvider>(context, listen: false)
+                .toggleTheme(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const InitialPage(),
+              ),
+            ),
           ),
         ],
       ),
       body: _isLocationLoaded
           ? Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: LatLng(
-                _currentLocation.latitude!,
-                _currentLocation.longitude!,
-              ),
-              initialZoom: 15.0,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-              ),
-            ),
-            children: [
-              TileLayer(urlTemplate: _getMapUrl(context)),
-              MarkerLayer(
-                markers: [
-                  _userLocationMarker,
-                  ..._userMarkers.values,
-                ],
-              ),
-            ],
-          ),
-        ],
-      )
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: LatLng(
+                      _currentLocation.latitude!,
+                      _currentLocation.longitude!,
+                    ),
+                    initialZoom: 15.0,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                    ),
+                  ),
+                  children: [
+                    TileLayer(urlTemplate: _getMapUrl(context)),
+                    MarkerLayer(
+                      markers: [
+                        _userLocationMarker,
+                        ..._userMarkers.values,
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            )
           : const Center(child: CircularProgressIndicator()),
       floatingActionButton: FloatingActionButton(
         onPressed: _recenterMap,
