@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:signalr_netcore/http_connection_options.dart';
 import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
 import 'package:snarf/pages/initial_page.dart';
@@ -111,12 +112,19 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<String> getAccessToken() async {
+    FlutterSecureStorage storage = FlutterSecureStorage();
+    return await storage.read(key: 'token') ?? '';
+  }
+
   /// Configura a conexão com o SignalR
   Future<void> _setupSignalRConnection() async {
     _connectionId = await _secureStorage.read(key: 'connectionId');
 
     _hubConnection = HubConnectionBuilder()
-        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub')
+        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub',
+            options: HttpConnectionOptions(
+                accessTokenFactory: () async => await getAccessToken()))
         .build();
 
     _hubConnection.on("ReceiveLocation", _onReceiveLocation);
@@ -142,7 +150,7 @@ class _HomePageState extends State<HomePage> {
     final connectionId = args?[0] as String;
     final latitude = args?[1] as double;
     final longitude = args?[2] as double;
-    _showSnackBar("Localização recebida: $connectionId $latitude $longitude");
+    //_showSnackBar("Localização recebida: $connectionId $latitude $longitude");
     setState(() {
       _userMarkers[connectionId] = Marker(
         point: LatLng(latitude, longitude),
