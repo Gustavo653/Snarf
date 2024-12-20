@@ -1,29 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
-import 'package:snarf/pages/register_page.dart';
-import '../services/api_service.dart';
+import 'package:snarf/services/api_service.dart';
 import 'home_page.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({Key? key}) : super(key: key);
+class RegisterPage extends StatefulWidget {
+  const RegisterPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _emailController =
-      TextEditingController(text: 'admin@admin.com');
-  final TextEditingController _passwordController =
-      TextEditingController(text: 'Admin@123');
+class _RegisterPageState extends State<RegisterPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
-  Future<void> _login() async {
+  Future<void> _register() async {
     final String email = _emailController.text.trim();
+    final String name = _nameController.text.trim();
     final String password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
+    if (email.isEmpty || name.isEmpty || password.isEmpty) {
       setState(() {
         _errorMessage = 'Por favor, preencha todos os campos.';
       });
@@ -36,16 +35,23 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final loginResponse = await ApiService.login(email, password);
+      final createResponse = await ApiService.register(email, name, password);
 
-      if (loginResponse == null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
+      if (createResponse == null) {
+        final loginResponse = await ApiService.login(email, password);
+        if (loginResponse == null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        } else {
+          setState(() {
+            _errorMessage = 'Erro ao fazer login após cadastro.';
+          });
+        }
       } else {
         setState(() {
-          _errorMessage = loginResponse;
+          _errorMessage = createResponse;
         });
       }
     } catch (e) {
@@ -59,11 +65,10 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(title: const Text('Cadastro')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -71,16 +76,9 @@ class _LoginPageState extends State<LoginPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.2),
-                  ),
-                  padding: const EdgeInsets.all(20.0),
-                  child: const Icon(
-                    Icons.person_outline,
-                    size: 100,
-                  ),
+                const Text(
+                  'Crie sua conta',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 32),
                 TextField(
@@ -95,6 +93,19 @@ class _LoginPageState extends State<LoginPage> {
                     prefixIcon: const Icon(Icons.email),
                   ),
                   keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    labelText: 'Nome',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.1),
+                    prefixIcon: const Icon(Icons.person),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -118,21 +129,9 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 const SizedBox(height: 16),
                 CustomElevatedButton(
-                  text: 'Entrar',
+                  text: 'Cadastrar',
                   isLoading: _isLoading,
-                  onPressed: _isLoading ? null : _login,
-                ),
-                const SizedBox(height: 16),
-                CustomElevatedButton(
-                  text: 'Cadastrar-se',
-                  isLoading: false,
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const RegisterPage()),
-                    );
-                  },
+                  onPressed: _isLoading ? null : _register,
                 ),
               ],
             ),

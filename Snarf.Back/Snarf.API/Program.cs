@@ -17,6 +17,7 @@ using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Text;
 using System.Text.Json.Serialization;
+using Snarf.API.Controllers;
 
 namespace Snarf.API
 {
@@ -98,6 +99,8 @@ namespace Snarf.API
             builder.Services.AddMvc();
             builder.Services.AddRouting();
 
+            builder.Services.AddSignalR();
+
             var app = builder.Build();
 
             using (var scope = app.Services.CreateScope())
@@ -146,6 +149,10 @@ namespace Snarf.API
             app.UseMiddleware<SessionMiddleware>();
 
             app.MapControllers();
+
+            app.UseRouting();
+
+            app.MapHub<LocationHub>("/locationHub");
 
             app.Run();
         }

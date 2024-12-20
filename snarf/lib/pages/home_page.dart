@@ -3,7 +3,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:signalr_netcore/hub_connection.dart';
+import 'package:signalr_netcore/hub_connection_builder.dart';
 import 'package:snarf/providers/theme_provider.dart';
+import 'package:snarf/utils/api_constants.dart';
+import 'dart:developer';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,12 +21,15 @@ class _HomePageState extends State<HomePage> {
   bool _isLocationLoaded = false;
   late MapController _mapController;
   late Marker _userLocationMarker;
+  List<Marker> _otherUserMarkers = [];
+  late HubConnection _hubConnection;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
     _getCurrentLocation();
+    _setupSignalRConnection();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -55,14 +62,77 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     });
+
+    _sendLocationUpdate();
+  }
+
+  void _sendLocationUpdate() async {
+    if (_hubConnection.state == HubConnectionState.Connected) {
+      await _hubConnection.invoke(
+        "UpdateLocation",
+        args: [
+          _currentLocation.latitude!,
+          _currentLocation.longitude!,
+        ],
+      );
+    }
+  }
+
+  void _setupSignalRConnection() {
+    _hubConnection = HubConnectionBuilder()
+        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/locationHub')
+        .build();
+
+    _hubConnection.on("ReceiveLocation", (args) {
+      log('Evento ReceiveLocation recebido');
+      final latitude = args?[0] as double;
+      final longitude = args?[1] as double;
+      setState(() {
+        _otherUserMarkers.add(Marker(
+          point: LatLng(latitude, longitude),
+          width: 30,
+          height: 30,
+          child: const Icon(
+            Icons.location_on,
+            color: Colors.blue,
+            size: 30,
+          ),
+        ));
+      });
+    });
+
+    _hubConnection.on("UserDisconnected", (args) {
+      log('Evento UserDisconnected recebido');
+      final latitude = args?[0] as double;
+      final longitude = args?[1] as double;
+      setState(() {
+        _otherUserMarkers.removeWhere((marker) =>
+            marker.point.latitude == latitude &&
+            marker.point.longitude == longitude);
+      });
+    });
+
+    _hubConnection.start()?.catchError((err) {
+      log("Erro ao iniciar a conexão SignalR: $err");
+    });
   }
 
   void _recentralizeMap() {
     if (_isLocationLoaded) {
+      _getCurrentLocation();
       _mapController.move(
         LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
         15.0,
       );
+    }
+  }
+
+  String _getMapUrl(BuildContext context) {
+    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    if (isDarkMode) {
+      return 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+    } else {
+      return 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
     }
   }
 
@@ -80,6 +150,12 @@ class _HomePageState extends State<HomePage> {
 
   void _toggleTheme(BuildContext context) {
     Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+  }
+
+  @override
+  void dispose() {
+    _hubConnection.stop();
+    super.dispose();
   }
 
   @override
@@ -106,15 +182,18 @@ class _HomePageState extends State<HomePage> {
                         _currentLocation.longitude!,
                       ),
                       initialZoom: 15.0,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                      ),
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate: _getMapUrl(context),
                       ),
                       MarkerLayer(
                         markers: [
                           _userLocationMarker,
+                          ..._otherUserMarkers,
                         ],
                       ),
                     ],
