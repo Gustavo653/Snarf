@@ -21,7 +21,7 @@ class _HomePageState extends State<HomePage> {
   bool _isLocationLoaded = false;
   late MapController _mapController;
   late Marker _userLocationMarker;
-  List<Marker> _otherUserMarkers = [];
+  Map<String, Marker> _userMarkers = {};
   late HubConnection _hubConnection;
 
   @override
@@ -85,10 +85,11 @@ class _HomePageState extends State<HomePage> {
 
     _hubConnection.on("ReceiveLocation", (args) {
       log('Evento ReceiveLocation recebido');
-      final latitude = args?[0] as double;
-      final longitude = args?[1] as double;
+      final connectionId = args?[0] as String;
+      final latitude = args?[1] as double;
+      final longitude = args?[2] as double;
       setState(() {
-        _otherUserMarkers.add(Marker(
+        _userMarkers[connectionId] = Marker(
           point: LatLng(latitude, longitude),
           width: 30,
           height: 30,
@@ -97,18 +98,15 @@ class _HomePageState extends State<HomePage> {
             color: Colors.blue,
             size: 30,
           ),
-        ));
+        );
       });
     });
 
     _hubConnection.on("UserDisconnected", (args) {
       log('Evento UserDisconnected recebido');
-      final latitude = args?[0] as double;
-      final longitude = args?[1] as double;
+      final connectionId = args?[0] as String;
       setState(() {
-        _otherUserMarkers.removeWhere((marker) =>
-            marker.point.latitude == latitude &&
-            marker.point.longitude == longitude);
+        _userMarkers.remove(connectionId);
       });
     });
 
@@ -193,7 +191,7 @@ class _HomePageState extends State<HomePage> {
                       MarkerLayer(
                         markers: [
                           _userLocationMarker,
-                          ..._otherUserMarkers,
+                          ..._userMarkers.values,
                         ],
                       ),
                     ],
