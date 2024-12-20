@@ -51,7 +51,7 @@ namespace Snarf.Service
             var tokenDescription = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddHours(1),
+                Expires = DateTime.UtcNow.AddYears(1),
                 NotBefore = DateTime.UtcNow,
                 SigningCredentials = creds
             };

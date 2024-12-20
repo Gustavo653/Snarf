@@ -130,15 +130,15 @@ namespace Snarf.API
                     }) }
             });
 
+            app.UseSwagger();
+            app.UseSwaggerUI();
+
             app.UseCors(corsPolicyBuilder =>
             {
                 corsPolicyBuilder.AllowAnyMethod()
                        .AllowAnyOrigin()
                        .AllowAnyHeader();
             });
-
-            app.UseSwagger();
-            app.UseSwaggerUI();
 
             app.UseSession();
             app.UseOutputCache();
@@ -148,13 +148,10 @@ namespace Snarf.API
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.MapHub<LocationHub>("/LocationHub");
-            app.MapHub<PublicChatHub>("/PublicChatHub");
-
-            app.UseMiddleware<SessionMiddleware>();
+            app.MapHub<LocationHub>("/LocationHub").RequireAuthorization();
+            app.MapHub<PublicChatHub>("/PublicChatHub").RequireAuthorization();
 
             app.MapControllers();
-
 
             app.Run();
         }

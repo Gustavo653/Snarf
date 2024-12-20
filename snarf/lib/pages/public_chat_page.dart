@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:signalr_netcore/http_connection_options.dart';
 import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:signalr_netcore/ihub_protocol.dart';
+import 'package:signalr_netcore/itransport.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/api_constants.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jwt_decode/jwt_decode.dart';
 
 class PublicChatPage extends StatefulWidget {
   const PublicChatPage({super.key});
@@ -19,15 +23,43 @@ class _PublicChatPageState extends State<PublicChatPage> {
   List<String> _messages = [];
   final ScrollController _scrollController = ScrollController();
 
+  String? _userName;
+
+  final FlutterSecureStorage _storage = FlutterSecureStorage();
+
   @override
   void initState() {
     super.initState();
     _setupSignalRConnection();
+    _getUserName();
+  }
+
+  Future<void> _getUserName() async {
+    final token = await _storage.read(key: 'token');
+
+    if (token != null) {
+      final userName = getUserNameFromToken(token);
+      setState(() {
+        _userName = userName;
+      });
+    }
+  }
+
+  String? getUserNameFromToken(String token) {
+    Map<String, dynamic> payload = Jwt.parseJwt(token);
+    return payload['name'];
+  }
+
+  Future<String> getAccessToken() async {
+    FlutterSecureStorage storage = FlutterSecureStorage();
+    return await storage.read(key: 'token') ?? '';
   }
 
   Future<void> _setupSignalRConnection() async {
     _chatHubConnection = HubConnectionBuilder()
-        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/PublicChatHub')
+        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/PublicChatHub',
+            options: HttpConnectionOptions(
+                accessTokenFactory: () async => await getAccessToken()))
         .build();
 
     _chatHubConnection.on("ReceiveMessage", (args) {

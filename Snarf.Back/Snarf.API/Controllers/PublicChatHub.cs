@@ -7,21 +7,29 @@ namespace Snarf.API.Controllers
     {
         public async Task SendMessage(string message)
         {
-            Log.Information($"Mensagem recebida de {Context.ConnectionId}: {message}");
-            await Clients.Others.SendAsync("ReceiveMessage", Context.ConnectionId, message);
+            var userName = GetUserName();
+            Log.Information($"Mensagem recebida de {userName}: {message}");
+            await Clients.Others.SendAsync("ReceiveMessage", userName, message);
+        }
+
+        private string GetUserName()
+        {
+            return Context.User?.Identity?.Name ?? "Desconhecido";
         }
 
         public override async Task OnConnectedAsync()
         {
-            Log.Information($"Cliente conectado ao chat público: {Context.ConnectionId}");
-            await Clients.Others.SendAsync("ReceiveMessage", Context.ConnectionId, "Conectado");
+            var userName = GetUserName();
+            Log.Information($"Cliente {userName} conectado ao chat público: {Context.ConnectionId}");
+            await Clients.All.SendAsync("ReceiveMessage", userName, "Conectado");
             await base.OnConnectedAsync();
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            Log.Information($"Cliente desconectado do chat público: {Context.ConnectionId}");
-            await Clients.Others.SendAsync("ReceiveMessage", Context.ConnectionId, "Desconectado");
+            var userName = GetUserName();
+            Log.Information($"Cliente {userName} desconectado do chat público: {Context.ConnectionId}");
+            await Clients.All.SendAsync("ReceiveMessage", userName, "Desconectado");
             await base.OnDisconnectedAsync(exception);
         }
     }
