@@ -17,6 +17,25 @@ namespace Snarf.API.Controllers
             await Clients.Others.SendAsync("ReceiveLocation", Context.ConnectionId, latitude, longitude);
         }
 
+        public async Task RegisterConnectionId(string connectionId)
+        {
+            var currentConnectionId = Context.ConnectionId;
+
+            if (_userLocations.TryRemove(connectionId, out var location))
+            {
+                _userLocations[currentConnectionId] = location;
+                Log.Information($"ConnectionId atualizado de {connectionId} para {currentConnectionId}");
+                await Clients.Others.SendAsync("ReceiveLocation", currentConnectionId, location.latitude, location.longitude);
+            }
+            else
+            {
+                Log.Warning($"Tentativa de atualização falhou: ConnectionId {connectionId} não encontrado.");
+            }
+
+            await Clients.All.SendAsync("UserDisconnected", connectionId);
+        }
+
+
         public override async Task OnConnectedAsync()
         {
             Log.Information($"Cliente conectado: {Context.ConnectionId}");
@@ -39,10 +58,7 @@ namespace Snarf.API.Controllers
                 Log.Warning($"Erro durante desconexão de {connectionId}: {exception.Message}");
             }
 
-            if (_userLocations.TryRemove(connectionId, out var _))
-            {
-                await Clients.Others.SendAsync("UserDisconnected", connectionId);
-            }
+            await Clients.Others.SendAsync("UserDisconnected", connectionId);
 
             await base.OnDisconnectedAsync(exception);
         }

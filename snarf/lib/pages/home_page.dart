@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
+import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'dart:developer';
@@ -23,6 +27,10 @@ class _HomePageState extends State<HomePage> {
   late Marker _userLocationMarker;
   Map<String, Marker> _userMarkers = {};
   late HubConnection _hubConnection;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+  String? _connectionId;
+  Location _location = Location();
+  StreamSubscription<LocationData>? _locationSubscription;
 
   @override
   void initState() {
@@ -33,31 +41,33 @@ class _HomePageState extends State<HomePage> {
     _setupSignalRConnection();
   }
 
-  Future<void> _startLocationUpdates() async {
-    Location location = Location();
+  void _sendMessageSnackBar(String message){
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
-    bool serviceEnabled = await location.serviceEnabled();
+  Future<void> _startLocationUpdates() async {
+    bool serviceEnabled = await _location.serviceEnabled();
     if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
+      serviceEnabled = await _location.requestService();
       if (!serviceEnabled) {
         return;
       }
     }
 
-    PermissionStatus permissionGranted = await location.hasPermission();
+    PermissionStatus permissionGranted = await _location.hasPermission();
     if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await location.requestPermission();
+      permissionGranted = await _location.requestPermission();
       if (permissionGranted != PermissionStatus.granted) {
         return;
       }
     }
 
-    location.changeSettings(
+    _location.changeSettings(
       accuracy: LocationAccuracy.high,
-      interval: 10000,
+      interval: 300000,
     );
 
-    location.onLocationChanged.listen((LocationData newLocation) {
+    _locationSubscription = _location.onLocationChanged.listen((LocationData newLocation) {
       setState(() {
         _currentLocation = newLocation;
         _userLocationMarker = Marker(
@@ -73,7 +83,6 @@ class _HomePageState extends State<HomePage> {
       _sendLocationUpdate();
     });
   }
-
 
   Future<void> _getCurrentLocation() async {
     Location location = Location();
@@ -119,16 +128,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _setupSignalRConnection() {
+  Future<void> _setupSignalRConnection() async {
+    _connectionId = await _secureStorage.read(key: 'connectionId');
+
     _hubConnection = HubConnectionBuilder()
-        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/locationHub')
+        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub')
         .build();
 
     _hubConnection.on("ReceiveLocation", (args) {
-      log('Evento ReceiveLocation recebido');
       final connectionId = args?[0] as String;
       final latitude = args?[1] as double;
       final longitude = args?[2] as double;
+      _sendMessageSnackBar("Evento ReceiveLocation recebido $connectionId $latitude $longitude");
       setState(() {
         _userMarkers[connectionId] = Marker(
           point: LatLng(latitude, longitude),
@@ -146,14 +157,25 @@ class _HomePageState extends State<HomePage> {
     _hubConnection.on("UserDisconnected", (args) {
       log('Evento UserDisconnected recebido');
       final connectionId = args?[0] as String;
+      _sendMessageSnackBar("Evento UserDisconnected recebido $connectionId");
       setState(() {
         _userMarkers.remove(connectionId);
       });
     });
 
-    _hubConnection.start()?.catchError((err) {
-      log("Erro ao iniciar a conexão SignalR: $err");
-    });
+    try {
+      await _hubConnection.start();
+
+      if (_connectionId != null) {
+        await _hubConnection.invoke("RegisterConnectionId", args: [_connectionId!]);
+      }
+      _connectionId = _hubConnection.connectionId;
+      await _secureStorage.write(key: 'connectionId', value: _connectionId);
+
+      _sendMessageSnackBar("Conectado com connectionId: $_connectionId");
+    } catch (err) {
+      _sendMessageSnackBar("Erro ao iniciar conexão SignalR: $err");
+    }
   }
 
   void _recentralizeMap() {
@@ -182,8 +204,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _navigateToPublicChat(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Abrindo bate-papo público...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const PublicChatPage()),
     );
   }
 
@@ -193,6 +216,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
     _hubConnection.stop();
     super.dispose();
   }
