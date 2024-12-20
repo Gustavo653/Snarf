@@ -148,7 +148,8 @@ namespace Snarf.API
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.MapHub<LocationHub>("/locationHub");
+            app.MapHub<LocationHub>("/LocationHub");
+            app.MapHub<PublicChatHub>("/PublicChatHub");
 
             app.UseMiddleware<SessionMiddleware>();
 

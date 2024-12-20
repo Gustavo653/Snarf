@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
+import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'dart:developer';
@@ -63,7 +64,7 @@ class _HomePageState extends State<HomePage> {
 
     _location.changeSettings(
       accuracy: LocationAccuracy.high,
-      interval: 30000,
+      interval: 300000,
     );
 
     _locationSubscription = _location.onLocationChanged.listen((LocationData newLocation) {
@@ -131,7 +132,7 @@ class _HomePageState extends State<HomePage> {
     _connectionId = await _secureStorage.read(key: 'connectionId');
 
     _hubConnection = HubConnectionBuilder()
-        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/locationHub')
+        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub')
         .build();
 
     _hubConnection.on("ReceiveLocation", (args) {
@@ -203,8 +204,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _navigateToPublicChat(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Abrindo bate-papo público...')),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const PublicChatPage()),
     );
   }
 
