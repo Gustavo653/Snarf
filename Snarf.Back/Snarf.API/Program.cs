@@ -143,16 +143,17 @@ namespace Snarf.API
             app.UseSession();
             app.UseOutputCache();
 
+            app.UseRouting();
+
             app.UseAuthentication();
             app.UseAuthorization();
+
+            app.MapHub<LocationHub>("/locationHub");
 
             app.UseMiddleware<SessionMiddleware>();
 
             app.MapControllers();
 
-            app.UseRouting();
-
-            app.MapHub<LocationHub>("/locationHub");
 
             app.Run();
         }
