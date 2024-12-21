@@ -9,6 +9,7 @@ import 'package:signalr_netcore/http_connection_options.dart';
 import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
 import 'package:snarf/pages/initial_page.dart';
+import 'package:snarf/pages/private_chat_list.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/api_constants.dart';
@@ -29,7 +30,6 @@ class _HomePageState extends State<HomePage> {
   Map<String, Marker> _userMarkers = {};
   late HubConnection _hubConnection;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
-  String? _connectionId;
   Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
 
@@ -119,8 +119,6 @@ class _HomePageState extends State<HomePage> {
 
   /// Configura a conexão com o SignalR
   Future<void> _setupSignalRConnection() async {
-    _connectionId = await _secureStorage.read(key: 'connectionId');
-
     _hubConnection = HubConnectionBuilder()
         .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub',
             options: HttpConnectionOptions(
@@ -132,14 +130,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       await _hubConnection.start();
-      if (_connectionId != null) {
-        await _hubConnection
-            .invoke("RegisterConnectionId", args: [_connectionId!]);
-      }
-      _connectionId = _hubConnection.connectionId;
-      await _secureStorage.write(key: 'connectionId', value: _connectionId);
-
-      _showSnackBar("Conectado com connectionId: $_connectionId");
+      _showSnackBar("Conectado com connectionId: ${_hubConnection.connectionId}");
     } catch (err) {
       _showSnackBar("Erro ao iniciar conexão SignalR: $err");
     }
@@ -258,7 +249,9 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             )
-          : const Center(child: CircularProgressIndicator()),
+          : const Center(
+              child: CircularProgressIndicator(),
+            ),
       floatingActionButton: FloatingActionButton(
         onPressed: _recenterMap,
         child: const Icon(Icons.my_location),
@@ -266,11 +259,18 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         onTap: (index) {
           if (index == 0) {
-            _showSnackBar('Abrindo bate-papo privado...');
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PrivateChatListPage(),
+              ),
+            );
           } else if (index == 1) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const PublicChatPage()),
+              MaterialPageRoute(
+                builder: (context) => const PublicChatPage(),
+              ),
             );
           }
         },

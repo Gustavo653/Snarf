@@ -12,11 +12,6 @@ namespace Snarf.API.Controllers
             await Clients.Others.SendAsync("ReceiveMessage", userName, message);
         }
 
-        private string GetUserName()
-        {
-            return Context.User?.Identity?.Name ?? "Desconhecido";
-        }
-
         public override async Task OnConnectedAsync()
         {
             var userName = GetUserName();
@@ -31,6 +26,11 @@ namespace Snarf.API.Controllers
             Log.Information($"Cliente {userName} desconectado do chat público: {Context.ConnectionId}");
             await Clients.All.SendAsync("ReceiveMessage", userName, "Desconectado");
             await base.OnDisconnectedAsync(exception);
+        }
+
+        private string GetUserName()
+        {
+            return Context.User?.Identity?.Name ?? "Desconhecido";
         }
     }
 }
