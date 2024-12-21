@@ -94,7 +94,7 @@ namespace Snarf.API
                 x.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(databaseSnarf));
             });
 
-            builder.Services.AddHangfireServer(x => x.WorkerCount = 1);
+            builder.Services.AddHangfireServer(x => x.WorkerCount = 10);
 
             builder.Services.AddMvc();
             builder.Services.AddRouting();
