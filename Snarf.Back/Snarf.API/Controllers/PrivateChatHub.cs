@@ -1,18 +1,16 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Hangfire;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using Snarf.Domain.Entities;
 using Snarf.Infrastructure.Repository;
+using Snarf.Service;
 using Snarf.Utils;
-using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace Snarf.API.Controllers
 {
-    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IUserRepository _userRepository) : Hub
+    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IBackgroundJobClient _backgroundJobClient, MessagePersistenceService _messagePersistenceService) : Hub
     {
-        private static readonly ConcurrentDictionary<string, string> UserConnections = new();
-
         private string GetUserId()
         {
             return Context.User?.GetUserId() ?? throw new ArgumentNullException("O token não possui ID de usuário");
@@ -23,8 +21,6 @@ namespace Snarf.API.Controllers
             var userId = GetUserId();
 
             Log.Information($"Usuário {userId} conectado com ConnectionId {Context.ConnectionId}");
-
-            UserConnections[userId] = Context.ConnectionId;
 
             await base.OnConnectedAsync();
         }
@@ -44,9 +40,7 @@ namespace Snarf.API.Controllers
                 {
                     x.CreatedAt,
                     SenderId = x.Sender.Id,
-                    SenderName = x.Sender.Name,
                     ReceiverId = x.Receiver.Id,
-                    ReceiverName = x.Receiver.Name,
                     x.Message
                 })
                 .OrderBy(m => m.CreatedAt)
@@ -62,7 +56,8 @@ namespace Snarf.API.Controllers
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var userId = GetUserId();
-            UserConnections.TryRemove(userId, out _);
+
+            Log.Information($"Usuário {userId} desconectado com ConnectionId {Context.ConnectionId}");
 
             await base.OnDisconnectedAsync(exception);
         }
@@ -71,27 +66,9 @@ namespace Snarf.API.Controllers
         {
             var senderUserId = GetUserId();
 
-            var sender = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == senderUserId) ?? throw new Exception($"Usuário com ID {senderUserId} não existe");
-            var receiver = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == receiverUserId) ?? throw new Exception($"Usuário com ID {receiverUserId} não existe");
+            Task.Run(() => _backgroundJobClient.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message)));
 
-            var chatMessage = new ChatMessage
-            {
-                Sender = sender,
-                Receiver = receiver,
-                Message = message
-            };
-
-            await _chatMessageRepository.InsertAsync(chatMessage);
-            await _chatMessageRepository.SaveChangesAsync();
-
-            if (UserConnections.TryGetValue(receiverUserId, out var targetConnectionId))
-            {
-                await Clients.Client(targetConnectionId).SendAsync("ReceivePrivateMessage", sender.Name, message);
-            }
-            else
-            {
-                Log.Warning($"Usuário com id {receiverUserId} está offline");
-            }
+            await Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", message);
         }
     }
 }

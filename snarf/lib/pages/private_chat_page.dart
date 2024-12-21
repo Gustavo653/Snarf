@@ -56,15 +56,29 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         _messages = previousMessages.map((msg) {
           return {
             "createdAt": DateTime.parse(msg['CreatedAt']),
-            "senderName": msg['SenderName'],
             "message": msg['Message'],
-            "isMine": msg['SenderId'] == widget.userId,
+            "isMine": msg['SenderId'] != widget.userId,
           };
         }).toList();
       });
 
       _scrollToBottom();
     });
+
+    _chatHubConnection.on("ReceivePrivateMessage", (args) {
+      final message = args?[0] as String;
+      log("Mensagem recebida: $message");
+      setState(() {
+        _messages.add({
+          "createdAt": DateTime.now(),
+          "message": message,
+          "isMine": false,
+        });
+      });
+
+      _scrollToBottom();
+    });
+
 
     try {
       await _chatHubConnection.start();
@@ -100,7 +114,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         setState(() {
           _messages.add({
             "createdAt": DateTime.now(),
-            "senderName": "Eu",
             "message": message,
             "isMine": true,
           });
