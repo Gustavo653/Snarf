@@ -5,13 +5,24 @@ import 'package:snarf/pages/login_page.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:uuid/uuid.dart';
 
-class InitialPage extends StatelessWidget {
+class InitialPage extends StatefulWidget {
   const InitialPage({super.key});
+
+  @override
+  State<InitialPage> createState() => _InitialPageState();
+}
+
+class _InitialPageState extends State<InitialPage> {
+  bool _isLoading = false;
 
   Future<void> _createAnonymousAccount(BuildContext context) async {
     String uniqueId = Uuid().v4();
     String email = '$uniqueId@anonimo.com';
     String name = 'anon_$uniqueId';
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
       final errorMessage = await ApiService.register(email, name, 'Senha@123');
@@ -30,6 +41,10 @@ class InitialPage extends StatelessWidget {
       }
     } catch (e) {
       _showErrorDialog(context, 'Erro: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -69,7 +84,7 @@ class InitialPage extends StatelessWidget {
               const SizedBox(height: 48),
               CustomElevatedButton(
                 text: 'Espiar Anonimamente',
-                isLoading: false,
+                isLoading: _isLoading,
                 onPressed: () => _createAnonymousAccount(context),
               ),
               const SizedBox(height: 24),

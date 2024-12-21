@@ -1,50 +1,34 @@
+import 'dart:convert';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:signalr_netcore/http_connection_options.dart';
 import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
-import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 import 'package:intl/intl.dart';
 
-class PublicChatPage extends StatefulWidget {
-  const PublicChatPage({super.key});
+class PrivateChatPage extends StatefulWidget {
+  final String userId;
+
+  const PrivateChatPage({super.key, required this.userId});
 
   @override
-  _PublicChatPageState createState() => _PublicChatPageState();
+  _PrivateChatPageState createState() => _PrivateChatPageState();
 }
 
-class _PublicChatPageState extends State<PublicChatPage> {
+class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
   late HubConnection _chatHubConnection;
-  List<Map<String, dynamic>> _messages = [];
   final ScrollController _scrollController = ScrollController();
-  String? _userName;
-
   final FlutterSecureStorage _storage = FlutterSecureStorage();
+  List<Map<String, dynamic>> _messages = [];
 
   @override
   void initState() {
     super.initState();
     _setupSignalRConnection();
-    _getUserName();
-  }
-
-  Future<void> _getUserName() async {
-    final token = await _storage.read(key: 'token');
-    if (token != null) {
-      final userName = getUserNameFromToken(token);
-      setState(() {
-        _userName = userName;
-      });
-    }
-  }
-
-  String? getUserNameFromToken(String token) {
-    Map<String, dynamic> payload = Jwt.parseJwt(token);
-    return payload['name'];
   }
 
   Future<String> getAccessToken() async {
@@ -53,49 +37,94 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
   Future<void> _setupSignalRConnection() async {
     _chatHubConnection = HubConnectionBuilder()
-        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/PublicChatHub',
-        options: HttpConnectionOptions(
-            accessTokenFactory: () async => await getAccessToken()))
+        .withUrl(
+            '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
+            options: HttpConnectionOptions(
+                accessTokenFactory: () async => await getAccessToken()))
         .withAutomaticReconnect()
         .build();
 
-    _chatHubConnection.on("ReceiveMessage", (args) {
-      final user = args?[0] as String;
-      final message = args?[1] as String;
+    _chatHubConnection.on("ReceivePreviousMessages", (args) {
+      if (args == null || args.isEmpty) return;
+
+      final jsonString = args[0] as String;
+      log("JSON recebido: $jsonString");
+
+      final List<dynamic> previousMessages = json.decode(jsonString);
+
       setState(() {
-        _messages.add({
-          'senderName': user,
-          'message': message,
-          'isMine': user == _userName,
-          'createdAt': DateTime.now(),
-        });
+        _messages = previousMessages.map((msg) {
+          return {
+            "createdAt": DateTime.parse(msg['CreatedAt']),
+            "message": msg['Message'],
+            "isMine": msg['SenderId'] != widget.userId,
+          };
+        }).toList();
       });
+
       _scrollToBottom();
     });
 
+    _chatHubConnection.on("ReceivePrivateMessage", (args) {
+      final message = args?[0] as String;
+      log("Mensagem recebida: $message");
+      setState(() {
+        _messages.add({
+          "createdAt": DateTime.now(),
+          "message": message,
+          "isMine": false,
+        });
+      });
+
+      _scrollToBottom();
+    });
+
+
     try {
       await _chatHubConnection.start();
+      log("Conexão com o SignalR estabelecida.");
+      await _loadPreviousMessages(widget.userId);
     } catch (err) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao conectar ao chat público: $err")),
+        SnackBar(content: Text("Erro ao conectar ao chat privado: $err")),
       );
+    }
+  }
+
+  Future<void> _loadPreviousMessages(String receiverUserId) async {
+    try {
+      await _chatHubConnection
+          .invoke("GetPreviousMessages", args: [receiverUserId]);
+    } catch (err) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Erro ao carregar mensagens anteriores: $err")));
     }
   }
 
   void _sendMessage() async {
     final message = _messageController.text;
+
     if (message.isNotEmpty) {
-      await _chatHubConnection.invoke("SendMessage", args: [message]);
-      setState(() {
-        _messages.add({
-          'senderName': 'Eu',
-          'message': message,
-          'isMine': true,
-          'createdAt': DateTime.now(),
+      try {
+        await _chatHubConnection.invoke(
+          "SendPrivateMessage",
+          args: [widget.userId, message],
+        );
+
+        setState(() {
+          _messages.add({
+            "createdAt": DateTime.now(),
+            "message": message,
+            "isMine": true,
+          });
+          _messageController.clear();
         });
-        _messageController.clear();
-      });
-      _scrollToBottom();
+
+        _scrollToBottom();
+      } catch (err) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Erro ao enviar mensagem: $err")));
+      }
     }
   }
 
@@ -125,27 +154,15 @@ class _PublicChatPageState extends State<PublicChatPage> {
     super.dispose();
   }
 
-  void _toggleTheme(BuildContext context) {
-    Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme
-        .of(context)
-        .brightness == Brightness.dark;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final myMessageColor = isDarkMode ? Colors.blue[400] : Colors.blue[300];
     final otherMessageColor = isDarkMode ? Colors.grey[700] : Colors.grey[500];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat Público'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.brightness_6),
-            onPressed: () => _toggleTheme(context),
-          ),
-        ],
+        title: Text('Chat com ${widget.userId}'),
       ),
       body: Column(
         children: [
@@ -157,45 +174,33 @@ class _PublicChatPageState extends State<PublicChatPage> {
                 final message = _messages[index];
                 final isMine = message['isMine'] as bool;
                 final time = _formatMessageTime(message['createdAt']);
-                final messageColor =
-                isMine ? myMessageColor : otherMessageColor;
 
                 return Align(
                   alignment:
-                  isMine ? Alignment.centerRight : Alignment.centerLeft,
+                      isMine ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
                     margin:
-                    const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: messageColor,
+                      color: isMine ? myMessageColor : otherMessageColor,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(12),
                         topRight: const Radius.circular(12),
                         bottomLeft:
-                        isMine ? const Radius.circular(12) : Radius.zero,
+                            isMine ? const Radius.circular(12) : Radius.zero,
                         bottomRight:
-                        isMine ? Radius.zero : const Radius.circular(12),
+                            isMine ? Radius.zero : const Radius.circular(12),
                       ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Exibir o nome do usuário, mas não se for a própria mensagem
-                        if (!isMine)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              message['senderName'], // Nome do usuário
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
                         Padding(
                           padding: const EdgeInsets.symmetric(
-                              vertical: 0, horizontal: 18),
+                            vertical: 0,
+                            horizontal: 18,
+                          ),
                           child: Align(
                             alignment: isMine
                                 ? Alignment.centerRight
@@ -238,7 +243,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                         hintText: "Digite uma mensagem",
                         border: InputBorder.none,
                         contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       ),
                     ),
                   ),

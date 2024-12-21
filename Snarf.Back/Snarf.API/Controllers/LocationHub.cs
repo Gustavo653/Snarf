@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Serilog;
+using Snarf.Domain.Base;
+using Snarf.Utils;
 using System.Collections.Concurrent;
 
 namespace Snarf.API.Controllers
@@ -10,35 +12,20 @@ namespace Snarf.API.Controllers
 
         public async Task UpdateLocation(double latitude, double longitude)
         {
-            Log.Information($"Atualizando localização de {Context.ConnectionId}: ({latitude}, {longitude})");
+            var userId = GetUserId();
 
-            _userLocations[Context.ConnectionId] = (latitude, longitude);
+            Log.Information($"Atualizando localização de {userId}: ({latitude}, {longitude})");
 
-            await Clients.Others.SendAsync("ReceiveLocation", Context.ConnectionId, latitude, longitude);
+            _userLocations[userId] = (latitude, longitude);
+
+            await Clients.Others.SendAsync("ReceiveLocation", userId, latitude, longitude);
         }
-
-        public async Task RegisterConnectionId(string connectionId)
-        {
-            var currentConnectionId = Context.ConnectionId;
-
-            if (_userLocations.TryRemove(connectionId, out var location))
-            {
-                _userLocations[currentConnectionId] = location;
-                Log.Information($"ConnectionId atualizado de {connectionId} para {currentConnectionId}");
-                await Clients.Others.SendAsync("ReceiveLocation", currentConnectionId, location.latitude, location.longitude);
-            }
-            else
-            {
-                Log.Warning($"Tentativa de atualização falhou: ConnectionId {connectionId} não encontrado.");
-            }
-
-            await Clients.All.SendAsync("UserDisconnected", connectionId);
-        }
-
 
         public override async Task OnConnectedAsync()
         {
-            Log.Information($"Cliente conectado: {Context.ConnectionId}");
+            var userId = GetUserId();
+
+            Log.Information($"Usuário conectado: {userId}");
 
             foreach (var userLocation in _userLocations)
             {
@@ -50,17 +37,25 @@ namespace Snarf.API.Controllers
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            var connectionId = Context.ConnectionId;
-            Log.Information($"Cliente desconectado: {connectionId}");
+            var userId = GetUserId();
+
+            Log.Information($"Usuário desconectado: {userId}");
 
             if (exception != null)
             {
-                Log.Warning($"Erro durante desconexão de {connectionId}: {exception.Message}");
+                Log.Warning($"Erro durante desconexão de {userId}: {exception.Message}");
             }
 
-            await Clients.Others.SendAsync("UserDisconnected", connectionId);
+            _userLocations.TryRemove(userId, out _);
+
+            await Clients.Others.SendAsync("UserDisconnected", userId);
 
             await base.OnDisconnectedAsync(exception);
+        }
+
+        private string GetUserId()
+        {
+            return Context.User?.GetUserId() ?? throw new ArgumentNullException("O token não possui ID de usuário");
         }
     }
 }

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snarf.Persistence;
@@ -11,9 +12,11 @@ using Snarf.Persistence;
 namespace Snarf.Persistence.Migrations
 {
     [DbContext(typeof(SnarfContext))]
-    partial class SnarfContextModelSnapshot : ModelSnapshot
+    [Migration("20241221200226_2")]
+    partial class _2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -238,10 +241,10 @@ namespace Snarf.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("ReceiverId")
+                    b.Property<string>("ReceiverUserId")
                         .HasColumnType("text");
 
-                    b.Property<string>("SenderId")
+                    b.Property<string>("SenderUserId")
                         .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -249,9 +252,9 @@ namespace Snarf.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ReceiverId");
+                    b.HasIndex("ReceiverUserId");
 
-                    b.HasIndex("SenderId");
+                    b.HasIndex("SenderUserId");
 
                     b.ToTable("ChatMessages");
                 });
@@ -309,17 +312,17 @@ namespace Snarf.Persistence.Migrations
 
             modelBuilder.Entity("Snarf.Domain.Entities.ChatMessage", b =>
                 {
-                    b.HasOne("Snarf.Domain.Base.User", "Receiver")
+                    b.HasOne("Snarf.Domain.Base.User", "ReceiverUser")
                         .WithMany()
-                        .HasForeignKey("ReceiverId");
+                        .HasForeignKey("ReceiverUserId");
 
-                    b.HasOne("Snarf.Domain.Base.User", "Sender")
+                    b.HasOne("Snarf.Domain.Base.User", "SenderUser")
                         .WithMany()
-                        .HasForeignKey("SenderId");
+                        .HasForeignKey("SenderUserId");
 
-                    b.Navigation("Receiver");
+                    b.Navigation("ReceiverUser");
 
-                    b.Navigation("Sender");
+                    b.Navigation("SenderUser");
                 });
 #pragma warning restore 612, 618
         }
