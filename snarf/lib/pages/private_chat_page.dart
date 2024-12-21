@@ -6,9 +6,9 @@ import 'package:snarf/utils/api_constants.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class PrivateChatPage extends StatefulWidget {
-  final String userName;
+  final String userId;
 
-  const PrivateChatPage({super.key, required this.userName});
+  const PrivateChatPage({super.key, required this.userId});
 
   @override
   _PrivateChatPageState createState() => _PrivateChatPageState();
@@ -40,10 +40,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         .build();
 
     _chatHubConnection.on("ReceivePrivateMessage", (args) {
-      final message = args?[1] as String;
+      final sender = args?[0] as String; // Nome do remetente
+      final message = args?[1] as String; // Mensagem
+
       setState(() {
-        _messages.add(message);
+        _messages.add('$sender: $message'); // Exibe "remetente: mensagem"
       });
+
+      // Scroll para a última mensagem
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300),
@@ -62,18 +66,35 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   void _sendMessage() async {
     final message = _messageController.text;
+
     if (message.isNotEmpty) {
-      await _chatHubConnection
-          .invoke("SendPrivateMessage", args: [widget.userName, message]);
-      setState(() {
-        _messages.add("Eu: $message");
-        _messageController.clear();
-      });
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      try {
+        // Envia a mensagem para o hub
+        await _chatHubConnection.invoke(
+          "SendPrivateMessage",
+          args: [
+            widget.userId,
+            message
+          ], // Envia o ID do destinatário e a mensagem
+        );
+
+        // Adiciona a mensagem na lista local
+        setState(() {
+          _messages.add("Eu: $message");
+          _messageController.clear();
+        });
+
+        // Rola para a última mensagem
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      } catch (err) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao enviar mensagem: $err")),
+        );
+      }
     }
   }
 
@@ -88,7 +109,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat com ${widget.userName}'),
+        title: Text('Chat com ${widget.userId}'),
       ),
       body: Column(
         children: [

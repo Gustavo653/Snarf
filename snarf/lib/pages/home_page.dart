@@ -10,6 +10,7 @@ import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
 import 'package:snarf/pages/initial_page.dart';
 import 'package:snarf/pages/private_chat_list.dart';
+import 'package:snarf/pages/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/api_constants.dart';
@@ -130,27 +131,41 @@ class _HomePageState extends State<HomePage> {
 
     try {
       await _hubConnection.start();
-      _showSnackBar("Conectado com connectionId: ${_hubConnection.connectionId}");
+      _showSnackBar(
+          "Conectado com connectionId: ${_hubConnection.connectionId}");
     } catch (err) {
       _showSnackBar("Erro ao iniciar conexão SignalR: $err");
     }
   }
 
+  void _openPrivateChat(String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PrivateChatPage(userId: userId),
+      ),
+    );
+  }
+
   /// Callback para o evento ReceiveLocation
   void _onReceiveLocation(List<Object?>? args) {
-    final connectionId = args?[0] as String;
+    final userId = args?[0] as String;
     final latitude = args?[1] as double;
     final longitude = args?[2] as double;
-    //_showSnackBar("Localização recebida: $connectionId $latitude $longitude");
     setState(() {
-      _userMarkers[connectionId] = Marker(
+      _userMarkers[userId] = Marker(
         point: LatLng(latitude, longitude),
         width: 30,
         height: 30,
-        child: const Icon(
-          Icons.person_pin_circle_outlined,
-          color: Colors.blue,
-          size: 30,
+        child: GestureDetector(
+          onTap: () {
+            _openPrivateChat(userId);
+          },
+          child: const Icon(
+            Icons.person_pin_circle_outlined,
+            color: Colors.blue,
+            size: 30,
+          ),
         ),
       );
     });
@@ -158,10 +173,10 @@ class _HomePageState extends State<HomePage> {
 
   /// Callback para o evento UserDisconnected
   void _onUserDisconnected(List<Object?>? args) {
-    final connectionId = args?[0] as String;
-    log('Usuário desconectado: $connectionId');
+    final userId = args?[0] as String;
+    log('Usuário desconectado: $userId');
     setState(() {
-      _userMarkers.remove(connectionId);
+      _userMarkers.remove(userId);
     });
   }
 

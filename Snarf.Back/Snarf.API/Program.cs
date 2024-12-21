@@ -150,6 +150,7 @@ namespace Snarf.API
 
             app.MapHub<LocationHub>("/LocationHub").RequireAuthorization();
             app.MapHub<PublicChatHub>("/PublicChatHub").RequireAuthorization();
+            app.MapHub<PrivateChatHub>("/PrivateChatHub").RequireAuthorization();
 
             app.MapControllers();
 

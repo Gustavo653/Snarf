@@ -20,15 +20,15 @@ class PrivateChatListPage extends StatelessWidget {
       body: ListView.builder(
         itemCount: privateChats.length,
         itemBuilder: (context, index) {
-          final userName = privateChats[index];
+          final userId = privateChats[index];
           return ListTile(
-            title: Text(userName),
+            title: Text(userId),
             onTap: () {
               // Abrir a página de chat privado
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => PrivateChatPage(userName: userName),
+                  builder: (context) => PrivateChatPage(userId: userId),
                 ),
               );
             },
