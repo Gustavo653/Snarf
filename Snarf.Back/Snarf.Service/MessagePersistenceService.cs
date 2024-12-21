@@ -15,7 +15,7 @@ namespace Snarf.Service
             _userRepository = userRepository;
         }
 
-        public async Task PersistMessageAsync(string senderUserId, string receiverUserId, string message)
+        public async Task PersistMessageAsync(string senderUserId, string receiverUserId, string message, DateTime dateTime)
         {
             var sender = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == senderUserId);
             var receiver = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == receiverUserId);
@@ -29,8 +29,10 @@ namespace Snarf.Service
             {
                 Sender = sender,
                 Receiver = receiver,
-                Message = message
+                Message = message,
             };
+
+            chatMessage.SetCreatedAt(dateTime);
 
             await _chatMessageRepository.InsertAsync(chatMessage);
             await _chatMessageRepository.SaveChangesAsync();

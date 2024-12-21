@@ -66,7 +66,7 @@ namespace Snarf.API.Controllers
         {
             var senderUserId = GetUserId();
 
-            Task.Run(() => _backgroundJobClient.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message)));
+            Task.Run(() => _backgroundJobClient.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow)));
 
             await Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", message);
         }

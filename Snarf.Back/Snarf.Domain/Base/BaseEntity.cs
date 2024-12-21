@@ -22,6 +22,11 @@ namespace Snarf.Domain.Base
             SetUpdatedAt();
         }
 
+        public void SetCreatedAt(DateTime dateTime)
+        {
+            CreatedAt = dateTime;
+        }
+
         public void SetUpdatedAt()
         {
             UpdatedAt = DateTime.UtcNow;
