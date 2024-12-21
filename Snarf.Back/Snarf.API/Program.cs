@@ -89,12 +89,12 @@ namespace Snarf.API
 
             builder.Services.AddCors();
 
-            builder.Services.AddHangfire(x =>
-            {
-                x.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(databaseSnarf));
-            });
+            //builder.Services.AddHangfire(x =>
+            //{
+            //    x.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(databaseSnarf));
+            //});
 
-            builder.Services.AddHangfireServer(x => x.WorkerCount = 1);
+            //builder.Services.AddHangfireServer(x => x.WorkerCount = 1);
 
             builder.Services.AddMvc();
             builder.Services.AddRouting();
@@ -110,25 +110,25 @@ namespace Snarf.API
                 SeedAdminUser(scope.ServiceProvider).Wait();
             }
 
-            app.UseHangfireDashboard("/hangfire", new DashboardOptions
-            {
-                Authorization = new[] { new BasicAuthAuthorizationFilter(
-                    new BasicAuthAuthorizationFilterOptions
-                    {
-                        RequireSsl = false,
-                        SslRedirect = false,
-                        LoginCaseSensitive = true,
-                        Users = new[]
-                        {
-                            new BasicAuthAuthorizationUser
-                            {
-                                Login = GetAdminEmail(),
-                                PasswordClear = GetAdminPassword()
+            //app.UseHangfireDashboard("/hangfire", new DashboardOptions
+            //{
+            //    Authorization = new[] { new BasicAuthAuthorizationFilter(
+            //        new BasicAuthAuthorizationFilterOptions
+            //        {
+            //            RequireSsl = false,
+            //            SslRedirect = false,
+            //            LoginCaseSensitive = true,
+            //            Users = new[]
+            //            {
+            //                new BasicAuthAuthorizationUser
+            //                {
+            //                    Login = GetAdminEmail(),
+            //                    PasswordClear = GetAdminPassword()
 
-                            }
-                        }
-                    }) }
-            });
+            //                }
+            //            }
+            //        }) }
+            //});
 
             app.UseSwagger();
             app.UseSwaggerUI();
@@ -235,6 +235,7 @@ namespace Snarf.API
         private static void InjectRepositoryDependencies(IHostApplicationBuilder builder)
         {
             builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
         }
 
         private static void InjectServiceDependencies(IHostApplicationBuilder builder)

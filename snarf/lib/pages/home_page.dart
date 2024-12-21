@@ -124,6 +124,7 @@ class _HomePageState extends State<HomePage> {
         .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub',
             options: HttpConnectionOptions(
                 accessTokenFactory: () async => await getAccessToken()))
+        .withAutomaticReconnect()
         .build();
 
     _hubConnection.on("ReceiveLocation", _onReceiveLocation);

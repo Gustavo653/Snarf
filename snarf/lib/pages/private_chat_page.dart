@@ -1,9 +1,13 @@
+import 'dart:convert';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:signalr_netcore/http_connection_options.dart';
 import 'package:signalr_netcore/hub_connection.dart';
 import 'package:signalr_netcore/hub_connection_builder.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:intl/intl.dart';
 
 class PrivateChatPage extends StatefulWidget {
   final String userId;
@@ -17,9 +21,9 @@ class PrivateChatPage extends StatefulWidget {
 class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
   late HubConnection _chatHubConnection;
-  List<String> _messages = [];
   final ScrollController _scrollController = ScrollController();
   final FlutterSecureStorage _storage = FlutterSecureStorage();
+  List<Map<String, dynamic>> _messages = [];
 
   @override
   void initState() {
@@ -37,30 +41,49 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
             options: HttpConnectionOptions(
                 accessTokenFactory: () async => await getAccessToken()))
+        .withAutomaticReconnect()
         .build();
 
-    _chatHubConnection.on("ReceivePrivateMessage", (args) {
-      final sender = args?[0] as String; // Nome do remetente
-      final message = args?[1] as String; // Mensagem
+    _chatHubConnection.on("ReceivePreviousMessages", (args) {
+      if (args == null || args.isEmpty) return;
+
+      final jsonString = args[0] as String;
+      log("JSON recebido: $jsonString");
+
+      final List<dynamic> previousMessages = json.decode(jsonString);
 
       setState(() {
-        _messages.add('$sender: $message'); // Exibe "remetente: mensagem"
+        _messages = previousMessages.map((msg) {
+          return {
+            "createdAt": DateTime.parse(msg['CreatedAt']),
+            "senderName": msg['SenderName'],
+            "message": msg['Message'],
+            "isMine": msg['SenderId'] == widget.userId,
+          };
+        }).toList();
       });
 
-      // Scroll para a última mensagem
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      _scrollToBottom();
     });
 
     try {
       await _chatHubConnection.start();
+      log("Conexão com o SignalR estabelecida.");
+      await _loadPreviousMessages(widget.userId);
     } catch (err) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Erro ao conectar ao chat privado: $err")),
       );
+    }
+  }
+
+  Future<void> _loadPreviousMessages(String receiverUserId) async {
+    try {
+      await _chatHubConnection
+          .invoke("GetPreviousMessages", args: [receiverUserId]);
+    } catch (err) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Erro ao carregar mensagens anteriores: $err")));
     }
   }
 
@@ -69,32 +92,45 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
     if (message.isNotEmpty) {
       try {
-        // Envia a mensagem para o hub
         await _chatHubConnection.invoke(
           "SendPrivateMessage",
-          args: [
-            widget.userId,
-            message
-          ], // Envia o ID do destinatário e a mensagem
+          args: [widget.userId, message],
         );
 
-        // Adiciona a mensagem na lista local
         setState(() {
-          _messages.add("Eu: $message");
+          _messages.add({
+            "createdAt": DateTime.now(),
+            "senderName": "Eu",
+            "message": message,
+            "isMine": true,
+          });
           _messageController.clear();
         });
 
-        // Rola para a última mensagem
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        _scrollToBottom();
       } catch (err) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Erro ao enviar mensagem: $err")),
-        );
+            SnackBar(content: Text("Erro ao enviar mensagem: $err")));
       }
+    }
+  }
+
+  void _scrollToBottom() {
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  String _formatMessageTime(DateTime dateTime) {
+    final now = DateTime.now();
+    if (dateTime.day == now.day &&
+        dateTime.month == now.month &&
+        dateTime.year == now.year) {
+      return DateFormat.Hm().format(dateTime);
+    } else {
+      return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
     }
   }
 
@@ -107,6 +143,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final myMessageColor = isDarkMode ? Colors.blue[400] : Colors.blue[300];
+    final otherMessageColor = isDarkMode ? Colors.grey[700] : Colors.grey[500];
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Chat com ${widget.userId}'),
@@ -118,8 +158,59 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               controller: _scrollController,
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text(_messages[index]),
+                final message = _messages[index];
+                final isMine = message['isMine'] as bool;
+                final time = _formatMessageTime(message['createdAt']);
+
+                return Align(
+                  alignment:
+                      isMine ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin:
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isMine ? myMessageColor : otherMessageColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(12),
+                        topRight: const Radius.circular(12),
+                        bottomLeft:
+                            isMine ? const Radius.circular(12) : Radius.zero,
+                        bottomRight:
+                            isMine ? Radius.zero : const Radius.circular(12),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 0,
+                            horizontal: 18,
+                          ),
+                          child: Align(
+                            alignment: isMine
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Text(
+                              message['message'],
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: Text(
+                            time,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
