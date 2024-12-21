@@ -1,4 +1,4 @@
-package com.example.snarf
+package com.snarf.snarf
 
 import io.flutter.embedding.android.FlutterActivity
 
