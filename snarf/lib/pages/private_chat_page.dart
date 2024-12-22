@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
 import 'package:snarf/services/signalr_service.dart';
 import 'package:snarf/utils/api_constants.dart';
@@ -47,6 +48,56 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     } catch (err) {
       log("Erro ao conectar: $err");
       showSnackbar(context, "Erro ao conectar ao chat: $err");
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.camera);
+
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      await _sendImage(base64Image, image.name);
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      await _sendImage(base64Image, image.name);
+    }
+  }
+
+  Future<void> _sendImage(String base64Image, String fileName) async {
+    final now = DateTime.now();
+    final tempImageMessage = {
+      "createdAt": now,
+      "message": "data:image/png;base64,$base64Image",
+      "isMine": true,
+    };
+
+    setState(() {
+      _messages.add(tempImageMessage);
+    });
+
+    _scrollToBottom();
+
+    try {
+      log("Enviando imagem: $fileName");
+      await _signalRService.invokeMethod(
+        "SendImage",
+        [widget.userId, base64Image, fileName],
+      );
+    } catch (e) {
+      log("Erro ao enviar imagem: $e");
+      showSnackbar(context, "Erro ao enviar imagem: $e");
     }
   }
 
@@ -127,6 +178,32 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
+  void _showImageDialog(String imageContent) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          child: InteractiveViewer(
+            child: imageContent.startsWith("http")
+                ? Image.network(
+                    imageContent,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Text("Erro ao carregar imagem");
+                    },
+                  )
+                : Image.memory(
+                    base64Decode(
+                      imageContent.replaceAll("data:image/png;base64,", ""),
+                    ),
+                    fit: BoxFit.contain,
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _signalRService.stopConnection();
@@ -158,6 +235,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 final isMine = message['isMine'] as bool;
                 final time =
                     DateJSONUtils.formatMessageTime(message['createdAt']);
+                final String content = message['message'];
+
+                final isImage = content.startsWith("http") ||
+                    content.startsWith("data:image");
 
                 return Align(
                   alignment:
@@ -180,20 +261,34 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 0,
-                            horizontal: 18,
-                          ),
-                          child: Align(
-                            alignment: isMine
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            child: Text(
-                              message['message'],
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ),
+                        GestureDetector(
+                          onTap: isImage
+                              ? () {
+                                  _showImageDialog(content);
+                                }
+                              : null,
+                          child: isImage
+                              ? content.startsWith("http")
+                                  ? Image.network(
+                                      content,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return const Text(
+                                            "Erro ao carregar imagem");
+                                      },
+                                    )
+                                  : Image.memory(
+                                      base64Decode(
+                                        content.replaceAll(
+                                            "data:image/png;base64,", ""),
+                                      ),
+                                      fit: BoxFit.cover,
+                                    )
+                              : Text(
+                                  content,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
                         ),
                         Align(
                           alignment: Alignment.bottomRight,
@@ -216,6 +311,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             padding: const EdgeInsets.all(16.0),
             child: Row(
               children: [
+                IconButton(
+                  icon: Icon(Icons.camera_alt_outlined),
+                  onPressed: _takePhoto,
+                ),
+                IconButton(
+                  icon: Icon(Icons.photo),
+                  onPressed: _pickImage,
+                ),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(

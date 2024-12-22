@@ -18,6 +18,7 @@ using Serilog;
 using System.Text;
 using System.Text.Json.Serialization;
 using Snarf.API.Controllers;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Snarf.API
 {
@@ -100,6 +101,11 @@ namespace Snarf.API
             builder.Services.AddRouting();
 
             builder.Services.AddSignalR();
+
+            builder.Services.Configure<HubOptions>(options =>
+            {
+                options.MaximumReceiveMessageSize = 1024 * 1024 * 50;
+            });
 
             var app = builder.Build();
 
@@ -242,6 +248,7 @@ namespace Snarf.API
         {
             builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<MessagePersistenceService>();
+            builder.Services.AddScoped<S3Service>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<ITokenService, TokenService>();
         }

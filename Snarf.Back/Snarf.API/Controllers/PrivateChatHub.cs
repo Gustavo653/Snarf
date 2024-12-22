@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Snarf.DataAccess;
 using Snarf.Domain.Entities;
 using Snarf.Infrastructure.Repository;
 using Snarf.Service;
@@ -10,7 +11,7 @@ using System.Text.Json;
 
 namespace Snarf.API.Controllers
 {
-    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, MessagePersistenceService _messagePersistenceService) : Hub
+    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IUserRepository _userRepository, MessagePersistenceService _messagePersistenceService) : Hub
     {
         private static JsonSerializerOptions GetJsonSerializerOptions()
         {
@@ -75,6 +76,25 @@ namespace Snarf.API.Controllers
             await Clients.Caller.SendAsync("ReceiveRecentChats", messagesJson);
         }
 
+        public async Task SendImage(string receiverUserId, string imageBase64, string fileName)
+        {
+            var senderUserId = GetUserId();
+            var senderUserName = Context.User?.Identity?.Name ?? "Desconhecido";
+
+            Log.Information($"Usuário {senderUserId} enviou uma imagem para {receiverUserId}.");
+
+            var imageBytes = Convert.FromBase64String(imageBase64);
+            var imageStream = new MemoryStream(imageBytes);
+            var s3Service = new S3Service();
+            var imageUrl = await s3Service.UploadFileAsync($"images/{fileName}{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
+
+            Task.Run(() =>
+            {
+                var jobId = BackgroundJob.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, imageUrl, DateTime.UtcNow));
+                BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, imageUrl));
+            });
+        }
+
         public async Task GetPreviousMessages(string receiverUserId)
         {
             var userId = GetUserId();
@@ -94,6 +114,7 @@ namespace Snarf.API.Controllers
                     x.Message
                 })
                 .OrderBy(m => m.CreatedAt)
+                .Take(1000)
                 .ToListAsync();
 
             var messagesJson = JsonSerializer.Serialize(previousMessages, options: GetJsonSerializerOptions());

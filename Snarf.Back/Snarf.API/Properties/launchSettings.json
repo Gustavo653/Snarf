@@ -4,7 +4,12 @@
       "commandName": "Project",
       "launchUrl": "swagger",
       "environmentVariables": {
-        "DOTNET_ENVIRONMENT": "development"
+        "DOTNET_ENVIRONMENT": "development",
+        "DatabaseConnection": "",
+        "S3ServiceUrl": "",
+        "S3AccessKey": "",
+        "S3SecretKey": "",
+        "S3BucketName": ""
       },
       "dotnetRunMessages": true,
       "applicationUrl": "http://0.0.0.0:5007",

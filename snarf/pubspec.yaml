@@ -44,6 +44,7 @@ dependencies:
   uuid: ^4.5.1
   jwt_decode: ^0.3.1
   intl: ^0.20.1
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
