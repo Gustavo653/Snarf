@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using Hangfire;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Snarf.Domain.Entities;
 using Snarf.Infrastructure.Repository;
 using Snarf.Service;
 using Snarf.Utils;
@@ -124,10 +126,42 @@ namespace Snarf.API.Controllers
 
             Log.Information($"Usuário {senderUserId} ({senderUserName}) enviou mensagem privada para {receiverUserId}: {message}");
 
-            //Task.Run(() => _backgroundJobClient.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow)));
-            await _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow);
+            await Task.Run(() =>
+            {
+                var jobId = BackgroundJob.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow));
+                BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, message));
+            });
+        }
+    }
 
-            await Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", senderUserId, senderUserName, message);
+    public class MessagePersistenceService(IChatMessageRepository chatMessageRepository, IUserRepository userRepository, IHubContext<PrivateChatHub> hubContext)
+    {
+        public async Task PersistMessageAsync(string senderUserId, string receiverUserId, string message, DateTime dateTime)
+        {
+            var sender = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == senderUserId);
+            var receiver = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == receiverUserId);
+
+            if (sender == null || receiver == null)
+            {
+                throw new Exception("Usuário não encontrado");
+            }
+
+            var chatMessage = new ChatMessage
+            {
+                Sender = sender,
+                Receiver = receiver,
+                Message = message,
+            };
+
+            chatMessage.SetCreatedAt(dateTime);
+
+            await chatMessageRepository.InsertAsync(chatMessage);
+            await chatMessageRepository.SaveChangesAsync();
+        }
+
+        public async Task SendMessageAsync(string senderUserId, string senderUserName, string receiverUserId, string message)
+        {
+            await hubContext.Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", senderUserId, senderUserName, message);
         }
     }
 }
