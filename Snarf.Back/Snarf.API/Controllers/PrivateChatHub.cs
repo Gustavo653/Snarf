@@ -53,19 +53,15 @@ namespace Snarf.API.Controllers
             var recentChats = messages
                 .GroupBy(m =>
                 {
-                    var senderId = m.SenderId;
-                    var receiverId = m.ReceiverId;
-
-                    return senderId.CompareTo(receiverId) < 0
-                        ? (senderId, receiverId)
-                        : (receiverId, senderId);
+                    var otherUserId = m.ReceiverId == userId ? m.SenderId : m.ReceiverId;
+                    return otherUserId;
                 })
                 .Select(group => new
                 {
-                    UserId = group.Key.Item1,
-                    UserName = group.Key.Item1 == group.First().SenderId
-                        ? group.First().ReceiverName
-                        : group.First().SenderName,
+                    UserId = group.Key,
+                    UserName = group.FirstOrDefault()?.ReceiverId == userId
+                        ? group.FirstOrDefault()?.SenderName
+                        : group.FirstOrDefault()?.ReceiverName,
                     LastMessage = group.OrderByDescending(m => m.CreatedAt).FirstOrDefault()?.Message,
                     LastMessageDate = group.Max(m => m.CreatedAt)
                 })
@@ -126,7 +122,7 @@ namespace Snarf.API.Controllers
 
             Log.Information($"Usuário {senderUserId} ({senderUserName}) enviou mensagem privada para {receiverUserId}: {message}");
 
-            await Task.Run(() =>
+            Task.Run(() =>
             {
                 var jobId = BackgroundJob.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow));
                 BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, message));
