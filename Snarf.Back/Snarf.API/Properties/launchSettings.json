@@ -9,7 +9,9 @@
         "S3ServiceUrl": "",
         "S3AccessKey": "",
         "S3SecretKey": "",
-        "S3BucketName": ""
+        "S3BucketName": "",
+        "SmtpUser": "",
+        "SmtpPassword": ""
       },
       "dotnetRunMessages": true,
       "applicationUrl": "http://0.0.0.0:5007",

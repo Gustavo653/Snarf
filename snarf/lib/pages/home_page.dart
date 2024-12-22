@@ -6,7 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
 import 'package:snarf/pages/initial_page.dart';
-import 'package:snarf/pages/private_chat_list.dart';
+import 'package:snarf/pages/private_chat_list_page.dart';
 import 'package:snarf/pages/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';

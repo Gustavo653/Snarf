@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
+import 'package:snarf/pages/forgot_password_page.dart';
 import 'package:snarf/pages/register_page.dart';
 import '../services/api_service.dart';
 import 'home_page.dart';
@@ -59,11 +60,12 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        title: const Text('Login'),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -131,6 +133,18 @@ class _LoginPageState extends State<LoginPage> {
                       context,
                       MaterialPageRoute(
                           builder: (context) => const RegisterPage()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                CustomElevatedButton(
+                  text: 'Esqueci minha senha',
+                  isLoading: false,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ForgotPasswordPage()),
                     );
                   },
                 ),

@@ -15,20 +15,6 @@ namespace Snarf.API.Controllers
             return StatusCode(user.Code, user);
         }
 
-        [HttpGet("Current")]
-        public async Task<IActionResult> Current()
-        {
-            var user = await accountService.GetCurrent();
-            return StatusCode(user.Code, user);
-        }
-
-        [HttpGet("")]
-        public async Task<IActionResult> GetUsers()
-        {
-            var user = await accountService.GetUsers();
-            return StatusCode(user.Code, user);
-        }
-
         [HttpPost("")]
         [AllowAnonymous]
         public async Task<IActionResult> CreateUser([FromBody] UserDTO userDTO)
@@ -37,17 +23,19 @@ namespace Snarf.API.Controllers
             return StatusCode(user.Code, user);
         }
 
-        [HttpPut("{id:guid}")]
-        public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UserDTO userDTO)
+        [HttpPost("RequestResetPassword")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RequestResetPassword([FromBody] string email)
         {
-            var user = await accountService.UpdateUser(id, userDTO);
+            var user = await accountService.RequestResetPassword(email);
             return StatusCode(user.Code, user);
         }
 
-        [HttpDelete("{id:guid}")]
-        public async Task<IActionResult> RemoveUser([FromRoute] Guid id)
+        [HttpPost("ResetPassword")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword([FromBody] UserEmailDTO userEmailDTO)
         {
-            var user = await accountService.RemoveUser(id);
+            var user = await accountService.ResetPassword(userEmailDTO);
             return StatusCode(user.Code, user);
         }
     }
