@@ -129,7 +129,10 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
                     final chat = _recentChats[index];
                     return ListTile(
                       title: Text(chat['UserName']),
-                      subtitle: Text(chat['LastMessage']),
+                      subtitle: Text(
+                          chat['LastMessage'].toString().startsWith('https://')
+                              ? 'Imagem'
+                              : chat['LastMessage']),
                       trailing: Text(
                         DateJSONUtils.formatDate(chat['LastMessageDate']),
                         style:
