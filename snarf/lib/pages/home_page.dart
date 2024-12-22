@@ -1,20 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import 'package:signalr_netcore/http_connection_options.dart';
-import 'package:signalr_netcore/hub_connection.dart';
-import 'package:signalr_netcore/hub_connection_builder.dart';
+import 'package:snarf/components/toggle_theme_component.dart';
 import 'package:snarf/pages/initial_page.dart';
 import 'package:snarf/pages/private_chat_list.dart';
 import 'package:snarf/pages/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
-import 'package:snarf/utils/api_constants.dart';
+import 'package:snarf/services/signalr_service.dart';
 import 'dart:developer';
+
+import 'package:snarf/utils/api_constants.dart';
+import 'package:snarf/utils/show_snackbar.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -29,31 +29,23 @@ class _HomePageState extends State<HomePage> {
   late MapController _mapController;
   late Marker _userLocationMarker;
   Map<String, Marker> _userMarkers = {};
-  late HubConnection _hubConnection;
-  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
+  late SignalRService _signalRService;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    _signalRService = SignalRService();
     _initializeApp();
   }
 
-  /// Inicializa os serviços principais
   Future<void> _initializeApp() async {
     await _initializeLocation();
-    _setupSignalRConnection();
+    await _setupSignalRConnection();
   }
 
-  /// Mostra uma SnackBar com uma mensagem
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  /// Centraliza o controle de permissões e localização
   Future<void> _initializeLocation() async {
     if (await _checkLocationPermissions()) {
       _getCurrentLocation();
@@ -61,7 +53,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Verifica e solicita permissões de localização
   Future<bool> _checkLocationPermissions() async {
     bool serviceEnabled = await _location.serviceEnabled();
     if (!serviceEnabled) {
@@ -77,17 +68,21 @@ class _HomePageState extends State<HomePage> {
     return true;
   }
 
-  /// Obtém a localização atual do usuário
   Future<void> _getCurrentLocation() async {
-    _currentLocation = await _location.getLocation();
-    setState(() {
-      _isLocationLoaded = true;
-      _updateUserMarker(
-          _currentLocation.latitude!, _currentLocation.longitude!);
-    });
+    try {
+      _currentLocation = await _location.getLocation();
+      setState(() {
+        _isLocationLoaded = true;
+        _updateUserMarker(
+            _currentLocation.latitude!, _currentLocation.longitude!);
+      });
+      log('Localização atual recuperada: $_currentLocation');
+    } catch (err) {
+      log('Erro ao recuperar localização: $err');
+      showSnackbar(context, "Erro ao recuperar localização: $err");
+    }
   }
 
-  /// Atualiza o marcador do usuário no mapa
   void _updateUserMarker(double latitude, double longitude) {
     _userLocationMarker = Marker(
       point: LatLng(latitude, longitude),
@@ -99,7 +94,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Inicia o acompanhamento de localização em tempo real
   void _startLocationUpdates() {
     _location.changeSettings(accuracy: LocationAccuracy.high, interval: 10000);
 
@@ -113,33 +107,26 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<String> getAccessToken() async {
-    FlutterSecureStorage storage = FlutterSecureStorage();
-    return await storage.read(key: 'token') ?? '';
-  }
-
-  /// Configura a conexão com o SignalR
   Future<void> _setupSignalRConnection() async {
-    _hubConnection = HubConnectionBuilder()
-        .withUrl('${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub',
-            options: HttpConnectionOptions(
-                accessTokenFactory: () async => await getAccessToken()))
-        .withAutomaticReconnect()
-        .build();
-
-    _hubConnection.on("ReceiveLocation", _onReceiveLocation);
-    _hubConnection.on("UserDisconnected", _onUserDisconnected);
-
     try {
-      await _hubConnection.start();
-      _showSnackBar(
-          "Conectado com connectionId: ${_hubConnection.connectionId}");
+      log('Iniciando conexão SignalR...');
+      await _signalRService.setupConnection(
+        hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub',
+        onMethods: ['ReceiveLocation', 'UserDisconnected'],
+        eventHandlers: {
+          'ReceiveLocation': _onReceiveLocation,
+          'UserDisconnected': _onUserDisconnected,
+        },
+      );
+      log('Conexão SignalR estabelecida');
     } catch (err) {
-      _showSnackBar("Erro ao iniciar conexão SignalR: $err");
+      log('Erro ao iniciar conexão SignalR: $err');
+      showSnackbar(context, "Erro ao iniciar conexão SignalR: $err");
     }
   }
 
   void _openPrivateChat(String userId) {
+    log('Abrindo chat privado com usuário $userId');
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -148,31 +135,34 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// Callback para o evento ReceiveLocation
   void _onReceiveLocation(List<Object?>? args) {
-    final userId = args?[0] as String;
-    final latitude = args?[1] as double;
-    final longitude = args?[2] as double;
-    setState(() {
-      _userMarkers[userId] = Marker(
-        point: LatLng(latitude, longitude),
-        width: 30,
-        height: 30,
-        child: GestureDetector(
-          onTap: () {
-            _openPrivateChat(userId);
-          },
-          child: const Icon(
-            Icons.person_pin_circle_outlined,
-            color: Colors.blue,
-            size: 30,
+    try {
+      final userId = args?[0] as String;
+      final latitude = args?[1] as double;
+      final longitude = args?[2] as double;
+      setState(() {
+        _userMarkers[userId] = Marker(
+          point: LatLng(latitude, longitude),
+          width: 30,
+          height: 30,
+          child: GestureDetector(
+            onTap: () {
+              _openPrivateChat(userId);
+            },
+            child: const Icon(
+              Icons.person_pin_circle_outlined,
+              color: Colors.blue,
+              size: 30,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      });
+      log('Localização de usuário $userId atualizada para [$latitude, $longitude]');
+    } catch (e) {
+      log('Erro ao receber localização do usuário: $e');
+    }
   }
 
-  /// Callback para o evento UserDisconnected
   void _onUserDisconnected(List<Object?>? args) {
     final userId = args?[0] as String;
     log('Usuário desconectado: $userId');
@@ -181,27 +171,34 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  /// Envia a localização atualizada para o servidor
   Future<void> _sendLocationUpdate() async {
-    if (_hubConnection.state == HubConnectionState.Connected) {
-      await _hubConnection.invoke(
+    try {
+      await _signalRService.invokeMethod(
         "UpdateLocation",
-        args: [_currentLocation.latitude!, _currentLocation.longitude!],
+        [
+          _currentLocation.latitude!,
+          _currentLocation.longitude!,
+        ],
       );
+      log('Localização enviada para o servidor');
+    } catch (e) {
+      log('Erro ao enviar localização: $e');
     }
   }
 
-  /// Recentraliza o mapa na localização atual
   void _recenterMap() {
     if (_isLocationLoaded) {
       _mapController.move(
-        LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
+        LatLng(
+          _currentLocation.latitude!,
+          _currentLocation.longitude!,
+        ),
         15.0,
       );
+      log('Mapa recentralizado para localização atual');
     }
   }
 
-  /// Retorna a URL do mapa baseada no tema
   String _getMapUrl(BuildContext context) {
     final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
     return isDarkMode
@@ -212,7 +209,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _locationSubscription?.cancel();
-    _hubConnection.stop();
+    _signalRService.stopConnection();
     super.dispose();
   }
 
@@ -222,11 +219,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.brightness_6),
-            onPressed: () => Provider.of<ThemeProvider>(context, listen: false)
-                .toggleTheme(),
-          ),
+          ThemeToggle(),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => Navigator.pushReplacement(

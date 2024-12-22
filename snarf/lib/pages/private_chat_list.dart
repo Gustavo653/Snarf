@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:signalr_netcore/signalr_client.dart';
+import 'package:snarf/components/toggle_theme_component.dart';
+import 'package:snarf/services/signalr_service.dart';
 import 'package:snarf/utils/api_constants.dart';
+import 'package:snarf/utils/date_utils.dart';
+import 'package:snarf/utils/show_snackbar.dart';
 import 'private_chat_page.dart';
 
 class PrivateChatListPage extends StatefulWidget {
@@ -15,7 +17,7 @@ class PrivateChatListPage extends StatefulWidget {
 }
 
 class _PrivateChatListPageState extends State<PrivateChatListPage> {
-  late HubConnection _hubConnection;
+  final SignalRService _signalRService = SignalRService();
   List<Map<String, dynamic>> _recentChats = [];
   final FlutterSecureStorage _storage = FlutterSecureStorage();
   bool _isLoading = true;
@@ -27,66 +29,79 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
   }
 
   Future<String> getAccessToken() async {
-    return await _storage.read(key: 'token') ?? '';
+    try {
+      final token = await _storage.read(key: 'token') ?? '';
+      log('Token recuperado: $token');
+      return token;
+    } catch (e) {
+      log("Erro ao recuperar token: $e");
+      return '';
+    }
   }
 
   Future<void> _initializeSignalRConnection() async {
-    // Configura o HubConnection
-    _hubConnection = HubConnectionBuilder()
-        .withUrl(
-            '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
-            options: HttpConnectionOptions(
-                accessTokenFactory: () async => await getAccessToken()))
-        .withAutomaticReconnect()
-        .build();
+    try {
+      log('Iniciando conexão com o chat privado...');
+      await _signalRService.setupConnection(
+        hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
+        onMethods: ['ReceiveRecentChats', 'ReceivePrivateMessage'],
+        eventHandlers: {
+          'ReceiveRecentChats': _handleRecentChats,
+          'ReceivePrivateMessage': _receiveNewMessages,
+        },
+      );
 
-    // Registrar o callback para "ReceiveRecentChats"
-    _hubConnection.on("ReceiveRecentChats", _handleRecentChats);
-    _hubConnection.on("ReceivePrivateMessage", _receiveNewMessages);
+      log('Conexão estabelecida, buscando chats recentes...');
+      await _signalRService.invokeMethod("GetRecentChats", []);
 
-    // Iniciar conexão com o SignalR
-    await _hubConnection.start();
-
-    // Solicitar conversas recentes
-
-    _hubConnection.invoke("GetRecentChats");
-
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  void _receiveNewMessages(List<Object?>? data) {
-    log('chamando sincronização');
-    _hubConnection.invoke("GetRecentChats");
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (err) {
+      log("Erro ao conectar ao chat privado: $err");
+      setState(() {
+        _isLoading = false;
+      });
+      showSnackbar(context, "Erro ao conectar ao chat privado: $err");
+    }
   }
 
   void _handleRecentChats(List<Object?>? data) {
     if (data != null && data.isNotEmpty) {
-      // Decodificar o JSON recebido (como string) para uma lista de mapas
       final jsonString = data.first as String;
       try {
+        log('Processando chats recentes...');
         final parsedData = jsonDecode(jsonString) as List<dynamic>;
         setState(() {
           _recentChats = parsedData.map((item) {
             if (item is Map<String, dynamic>) {
               return item;
             } else if (item is Map) {
-              return Map<String, dynamic>.from(item); // Converte se necessário
+              return Map<String, dynamic>.from(item);
             } else {
               throw Exception("Item inesperado no JSON: $item");
             }
           }).toList();
         });
+        log('Chats recentes carregados: ${_recentChats.length} encontrados');
       } catch (e) {
-        debugPrint('Erro ao processar JSON recebido: $e');
+        log('Erro ao processar JSON recebido: $e');
+        showSnackbar(context, "Erro ao processar chats recentes: $e");
       }
+    } else {
+      log("Nenhum chat recente encontrado");
     }
+  }
+
+  void _receiveNewMessages(List<Object?>? data) {
+    log('Sincronizando novas mensagens...');
+    _signalRService.invokeMethod("GetRecentChats", []);
   }
 
   @override
   void dispose() {
-    _hubConnection.stop();
+    log('Fechando conexão SignalR...');
+    _signalRService.stopConnection();
     super.dispose();
   }
 
@@ -95,6 +110,9 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chats Privados'),
+        actions: [
+          ThemeToggle(),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -113,11 +131,12 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
                       title: Text(chat['UserName']),
                       subtitle: Text(chat['LastMessage']),
                       trailing: Text(
-                        _formatDate(chat['LastMessageDate']),
+                        DateJSONUtils.formatDate(chat['LastMessageDate']),
                         style:
                             const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       onTap: () {
+                        log('Abrindo chat com ${chat['UserName']}');
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -130,10 +149,5 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
                   },
                 ),
     );
-  }
-
-  String _formatDate(String dateString) {
-    final date = DateTime.parse(dateString);
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}, ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }
