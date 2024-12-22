@@ -41,14 +41,6 @@ class SignalRService {
       await _hubConnection.invoke(methodName, args: args);
     } catch (err) {
       log("Erro ao invocar o método: $err");
-      await _reconnect();
-
-      try {
-        await _hubConnection.invoke(methodName, args: args);
-      } catch (retryErr) {
-        log("Falha ao invocar o método novamente: $retryErr");
-        rethrow;
-      }
     }
   }
 

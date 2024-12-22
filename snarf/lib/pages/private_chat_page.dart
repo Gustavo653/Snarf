@@ -9,8 +9,10 @@ import 'package:snarf/utils/show_snackbar.dart';
 
 class PrivateChatPage extends StatefulWidget {
   final String userId;
+  final String userName;
 
-  const PrivateChatPage({super.key, required this.userId});
+  const PrivateChatPage(
+      {super.key, required this.userId, required this.userName});
 
   @override
   _PrivateChatPageState createState() => _PrivateChatPageState();
@@ -40,7 +42,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         },
       );
       log('Conexão estabelecida com sucesso');
-      await _signalRService.invokeMethod("GetPreviousMessages", [widget.userId]);
+      await _signalRService
+          .invokeMethod("GetPreviousMessages", [widget.userId]);
     } catch (err) {
       log("Erro ao conectar: $err");
       showSnackbar(context, "Erro ao conectar ao chat: $err");
@@ -76,20 +79,18 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   void _handleNewPrivateMessage(List<Object?>? args) {
-    final message = args?[0] as String;
+    final message = args?[2] as String;
     log("Nova mensagem recebida: $message");
 
-    if (message != null) {
-      setState(() {
-        _messages.add({
-          "createdAt": DateTime.now(),
-          "message": message,
-          "isMine": false,
-        });
+    setState(() {
+      _messages.add({
+        "createdAt": DateTime.now(),
+        "message": message,
+        "isMine": false,
       });
+    });
 
-      _scrollToBottom();
-    }
+    _scrollToBottom();
   }
 
   void _sendMessage() async {
@@ -98,7 +99,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     if (message.isNotEmpty) {
       try {
         log('Enviando mensagem: $message');
-        await _signalRService.invokeMethod("SendPrivateMessage", [widget.userId, message]);
+        await _signalRService
+            .invokeMethod("SendPrivateMessage", [widget.userId, message]);
 
         setState(() {
           _messages.add({
@@ -140,7 +142,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat com ${widget.userId}'),
+        title: Text(widget.userName),
         actions: [
           ThemeToggle(),
         ],
@@ -155,14 +157,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 final message = _messages[index];
                 final isMine = message['isMine'] as bool;
                 final time =
-                DateJSONUtils.formatMessageTime(message['createdAt']);
+                    DateJSONUtils.formatMessageTime(message['createdAt']);
 
                 return Align(
                   alignment:
-                  isMine ? Alignment.centerRight : Alignment.centerLeft,
+                      isMine ? Alignment.centerRight : Alignment.centerLeft,
                   child: Container(
                     margin:
-                    const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isMine ? myMessageColor : otherMessageColor,
@@ -170,9 +172,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                         topLeft: const Radius.circular(12),
                         topRight: const Radius.circular(12),
                         bottomLeft:
-                        isMine ? const Radius.circular(12) : Radius.zero,
+                            isMine ? const Radius.circular(12) : Radius.zero,
                         bottomRight:
-                        isMine ? Radius.zero : const Radius.circular(12),
+                            isMine ? Radius.zero : const Radius.circular(12),
                       ),
                     ),
                     child: Column(

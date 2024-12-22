@@ -1,5 +1,4 @@
-﻿using Hangfire;
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Snarf.Infrastructure.Repository;
@@ -9,8 +8,13 @@ using System.Text.Json;
 
 namespace Snarf.API.Controllers
 {
-    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IBackgroundJobClient _backgroundJobClient, MessagePersistenceService _messagePersistenceService) : Hub
+    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, MessagePersistenceService _messagePersistenceService) : Hub
     {
+        private static JsonSerializerOptions GetJsonSerializerOptions()
+        {
+            return new JsonSerializerOptions { Converters = { new DateTimeConverterToTimeZone("America/Sao_Paulo") } };
+        }
+
         private string GetUserId()
         {
             return Context.User?.GetUserId() ?? throw new ArgumentNullException("O token não possui ID de usuário");
@@ -31,7 +35,6 @@ namespace Snarf.API.Controllers
 
             Log.Information($"Usuário {userId} solicitou a lista de conversas recentes.");
 
-            // Carrega todas as mensagens relevantes do banco
             var messages = await _chatMessageRepository.GetEntities()
                 .Where(m => m.Sender.Id == userId || m.Receiver.Id == userId)
                 .Select(m => new
@@ -45,37 +48,32 @@ namespace Snarf.API.Controllers
                 })
                 .ToListAsync();
 
-            // Processa os dados em memória
             var recentChats = messages
                 .GroupBy(m =>
                 {
-                    // Usa uma tupla para comparar os guids de maneira consistente e evitar duplicação de nomes
                     var senderId = m.SenderId;
                     var receiverId = m.ReceiverId;
 
-                    // Ordena os guids para garantir que a chave seja única, independentemente da ordem de envio/recebimento
                     return senderId.CompareTo(receiverId) < 0
                         ? (senderId, receiverId)
                         : (receiverId, senderId);
                 })
                 .Select(group => new
                 {
-                    // A chave da tupla agora é usada para obter os ids de sender e receiver
-                    UserId = group.Key.Item1, // Primeiro id da tupla (o menor)
+                    UserId = group.Key.Item1,
                     UserName = group.Key.Item1 == group.First().SenderId
                         ? group.First().ReceiverName
-                        : group.First().SenderName, // Nome do outro usuário
+                        : group.First().SenderName,
                     LastMessage = group.OrderByDescending(m => m.CreatedAt).FirstOrDefault()?.Message,
                     LastMessageDate = group.Max(m => m.CreatedAt)
                 })
-                .OrderByDescending(c => c.LastMessageDate) // Ordena pela data da última mensagem
+                .OrderByDescending(c => c.LastMessageDate)
                 .ToList();
 
-            var messagesJson = JsonSerializer.Serialize(recentChats, options: new JsonSerializerOptions { Converters = { new DateTimeConverterToTimeZone("America/Sao_Paulo") } });
+            var messagesJson = JsonSerializer.Serialize(recentChats, options: GetJsonSerializerOptions());
 
             Log.Information($"Usuário {userId} recebeu {recentChats.Count} conversas recentes.");
 
-            // Enviar as conversas recentes para o cliente
             await Clients.Caller.SendAsync("ReceiveRecentChats", messagesJson);
         }
 
@@ -100,7 +98,7 @@ namespace Snarf.API.Controllers
                 .OrderBy(m => m.CreatedAt)
                 .ToListAsync();
 
-            var messagesJson = JsonSerializer.Serialize(previousMessages, options: new JsonSerializerOptions { Converters = { new DateTimeConverterToTimeZone("America/Sao_Paulo") } });
+            var messagesJson = JsonSerializer.Serialize(previousMessages, options: GetJsonSerializerOptions());
 
             Log.Information($"Enviando {previousMessages.Count} mensagens anteriores para o usuário {userId} com o receptor {receiverUserId}");
 
@@ -111,7 +109,10 @@ namespace Snarf.API.Controllers
         {
             var userId = GetUserId();
 
-            Log.Information($"Usuário {userId} desconectado com ConnectionId {Context.ConnectionId}");
+            if (exception != null)
+                Log.Warning($"Erro durante desconexão de {userId}: {exception.Message}");
+            else
+                Log.Information($"Usuário {userId} desconectado com ConnectionId {Context.ConnectionId}");
 
             await base.OnDisconnectedAsync(exception);
         }
@@ -119,13 +120,13 @@ namespace Snarf.API.Controllers
         public async Task SendPrivateMessage(string receiverUserId, string message)
         {
             var senderUserId = GetUserId();
-            var senderUserName = Context.User?.Identity?.Name ?? "Desconhecido";  // Obter o nome do usuário a partir do contexto
+            var senderUserName = Context.User?.Identity?.Name ?? "Desconhecido";
 
-            // Enfileira a persistência da mensagem em segundo plano
-            await _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow);
+            Log.Information($"Usuário {senderUserId} ({senderUserName}) enviou mensagem privada para {receiverUserId}: {message}");
+
             //Task.Run(() => _backgroundJobClient.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow)));
+            await _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow);
 
-            // Envia a mensagem para o receptor, incluindo os detalhes do remetente
             await Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", senderUserId, senderUserName, message);
         }
     }

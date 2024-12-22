@@ -140,8 +140,10 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>
-                                PrivateChatPage(userId: chat['UserId']),
+                            builder: (context) => PrivateChatPage(
+                              userId: chat['UserId'],
+                              userName: chat['UserName'],
+                            ),
                           ),
                         );
                       },

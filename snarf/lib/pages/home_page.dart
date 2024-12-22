@@ -125,12 +125,15 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _openPrivateChat(String userId) {
+  void _openPrivateChat(String userId, String userName) {
     log('Abrindo chat privado com usuário $userId');
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PrivateChatPage(userId: userId),
+        builder: (context) => PrivateChatPage(
+          userId: userId,
+          userName: userName,
+        ),
       ),
     );
   }
@@ -140,6 +143,8 @@ class _HomePageState extends State<HomePage> {
       final userId = args?[0] as String;
       final latitude = args?[1] as double;
       final longitude = args?[2] as double;
+      final userName = args?[3] as String;
+
       setState(() {
         _userMarkers[userId] = Marker(
           point: LatLng(latitude, longitude),
@@ -147,7 +152,7 @@ class _HomePageState extends State<HomePage> {
           height: 30,
           child: GestureDetector(
             onTap: () {
-              _openPrivateChat(userId);
+              _openPrivateChat(userId, userName);
             },
             child: const Icon(
               Icons.person_pin_circle_outlined,
