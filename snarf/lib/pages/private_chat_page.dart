@@ -1,18 +1,18 @@
 import 'dart:convert';
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
-import 'package:signalr_netcore/http_connection_options.dart';
-import 'package:signalr_netcore/hub_connection.dart';
-import 'package:signalr_netcore/hub_connection_builder.dart';
+import 'package:snarf/components/toggle_theme_component.dart';
+import 'package:snarf/services/signalr_service.dart';
 import 'package:snarf/utils/api_constants.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:intl/intl.dart';
+import 'package:snarf/utils/date_utils.dart';
+import 'package:snarf/utils/show_snackbar.dart';
 
 class PrivateChatPage extends StatefulWidget {
   final String userId;
+  final String userName;
 
-  const PrivateChatPage({super.key, required this.userId});
+  const PrivateChatPage(
+      {super.key, required this.userId, required this.userName});
 
   @override
   _PrivateChatPageState createState() => _PrivateChatPageState();
@@ -20,38 +20,47 @@ class PrivateChatPage extends StatefulWidget {
 
 class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
-  late HubConnection _chatHubConnection;
   final ScrollController _scrollController = ScrollController();
-  final FlutterSecureStorage _storage = FlutterSecureStorage();
+  final SignalRService _signalRService = SignalRService();
   List<Map<String, dynamic>> _messages = [];
 
   @override
   void initState() {
     super.initState();
-    _setupSignalRConnection();
+    _initializeChat();
   }
 
-  Future<String> getAccessToken() async {
-    return await _storage.read(key: 'token') ?? '';
+  Future<void> _initializeChat() async {
+    try {
+      log('Iniciando a conexão com o chat...');
+      await _signalRService.setupConnection(
+        hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
+        onMethods: ['ReceivePreviousMessages', 'ReceivePrivateMessage'],
+        eventHandlers: {
+          'ReceivePreviousMessages': _handleReceivedMessages,
+          'ReceivePrivateMessage': _handleNewPrivateMessage,
+        },
+      );
+      log('Conexão estabelecida com sucesso');
+      await _signalRService
+          .invokeMethod("GetPreviousMessages", [widget.userId]);
+    } catch (err) {
+      log("Erro ao conectar: $err");
+      showSnackbar(context, "Erro ao conectar ao chat: $err");
+    }
   }
 
-  Future<void> _setupSignalRConnection() async {
-    _chatHubConnection = HubConnectionBuilder()
-        .withUrl(
-            '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
-            options: HttpConnectionOptions(
-                accessTokenFactory: () async => await getAccessToken()))
-        .withAutomaticReconnect()
-        .build();
+  void _handleReceivedMessages(List<Object?>? args) {
+    if (args == null || args.isEmpty) {
+      log("Nenhuma mensagem recebida");
+      return;
+    }
 
-    _chatHubConnection.on("ReceivePreviousMessages", (args) {
-      if (args == null || args.isEmpty) return;
+    final jsonString = args[0] as String;
+    log("JSON recebido: $jsonString");
 
-      final jsonString = args[0] as String;
-      log("JSON recebido: $jsonString");
-
+    try {
       final List<dynamic> previousMessages = json.decode(jsonString);
-
       setState(() {
         _messages = previousMessages.map((msg) {
           return {
@@ -63,42 +72,25 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       });
 
       _scrollToBottom();
-    });
-
-    _chatHubConnection.on("ReceivePrivateMessage", (args) {
-      final message = args?[0] as String;
-      log("Mensagem recebida: $message");
-      setState(() {
-        _messages.add({
-          "createdAt": DateTime.now(),
-          "message": message,
-          "isMine": false,
-        });
-      });
-
-      _scrollToBottom();
-    });
-
-
-    try {
-      await _chatHubConnection.start();
-      log("Conexão com o SignalR estabelecida.");
-      await _loadPreviousMessages(widget.userId);
     } catch (err) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao conectar ao chat privado: $err")),
-      );
+      log("Erro ao processar mensagens: $err");
+      showSnackbar(context, "Erro ao processar mensagens: $err");
     }
   }
 
-  Future<void> _loadPreviousMessages(String receiverUserId) async {
-    try {
-      await _chatHubConnection
-          .invoke("GetPreviousMessages", args: [receiverUserId]);
-    } catch (err) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text("Erro ao carregar mensagens anteriores: $err")));
-    }
+  void _handleNewPrivateMessage(List<Object?>? args) {
+    final message = args?[2] as String;
+    log("Nova mensagem recebida: $message");
+
+    setState(() {
+      _messages.add({
+        "createdAt": DateTime.now(),
+        "message": message,
+        "isMine": false,
+      });
+    });
+
+    _scrollToBottom();
   }
 
   void _sendMessage() async {
@@ -106,10 +98,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
     if (message.isNotEmpty) {
       try {
-        await _chatHubConnection.invoke(
-          "SendPrivateMessage",
-          args: [widget.userId, message],
-        );
+        log('Enviando mensagem: $message');
+        await _signalRService
+            .invokeMethod("SendPrivateMessage", [widget.userId, message]);
 
         setState(() {
           _messages.add({
@@ -122,8 +113,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
         _scrollToBottom();
       } catch (err) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Erro ao enviar mensagem: $err")));
+        log("Erro ao enviar mensagem: $err");
+        showSnackbar(context, "Erro ao enviar mensagem: $err");
       }
     }
   }
@@ -136,20 +127,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  String _formatMessageTime(DateTime dateTime) {
-    final now = DateTime.now();
-    if (dateTime.day == now.day &&
-        dateTime.month == now.month &&
-        dateTime.year == now.year) {
-      return DateFormat.Hm().format(dateTime);
-    } else {
-      return DateFormat('dd/MM/yyyy HH:mm').format(dateTime);
-    }
-  }
-
   @override
   void dispose() {
-    _chatHubConnection.stop();
+    _signalRService.stopConnection();
     _scrollController.dispose();
     super.dispose();
   }
@@ -162,7 +142,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat com ${widget.userId}'),
+        title: Text(widget.userName),
+        actions: [
+          ThemeToggle(),
+        ],
       ),
       body: Column(
         children: [
@@ -173,7 +156,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               itemBuilder: (context, index) {
                 final message = _messages[index];
                 final isMine = message['isMine'] as bool;
-                final time = _formatMessageTime(message['createdAt']);
+                final time =
+                    DateJSONUtils.formatMessageTime(message['createdAt']);
 
                 return Align(
                   alignment:
@@ -242,8 +226,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                       decoration: const InputDecoration(
                         hintText: "Digite uma mensagem",
                         border: InputBorder.none,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                       ),
                     ),
                   ),

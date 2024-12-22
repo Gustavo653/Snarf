@@ -1,36 +1,49 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Serilog;
+using Snarf.Utils;
 
 namespace Snarf.API.Controllers
 {
     public class PublicChatHub : Hub
     {
+        private string GetUserId()
+        {
+            return Context.User?.GetUserId() ?? throw new ArgumentNullException("O token não possui ID de usuário");
+        }
+
+        private string GetUserName()
+        {
+            return Context.User?.GetUserName() ?? throw new ArgumentNullException("O token não possui nome de usuário");
+        }
+
         public async Task SendMessage(string message)
         {
-            var userName = GetUserName();
-            Log.Information($"Mensagem recebida de {userName}: {message}");
-            await Clients.Others.SendAsync("ReceiveMessage", userName, message);
+            var userId = GetUserId();
+            Log.Information($"Mensagem recebida do usuário {userId}: {message}");
+            await Clients.Others.SendAsync("ReceiveMessage", GetUserName(), message);
         }
 
         public override async Task OnConnectedAsync()
         {
-            var userName = GetUserName();
-            Log.Information($"Cliente {userName} conectado ao chat público: {Context.ConnectionId}");
-            await Clients.All.SendAsync("ReceiveMessage", userName, "Conectado");
+            var userId = GetUserId();
+            Log.Information($"Cliente do usuário {userId} conectado ao chat público");
+
+            await Clients.All.SendAsync("ReceiveMessage", GetUserName(), "Conectado");
+
             await base.OnConnectedAsync();
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
-            var userName = GetUserName();
-            Log.Information($"Cliente {userName} desconectado do chat público: {Context.ConnectionId}");
-            await Clients.All.SendAsync("ReceiveMessage", userName, "Desconectado");
-            await base.OnDisconnectedAsync(exception);
-        }
+            var userId = GetUserId();
+            if (exception != null)
+                Log.Warning($"Erro durante desconexão do usuário {userId}: {exception.Message}");
+            else
+                Log.Information($"Usuário {userId} desconectado do chat público");
 
-        private string GetUserName()
-        {
-            return Context.User?.Identity?.Name ?? "Desconhecido";
+            await Clients.All.SendAsync("ReceiveMessage", GetUserName(), "Desconectado");
+
+            await base.OnDisconnectedAsync(exception);
         }
     }
 }
