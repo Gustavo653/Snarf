@@ -122,7 +122,8 @@ namespace Snarf.API.Controllers
             var senderUserName = Context.User?.Identity?.Name ?? "Desconhecido";  // Obter o nome do usuário a partir do contexto
 
             // Enfileira a persistência da mensagem em segundo plano
-            Task.Run(() => _backgroundJobClient.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow)));
+            await _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow);
+            //Task.Run(() => _backgroundJobClient.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow)));
 
             // Envia a mensagem para o receptor, incluindo os detalhes do remetente
             await Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", senderUserId, senderUserName, message);
