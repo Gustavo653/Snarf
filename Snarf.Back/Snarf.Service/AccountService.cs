@@ -1,25 +1,22 @@
+using Hangfire;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Serilog;
 using Snarf.Domain.Base;
 using Snarf.Domain.Enum;
 using Snarf.DTO;
 using Snarf.DTO.Base;
 using Snarf.Infrastructure.Repository;
 using Snarf.Infrastructure.Service;
-using Snarf.Utils;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Serilog;
 
 namespace Snarf.Service
 {
     public class AccountService(UserManager<User> userManager,
                                 SignInManager<User> signInManager,
+                                IEmailService emailService,
                                 IUserRepository userRepository,
-                                ITokenService tokenService,
-                                IHttpContextAccessor httpContextAccessor) : IAccountService
+                                ITokenService tokenService) : IAccountService
     {
-        private ISession Session => httpContextAccessor.HttpContext!.Session;
-
         private async Task<SignInResult> CheckUserPassword(User user, UserLoginDTO userLoginDTO)
         {
             try
@@ -81,23 +78,6 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        public async Task<ResponseDTO> GetCurrent()
-        {
-            ResponseDTO responseDTO = new();
-            try
-            {
-                var email = Session.GetString(Consts.ClaimEmail)!;
-                Log.Information("Obtendo o usuário atual: {email}", email);
-                responseDTO.Object = await GetUserByEmail(email);
-            }
-            catch (Exception ex)
-            {
-                responseDTO.SetError(ex);
-            }
-
-            return responseDTO;
-        }
-
         public async Task<ResponseDTO> CreateUser(UserDTO userDTO)
         {
             ResponseDTO responseDTO = new();
@@ -142,83 +122,54 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        public async Task<ResponseDTO> UpdateUser(Guid id, UserDTO userDTO)
+        public async Task<ResponseDTO> RequestResetPassword(string email)
         {
             ResponseDTO responseDTO = new();
             try
             {
-                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id.ToString());
-                if (userEntity == null)
+                var user = await GetUserByEmail(email);
+                if (user == null)
                 {
-                    responseDTO.SetBadInput($"Usuário não encotrado com este id: {id}!");
+                    responseDTO.SetBadInput($"Usuário não encontrado com o email: {email}");
                     return responseDTO;
                 }
 
-                userEntity.Name = userDTO.Name;
-                userEntity.Email = userDTO.Email;
-                if (!string.IsNullOrEmpty(userDTO.Password))
+                BackgroundJob.Enqueue(() => emailService.SendEmail("Solicitação para redefinir senha - Snarf", emailService.BuildResetPasswordText(email, user.SecurityStamp!), email));
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> ResetPassword(UserEmailDTO userEmailDTO)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var user = await GetUserByEmail(userEmailDTO.Email);
+                if (user == null)
                 {
-                    userEntity.PasswordHash = userManager.PasswordHasher.HashPassword(userEntity, userDTO.Password);
+                    responseDTO.SetBadInput($"Usuário não encontrado com o email: {userEmailDTO.Email}");
+                    return responseDTO;
                 }
 
+                if (user.SecurityStamp != userEmailDTO.Code)
+                {
+                    responseDTO.SetBadInput($"O código {userEmailDTO.Code} é inválido!");
+                    return responseDTO;
+                }
+
+                userRepository.Attach(user);
+                user.PasswordHash = userManager.PasswordHasher.HashPassword(user, userEmailDTO.Password);
                 await userRepository.SaveChangesAsync();
-                Log.Information("Usuário atualizado id: {id}", userEntity.Id);
-
-                responseDTO.Object = userDTO;
+                await userManager.UpdateSecurityStampAsync(user);
             }
             catch (Exception ex)
             {
                 responseDTO.SetError(ex);
             }
-
-            return responseDTO;
-        }
-
-        public async Task<ResponseDTO> RemoveUser(Guid id)
-        {
-            ResponseDTO responseDTO = new();
-            try
-            {
-                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id.ToString());
-                if (userEntity == null)
-                {
-                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {id}!");
-                    return responseDTO;
-                }
-
-                await userManager.DeleteAsync(userEntity);
-                Log.Information("Usuário removido id: {id}", userEntity.Id);
-
-                responseDTO.Object = userEntity;
-            }
-            catch (Exception ex)
-            {
-                responseDTO.SetError(ex);
-            }
-
-            return responseDTO;
-        }
-
-        public async Task<ResponseDTO> GetUsers()
-        {
-            ResponseDTO responseDTO = new();
-            try
-            {
-                responseDTO.Object = await userRepository.GetEntities()
-                                                         .Where(x => x.Email != "admin@admin.com")
-                                                         .Select(x => new
-                                                         {
-                                                             x.Id,
-                                                             x.Name,
-                                                             x.Email,
-                                                             x.Role
-                                                         }).ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                responseDTO.SetError(ex);
-            }
-
             return responseDTO;
         }
     }

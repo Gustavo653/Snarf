@@ -39,7 +39,8 @@ class ApiService {
     }
   }
 
-  static Future<String?> register(String email, String name, String password) async {
+  static Future<String?> register(
+      String email, String name, String password) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/Account');
     final headers = {
       'Content-Type': 'application/json',
@@ -59,6 +60,54 @@ class ApiService {
         final responseData = jsonDecode(response.body);
         return responseData['message'] ?? 'Erro desconhecido';
       }
+    } catch (e) {
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
+  static Future<String?> requestResetPassword(String email) async {
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Account/RequestResetPassword');
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+
+    try {
+      final response =
+          await http.post(url, headers: headers, body: jsonEncode(email));
+
+      if (response.statusCode == 200) {
+        return null;
+      }
+
+      final responseData = jsonDecode(response.body);
+      return responseData['message'] ?? 'Erro desconhecido';
+    } catch (e) {
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
+  static Future<String?> resetPassword(
+      String email, String code, String password) async {
+    final url = Uri.parse('${ApiConstants.baseUrl}/Account/ResetPassword');
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+    final body = jsonEncode({
+      'email': email,
+      'code': code,
+      'password': password,
+    });
+
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        return null;
+      }
+
+      final responseData = jsonDecode(response.body);
+      return responseData['message'] ?? 'Erro desconhecido';
     } catch (e) {
       return 'Erro ao conectar à API: $e';
     }
