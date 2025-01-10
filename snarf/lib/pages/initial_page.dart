@@ -1,5 +1,5 @@
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
 import 'package:snarf/pages/login_page.dart';
@@ -44,7 +44,79 @@ class _InitialPageState extends State<InitialPage> {
     _imagePaths.shuffle();
   }
 
+  Future<int?> _showAgeConfirmationDialog(BuildContext context) async {
+    int? birthYear;
+    final currentYear = DateTime.now().year;
+    List<int> years = List.generate(100, (index) => currentYear - index);
+
+    final TextEditingController controller = TextEditingController();
+
+    return showDialog<int?>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirmação de Idade'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Ano de nascimento',
+                  hintText: 'Selecione seu ano de nascimento',
+                ),
+                onTap: () async {
+                  final selectedYear = await showDialog<int>(
+                    context: context,
+                    builder: (context) {
+                      return SimpleDialog(
+                        title: const Text('Escolha seu ano de nascimento'),
+                        children: years
+                            .map((year) => SimpleDialogOption(
+                                  onPressed: () {
+                                    Navigator.pop(context, year);
+                                  },
+                                  child: Text(year.toString()),
+                                ))
+                            .toList(),
+                      );
+                    },
+                  );
+                  if (selectedYear != null) {
+                    controller.text = selectedYear.toString();
+                    birthYear = selectedYear;
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (birthYear != null && currentYear - birthYear! >= 18) {
+                  Navigator.of(context).pop(birthYear);
+                } else {
+                  _showErrorDialog(context,
+                      'Você precisa ser maior de idade para continuar.');
+                }
+              },
+              child: const Text('Confirmar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _createAnonymousAccount(BuildContext context) async {
+    final birthYear = await _showAgeConfirmationDialog(context);
+    if (birthYear == null) return;
+
     String uniqueId = Uuid().v4();
     String email = '$uniqueId@anonimo.com';
     String name = 'anon_$uniqueId';
