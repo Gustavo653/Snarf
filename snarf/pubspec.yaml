@@ -45,6 +45,7 @@ dependencies:
   jwt_decode: ^0.3.1
   intl: ^0.20.1
   image_picker: ^1.1.2
+  carousel_slider: ^5.0.0
 
 dev_dependencies:
   flutter_test:
@@ -69,9 +70,21 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/images/logo-white.png
+    - assets/images/logo-black.png
+    - assets/images/snarf-bg000.jpg
+    - assets/images/snarf-bg001.jpg
+    - assets/images/snarf-bg002.jpg
+    - assets/images/snarf-bg003.jpg
+    - assets/images/snarf-bg004.jpg
+    - assets/images/snarf-bg005.jpg
+    - assets/images/snarf-bg006.jpg
+    - assets/images/snarf-bg007.jpg
+    - assets/images/snarf-bg008.jpg
+    - assets/images/snarf-bg009.jpg
+    - assets/images/snarf-bg010.jpg
+
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
