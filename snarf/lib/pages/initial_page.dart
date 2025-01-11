@@ -16,17 +16,13 @@ class InitialPage extends StatefulWidget {
 class _InitialPageState extends State<InitialPage> {
   bool _isLoading = false;
   final _imagePaths = <String>[
-    'assets/images/snarf-bg000.jpg',
     'assets/images/snarf-bg001.jpg',
     'assets/images/snarf-bg002.jpg',
     'assets/images/snarf-bg003.jpg',
     'assets/images/snarf-bg004.jpg',
     'assets/images/snarf-bg005.jpg',
     'assets/images/snarf-bg006.jpg',
-    'assets/images/snarf-bg007.jpg',
-    'assets/images/snarf-bg008.jpg',
-    'assets/images/snarf-bg009.jpg',
-    'assets/images/snarf-bg010.jpg',
+    'assets/images/snarf-bg007.jpg'
   ];
 
   @override
@@ -170,21 +166,23 @@ class _InitialPageState extends State<InitialPage> {
     return Scaffold(
       body: Stack(
         children: [
-          CarouselSlider(
-            options: CarouselOptions(
-              height: double.infinity,
-              autoPlay: true,
-              autoPlayInterval: const Duration(seconds: 5),
-              viewportFraction: 1.0,
-              enlargeCenterPage: false,
+          IgnorePointer(
+            child: CarouselSlider(
+              options: CarouselOptions(
+                height: double.infinity,
+                autoPlay: true,
+                autoPlayInterval: const Duration(seconds: 5),
+                viewportFraction: 1.0,
+                enlargeCenterPage: false,
+              ),
+              items: _imagePaths.map((path) {
+                return Image.asset(
+                  path,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                );
+              }).toList(),
             ),
-            items: _imagePaths.map((path) {
-              return Image.asset(
-                path,
-                fit: BoxFit.cover,
-                width: double.infinity,
-              );
-            }).toList(),
           ),
           Center(
             child: Padding(
@@ -193,12 +191,12 @@ class _InitialPageState extends State<InitialPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Image.asset(
-                    'assets/images/logo-white.png',
+                    'assets/images/logo-black.png',
                     height: 100,
                   ),
                   const SizedBox(height: 48),
                   CustomElevatedButton(
-                    text: 'USAR ANONIMAMENTE',
+                    text: 'ESPIAR ANONIMAMENTE',
                     isLoading: _isLoading,
                     onPressed: () => _createAnonymousAccount(context),
                   ),

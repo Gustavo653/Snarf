@@ -73,7 +73,6 @@ flutter:
   assets:
     - assets/images/logo-white.png
     - assets/images/logo-black.png
-    - assets/images/snarf-bg000.jpg
     - assets/images/snarf-bg001.jpg
     - assets/images/snarf-bg002.jpg
     - assets/images/snarf-bg003.jpg
@@ -81,9 +80,6 @@ flutter:
     - assets/images/snarf-bg005.jpg
     - assets/images/snarf-bg006.jpg
     - assets/images/snarf-bg007.jpg
-    - assets/images/snarf-bg008.jpg
-    - assets/images/snarf-bg009.jpg
-    - assets/images/snarf-bg010.jpg
 
 
   # An image asset can refer to one or more resolution-specific "variants", see
