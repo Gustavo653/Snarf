@@ -70,11 +70,11 @@ class _InitialPageState extends State<InitialPage> {
                           title: const Text('Escolha seu ano de nascimento'),
                           children: years
                               .map((year) => SimpleDialogOption(
-                                    onPressed: () {
-                                      Navigator.pop(context, year);
-                                    },
-                                    child: Text(year.toString()),
-                                  ))
+                            onPressed: () {
+                              Navigator.pop(context, year);
+                            },
+                            child: Text(year.toString()),
+                          ))
                               .toList(),
                         );
                       },
@@ -186,7 +186,7 @@ class _InitialPageState extends State<InitialPage> {
               options: CarouselOptions(
                 height: double.infinity,
                 autoPlay: true,
-                autoPlayInterval: const Duration(seconds: 5),
+                autoPlayInterval: const Duration(minutes: 5),
                 viewportFraction: 1.0,
                 enlargeCenterPage: false,
               ),
@@ -210,10 +210,13 @@ class _InitialPageState extends State<InitialPage> {
                     height: 100,
                   ),
                   const SizedBox(height: 48),
-                  CustomElevatedButton(
-                    text: 'Espiar',
-                    isLoading: _isLoading,
-                    onPressed: () => _createAnonymousAccount(context),
+                  FractionallySizedBox(
+                    widthFactor: 0.50,
+                    child: CustomElevatedButton(
+                      text: 'Espiar',
+                      isLoading: _isLoading,
+                      onPressed: () => _createAnonymousAccount(context),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   const Text(
@@ -224,17 +227,20 @@ class _InitialPageState extends State<InitialPage> {
                         fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  CustomElevatedButton(
-                    text: 'Login',
-                    isLoading: false,
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const LoginPage(),
-                        ),
-                      );
-                    },
+                  FractionallySizedBox(
+                    widthFactor: 0.50,
+                    child: CustomElevatedButton(
+                      text: 'Login',
+                      isLoading: false,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const LoginPage(),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
