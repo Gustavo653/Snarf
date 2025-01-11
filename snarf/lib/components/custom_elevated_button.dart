@@ -18,26 +18,31 @@ class CustomElevatedButton extends StatelessWidget {
       onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
         padding: const EdgeInsets.symmetric(
-          horizontal: 32.0,
-          vertical: 4.0,
+          horizontal: 16.0,
+          vertical: 8.0,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24.0),
+          borderRadius: BorderRadius.circular(16.0),
         ),
-        elevation: 4,
+        elevation: 2,
       ),
       child: isLoading
-          ? const CircularProgressIndicator(color: Colors.white)
+          ? const CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2.0,
+            )
           : Ink(
               child: Container(
                 alignment: Alignment.center,
                 padding: const EdgeInsets.symmetric(
-                    vertical: 12.0, horizontal: 32.0),
+                  vertical: 8.0,
+                  horizontal: 16.0,
+                ),
                 child: Text(
                   text,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 20.0,
+                    fontSize: 16.0,
                   ),
                 ),
               ),

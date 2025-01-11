@@ -48,65 +48,64 @@ class _InitialPageState extends State<InitialPage> {
     final TextEditingController controller = TextEditingController();
 
     return showDialog<int?>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Confirmação de Idade'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Ano de nascimento',
-                  hintText: 'Selecione seu ano de nascimento',
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Confirmação de Idade'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  readOnly: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Ano de nascimento',
+                    hintText: 'Selecione seu ano de nascimento',
+                  ),
+                  onTap: () async {
+                    final selectedYear = await showDialog<int>(
+                      context: context,
+                      builder: (context) {
+                        return SimpleDialog(
+                          title: const Text('Escolha seu ano de nascimento'),
+                          children: years
+                              .map((year) => SimpleDialogOption(
+                                    onPressed: () {
+                                      Navigator.pop(context, year);
+                                    },
+                                    child: Text(year.toString()),
+                                  ))
+                              .toList(),
+                        );
+                      },
+                    );
+                    if (selectedYear != null) {
+                      controller.text = selectedYear.toString();
+                      birthYear = selectedYear;
+                    }
+                  },
                 ),
-                onTap: () async {
-                  final selectedYear = await showDialog<int>(
-                    context: context,
-                    builder: (context) {
-                      return SimpleDialog(
-                        title: const Text('Escolha seu ano de nascimento'),
-                        children: years
-                            .map((year) => SimpleDialogOption(
-                                  onPressed: () {
-                                    Navigator.pop(context, year);
-                                  },
-                                  child: Text(year.toString()),
-                                ))
-                            .toList(),
-                      );
-                    },
-                  );
-                  if (selectedYear != null) {
-                    controller.text = selectedYear.toString();
-                    birthYear = selectedYear;
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  if (birthYear != null && currentYear - birthYear! >= 18) {
+                    Navigator.of(context).pop(birthYear);
+                  } else {
+                    _showErrorDialog(context,
+                        'Você precisa ser maior de idade para continuar.');
                   }
                 },
+                child: const Text('Confirmar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancelar'),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                if (birthYear != null && currentYear - birthYear! >= 18) {
-                  Navigator.of(context).pop(birthYear);
-                } else {
-                  _showErrorDialog(context,
-                      'Você precisa ser maior de idade para continuar.');
-                }
-              },
-              child: const Text('Confirmar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-          ],
-        );
-      },
-    );
+          );
+        });
   }
 
   Future<void> _createAnonymousAccount(BuildContext context) async {
@@ -161,6 +160,22 @@ class _InitialPageState extends State<InitialPage> {
     );
   }
 
+  void _showModal(BuildContext context, String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -196,13 +211,21 @@ class _InitialPageState extends State<InitialPage> {
                   ),
                   const SizedBox(height: 48),
                   CustomElevatedButton(
-                    text: 'ESPIAR ANONIMAMENTE',
+                    text: 'Espiar',
                     isLoading: _isLoading,
                     onPressed: () => _createAnonymousAccount(context),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Ou',
+                    style: TextStyle(
+                        fontSize: 20,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
                   CustomElevatedButton(
-                    text: 'ACESSAR MINHA CONTA',
+                    text: 'Login',
                     isLoading: false,
                     onPressed: () {
                       Navigator.push(
@@ -215,6 +238,63 @@ class _InitialPageState extends State<InitialPage> {
                   ),
                 ],
               ),
+            ),
+          ),
+          Positioned(
+            bottom: 30,
+            left: 15,
+            right: 15,
+            child: Column(
+              children: [
+                const Text(
+                  'Você deve ser maior de 18 anos para usar este aplicativo.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => _showModal(
+                        context,
+                        'Termos de Serviço',
+                        'DescriçãoAqui Termos de Serviço',
+                      ),
+                      child: const Text(
+                        'Termos de Serviço',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                    const Text(
+                      ' e ',
+                      style: TextStyle(
+                        color: Colors.white,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _showModal(
+                        context,
+                        'Política de Privacidade',
+                        'Descrição Política de Privacidade',
+                      ),
+                      child: const Text(
+                        'Política de Privacidade',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
