@@ -18,11 +18,7 @@ class _InitialPageState extends State<InitialPage> {
   final _imagePaths = <String>[
     'assets/images/snarf-bg001.jpg',
     'assets/images/snarf-bg002.jpg',
-    'assets/images/snarf-bg003.jpg',
-    'assets/images/snarf-bg004.jpg',
-    'assets/images/snarf-bg005.jpg',
-    'assets/images/snarf-bg006.jpg',
-    'assets/images/snarf-bg007.jpg'
+    'assets/images/snarf-bg003.jpg'
   ];
 
   @override
