@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
@@ -178,139 +180,160 @@ class _InitialPageState extends State<InitialPage> {
         TextEditingController(text: 'admin@admin.com');
     final TextEditingController passwordController =
         TextEditingController(text: 'Admin@123');
+    final ValueNotifier<bool> isPasswordVisible = ValueNotifier(false);
     bool isLoading = false;
     String? errorMessage;
 
     showDialog(
       context: context,
+      barrierColor: Colors.black.withOpacity(0.5),
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            Future<void> login() async {
-              final String email = emailController.text.trim();
-              final String password = passwordController.text.trim();
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              Future<void> login() async {
+                final String email = emailController.text.trim();
+                final String password = passwordController.text.trim();
 
-              if (email.isEmpty || password.isEmpty) {
-                setState(() {
-                  errorMessage = 'Por favor, preencha todos os campos.';
-                });
-                return;
-              }
-
-              setState(() {
-                isLoading = true;
-                errorMessage = null;
-              });
-
-              try {
-                final loginResponse = await ApiService.login(email, password);
-
-                if (loginResponse == null) {
-                  Navigator.pop(context); // Fecha o modal
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HomePage()),
-                  );
-                } else {
+                if (email.isEmpty || password.isEmpty) {
                   setState(() {
-                    errorMessage = loginResponse;
+                    errorMessage = 'Por favor, preencha todos os campos.';
+                  });
+                  return;
+                }
+
+                setState(() {
+                  isLoading = true;
+                  errorMessage = null;
+                });
+
+                try {
+                  final loginResponse = await ApiService.login(email, password);
+
+                  if (loginResponse == null) {
+                    Navigator.pop(context); // Fecha o modal
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (context) => const HomePage()),
+                    );
+                  } else {
+                    setState(() {
+                      errorMessage = loginResponse;
+                    });
+                  }
+                } catch (e) {
+                  setState(() {
+                    errorMessage = 'Ocorreu um erro: $e';
+                  });
+                } finally {
+                  setState(() {
+                    isLoading = false;
                   });
                 }
-              } catch (e) {
-                setState(() {
-                  errorMessage = 'Ocorreu um erro: $e';
-                });
-              } finally {
-                setState(() {
-                  isLoading = false;
-                });
               }
-            }
 
-            return AlertDialog(
-              title: const Text('Login'),
-              content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'E-mail',
-                        prefixIcon: Icon(Icons.email),
+              return AlertDialog(
+                title: const Text('Login'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      TextField(
+                        controller: emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'E-mail',
+                          prefixIcon: Icon(Icons.email),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
                       ),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: passwordController,
-                      decoration: const InputDecoration(
-                        labelText: 'Senha',
-                        prefixIcon: Icon(Icons.lock),
-                      ),
-                      obscureText: true,
-                    ),
-                    if (errorMessage != null) ...[
                       const SizedBox(height: 16),
-                      Text(
-                        errorMessage!,
-                        style: const TextStyle(color: Colors.red),
+                      ValueListenableBuilder(
+                        valueListenable: isPasswordVisible,
+                        builder: (context, isVisible, child) {
+                          return TextField(
+                            controller: passwordController,
+                            decoration: InputDecoration(
+                              labelText: 'Senha',
+                              prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  isVisible
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                                onPressed: () {
+                                  isPasswordVisible.value = !isVisible;
+                                },
+                              ),
+                            ),
+                            obscureText: !isVisible,
+                          );
+                        },
                       ),
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          errorMessage!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              actions: [
-                if (isLoading) const Center(child: CircularProgressIndicator()),
-                if (!isLoading) ...[
-                  CustomElevatedButton(
-                    text: 'Entrar',
-                    isLoading: false,
-                    onPressed: login,
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const ForgotPasswordPage()),
-                      );
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.only(top: 16.0),
-                      child: Text(
-                        'Esqueci minha senha',
-                        style: TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
+                actions: [
+                  if (isLoading)
+                    const Center(child: CircularProgressIndicator()),
+                  if (!isLoading) ...[
+                    CustomElevatedButton(
+                      text: 'Entrar',
+                      isLoading: false,
+                      onPressed: login,
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const ForgotPasswordPage()),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.only(top: 16.0),
+                        child: Text(
+                          'Esqueci minha senha',
+                          style: TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const RegisterPage()),
-                      );
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.only(top: 8.0),
-                      child: Text(
-                        'Criar conta',
-                        style: TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const RegisterPage()),
+                        );
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.only(top: 8.0),
+                        child: Text(
+                          'Criar conta',
+                          style: TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
-            );
-          },
+              );
+            },
+          ),
         );
       },
     );
