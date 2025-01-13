@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using Snarf.DataAccess;
 using Snarf.Domain.Entities;
 using Snarf.Infrastructure.Repository;
 using Snarf.Service;
@@ -88,11 +87,14 @@ namespace Snarf.API.Controllers
             var s3Service = new S3Service();
             var imageUrl = await s3Service.UploadFileAsync($"images/{fileName}{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
 
-            Task.Run(() =>
-            {
-                var jobId = BackgroundJob.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, imageUrl, DateTime.UtcNow));
-                BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, imageUrl));
-            });
+            await _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, imageUrl, DateTime.UtcNow);
+            await _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, imageUrl);
+
+            //Task.Run(() =>
+            //{
+            //    var jobId = BackgroundJob.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, imageUrl, DateTime.UtcNow));
+            //    BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, imageUrl));
+            //});
         }
 
         public async Task GetPreviousMessages(string receiverUserId)
@@ -143,11 +145,14 @@ namespace Snarf.API.Controllers
 
             Log.Information($"Usuário {senderUserId} ({senderUserName}) enviou mensagem privada para {receiverUserId}: {message}");
 
-            Task.Run(() =>
-            {
-                var jobId = BackgroundJob.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow));
-                BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, message));
-            });
+            await _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow);
+            await _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, message);
+
+            //Task.Run(() =>
+            //{
+            //    var jobId = BackgroundJob.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow));
+            //    BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, message));
+            //});
         }
     }
 
