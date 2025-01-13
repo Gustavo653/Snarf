@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
-import 'package:snarf/pages/home_page.dart';
+import 'package:flutter/material.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
-import 'package:snarf/pages/login_page.dart';
-import 'package:snarf/services/api_service.dart';
+import 'package:snarf/pages/forgot_password_page.dart';
+import 'package:snarf/pages/register_page.dart';
 import 'package:uuid/uuid.dart';
+import '../services/api_service.dart';
+import 'home_page.dart';
 
 class InitialPage extends StatefulWidget {
   const InitialPage({super.key});
@@ -66,11 +67,11 @@ class _InitialPageState extends State<InitialPage> {
                           title: const Text('Escolha seu ano de nascimento'),
                           children: years
                               .map((year) => SimpleDialogOption(
-                            onPressed: () {
-                              Navigator.pop(context, year);
-                            },
-                            child: Text(year.toString()),
-                          ))
+                                    onPressed: () {
+                                      Navigator.pop(context, year);
+                                    },
+                                    child: Text(year.toString()),
+                                  ))
                               .toList(),
                         );
                       },
@@ -140,6 +141,22 @@ class _InitialPageState extends State<InitialPage> {
     }
   }
 
+  void _showModal(BuildContext context, String title, String content) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showErrorDialog(BuildContext context, String message) {
     showDialog(
       context: context,
@@ -156,19 +173,146 @@ class _InitialPageState extends State<InitialPage> {
     );
   }
 
-  void _showModal(BuildContext context, String title, String content) {
+  void _showLoginModal(BuildContext context) {
+    final TextEditingController emailController =
+        TextEditingController(text: 'admin@admin.com');
+    final TextEditingController passwordController =
+        TextEditingController(text: 'Admin@123');
+    bool isLoading = false;
+    String? errorMessage;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fechar'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            Future<void> login() async {
+              final String email = emailController.text.trim();
+              final String password = passwordController.text.trim();
+
+              if (email.isEmpty || password.isEmpty) {
+                setState(() {
+                  errorMessage = 'Por favor, preencha todos os campos.';
+                });
+                return;
+              }
+
+              setState(() {
+                isLoading = true;
+                errorMessage = null;
+              });
+
+              try {
+                final loginResponse = await ApiService.login(email, password);
+
+                if (loginResponse == null) {
+                  Navigator.pop(context); // Fecha o modal
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const HomePage()),
+                  );
+                } else {
+                  setState(() {
+                    errorMessage = loginResponse;
+                  });
+                }
+              } catch (e) {
+                setState(() {
+                  errorMessage = 'Ocorreu um erro: $e';
+                });
+              } finally {
+                setState(() {
+                  isLoading = false;
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Login'),
+              content: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'E-mail',
+                        prefixIcon: Icon(Icons.email),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: passwordController,
+                      decoration: const InputDecoration(
+                        labelText: 'Senha',
+                        prefixIcon: Icon(Icons.lock),
+                      ),
+                      obscureText: true,
+                    ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                if (isLoading) const Center(child: CircularProgressIndicator()),
+                if (!isLoading) ...[
+                  CustomElevatedButton(
+                    text: 'Entrar',
+                    isLoading: false,
+                    onPressed: login,
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ForgotPasswordPage()),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(top: 16.0),
+                      child: Text(
+                        'Esqueci minha senha',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const RegisterPage()),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Criar conta',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -228,14 +372,7 @@ class _InitialPageState extends State<InitialPage> {
                     child: CustomElevatedButton(
                       text: 'Login',
                       isLoading: false,
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const LoginPage(),
-                          ),
-                        );
-                      },
+                      onPressed: () => _showLoginModal(context),
                     ),
                   ),
                 ],
@@ -264,7 +401,7 @@ class _InitialPageState extends State<InitialPage> {
                       onTap: () => _showModal(
                         context,
                         'Termos de Serviço',
-                        'DescriçãoAqui Termos de Serviço',
+                        'Descrição Termos de Serviço',
                       ),
                       child: const Text(
                         'Termos de Serviço',
