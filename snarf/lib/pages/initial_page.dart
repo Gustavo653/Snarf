@@ -374,9 +374,9 @@ class _InitialPageState extends State<InitialPage> {
                   ),
                   const SizedBox(height: 48),
                   FractionallySizedBox(
-                    widthFactor: 0.50,
+                    widthFactor: 0.64,
                     child: CustomElevatedButton(
-                      text: 'Espiar',
+                      text: 'Espiar Anonimamente',
                       isLoading: _isLoading,
                       onPressed: () => _createAnonymousAccount(context),
                     ),
