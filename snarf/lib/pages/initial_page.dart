@@ -40,71 +40,127 @@ class _InitialPageState extends State<InitialPage> {
   }
 
   Future<int?> _showAgeConfirmationDialog(BuildContext context) async {
-    int? birthYear;
+    int birthYear = DateTime.now().year - 18;
     final currentYear = DateTime.now().year;
-    List<int> years = List.generate(100, (index) => currentYear - index);
-
-    final TextEditingController controller = TextEditingController();
+    final minYear = currentYear - 100;
 
     return showDialog<int?>(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Confirmação de Idade'),
-            content: Column(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white,
+                  Colors.pink.shade50,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16.0),
+            ),
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: controller,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Ano de nascimento',
-                    hintText: 'Selecione seu ano de nascimento',
+                const Text(
+                  'CONFIRMAR IDADE',
+                  style: TextStyle(
+                    color: Colors.purple,
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.bold,
                   ),
-                  onTap: () async {
-                    final selectedYear = await showDialog<int>(
-                      context: context,
-                      builder: (context) {
-                        return SimpleDialog(
-                          title: const Text('Escolha seu ano de nascimento'),
-                          children: years
-                              .map((year) => SimpleDialogOption(
-                                    onPressed: () {
-                                      Navigator.pop(context, year);
-                                    },
-                                    child: Text(year.toString()),
-                                  ))
-                              .toList(),
-                        );
+                ),
+                const SizedBox(height: 10.0),
+                const Text(
+                  'Snarf é um app exclusivo para maiores de idade.\nPrecisamos verificar a sua idade.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 14.0,
+                  ),
+                ),
+                const SizedBox(height: 20.0),
+                const Text(
+                  'QUANDO VOCÊ NASCEU?',
+                  style: TextStyle(
+                    color: Colors.purple,
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20.0),
+                SizedBox(
+                  height: 50.0,
+                  child: RotatedBox(
+                    quarterTurns: 3,
+                    child: ListWheelScrollView.useDelegate(
+                      controller: FixedExtentScrollController(
+                        initialItem: currentYear - birthYear,
+                      ),
+                      itemExtent: 50.0,
+                      perspective: 0.003,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (index) {
+                          birthYear = currentYear - index;
                       },
-                    );
-                    if (selectedYear != null) {
-                      controller.text = selectedYear.toString();
-                      birthYear = selectedYear;
-                    }
-                  },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        builder: (context, index) {
+                          final year = currentYear - index;
+                          return RotatedBox(
+                            quarterTurns: 1,
+                            child: Text(
+                              year.toString(),
+                              style: TextStyle(
+                                fontSize: 18.0,
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: currentYear - minYear + 1,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20.0),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        if (currentYear - birthYear >= 18) {
+                          Navigator.of(context).pop(birthYear);
+                        } else {
+                          _showErrorDialog(
+                            context,
+                            'Você precisa ser maior de idade para continuar.',
+                          );
+                        }
+                      },
+                      child: const Text(
+                        'Confirmar',
+                        style: TextStyle(color: Colors.purple),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(color: Colors.purple),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  if (birthYear != null && currentYear - birthYear! >= 18) {
-                    Navigator.of(context).pop(birthYear);
-                  } else {
-                    _showErrorDialog(context,
-                        'Você precisa ser maior de idade para continuar.');
-                  }
-                },
-                child: const Text('Confirmar'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancelar'),
-              ),
-            ],
-          );
-        });
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _createAnonymousAccount(BuildContext context) async {
@@ -374,7 +430,7 @@ class _InitialPageState extends State<InitialPage> {
                   ),
                   const SizedBox(height: 48),
                   FractionallySizedBox(
-                    widthFactor: 0.64,
+                    widthFactor: 0.70,
                     child: CustomElevatedButton(
                       text: 'Espiar Anonimamente',
                       isLoading: _isLoading,
