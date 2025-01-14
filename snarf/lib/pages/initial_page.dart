@@ -47,117 +47,131 @@ class _InitialPageState extends State<InitialPage> {
     return showDialog<int?>(
       context: context,
       builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white,
-                  Colors.pink.shade50,
-                ],
+        int selectedYear = birthYear; // Para armazenar o ano selecionado
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.0),
               ),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'CONFIRMAR IDADE',
-                  style: TextStyle(
-                    color: Colors.purple,
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.bold,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white,
+                      Colors.pink.shade50,
+                    ],
                   ),
+                  borderRadius: BorderRadius.circular(16.0),
                 ),
-                const SizedBox(height: 10.0),
-                const Text(
-                  'Snarf é um app exclusivo para maiores de idade.\nPrecisamos verificar a sua idade.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14.0,
-                  ),
-                ),
-                const SizedBox(height: 20.0),
-                const Text(
-                  'QUANDO VOCÊ NASCEU?',
-                  style: TextStyle(
-                    color: Colors.purple,
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20.0),
-                SizedBox(
-                  height: 50.0,
-                  child: RotatedBox(
-                    quarterTurns: 3,
-                    child: ListWheelScrollView.useDelegate(
-                      controller: FixedExtentScrollController(
-                        initialItem: currentYear - birthYear,
-                      ),
-                      itemExtent: 50.0,
-                      perspective: 0.003,
-                      physics: const FixedExtentScrollPhysics(),
-                      onSelectedItemChanged: (index) {
-                          birthYear = currentYear - index;
-                      },
-                      childDelegate: ListWheelChildBuilderDelegate(
-                        builder: (context, index) {
-                          final year = currentYear - index;
-                          return RotatedBox(
-                            quarterTurns: 1,
-                            child: Text(
-                              year.toString(),
-                              style: TextStyle(
-                                fontSize: 18.0,
-                              ),
-                            ),
-                          );
-                        },
-                        childCount: currentYear - minYear + 1,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20.0),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextButton(
-                      onPressed: () {
-                        if (currentYear - birthYear >= 18) {
-                          Navigator.of(context).pop(birthYear);
-                        } else {
-                          _showErrorDialog(
-                            context,
-                            'Você precisa ser maior de idade para continuar.',
-                          );
-                        }
-                      },
-                      child: const Text(
-                        'Confirmar',
-                        style: TextStyle(color: Colors.purple),
+                    const Text(
+                      'CONFIRMAR IDADE',
+                      style: TextStyle(
+                        color: Colors.purple,
+                        fontSize: 20.0,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text(
-                        'Cancelar',
-                        style: TextStyle(color: Colors.purple),
+                    const SizedBox(height: 10.0),
+                    const Text(
+                      'Snarf é um app exclusivo para maiores de idade.\nPrecisamos verificar a sua idade.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14.0,
                       ),
+                    ),
+                    const SizedBox(height: 20.0),
+                    const Text(
+                      'QUANDO VOCÊ NASCEU?',
+                      style: TextStyle(
+                        color: Colors.purple,
+                        fontSize: 16.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 20.0),
+                    SizedBox(
+                      height: 100.0,
+                      child: RotatedBox(
+                        quarterTurns: 3,
+                        child: ListWheelScrollView.useDelegate(
+                          controller: FixedExtentScrollController(
+                            initialItem: currentYear - birthYear,
+                          ),
+                          itemExtent: 50.0,
+                          perspective: 0.003,
+                          physics: const FixedExtentScrollPhysics(),
+                          onSelectedItemChanged: (index) {
+                            setState(() {
+                              selectedYear = currentYear - index;
+                            });
+                          },
+                          childDelegate: ListWheelChildBuilderDelegate(
+                            builder: (context, index) {
+                              final year = currentYear - index;
+                              final isSelected = year == selectedYear;
+                              return RotatedBox(
+                                quarterTurns: 1,
+                                child: Text(
+                                  year.toString(),
+                                  style: TextStyle(
+                                    fontSize: 18.0,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? Colors.purple
+                                        : Colors.black,
+                                  ),
+                                ),
+                              );
+                            },
+                            childCount: currentYear - minYear + 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20.0),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            if (currentYear - selectedYear >= 18) {
+                              Navigator.of(context).pop(selectedYear);
+                            } else {
+                              _showErrorDialog(
+                                context,
+                                'Você precisa ser maior de idade para continuar.',
+                              );
+                            }
+                          },
+                          child: const Text(
+                            'Confirmar',
+                            style: TextStyle(color: Colors.purple),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text(
+                            'Cancelar',
+                            style: TextStyle(color: Colors.purple),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
