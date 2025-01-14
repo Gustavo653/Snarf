@@ -58,12 +58,11 @@ class _InitialPageState extends State<InitialPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    height: 8.0,
+                    height: 10.0,
                     decoration: BoxDecoration(
                       color: Color(0xFF392EA3),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16.0),
-                        topRight: Radius.circular(16.0),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(30.0),
                       ),
                     ),
                   ),
@@ -77,7 +76,9 @@ class _InitialPageState extends State<InitialPage> {
                           Colors.pink.shade50,
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(16.0),
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(30.0),
+                      ),
                     ),
                     padding: const EdgeInsets.all(20.0),
                     child: Column(
@@ -86,7 +87,7 @@ class _InitialPageState extends State<InitialPage> {
                         const Text(
                           'CONFIRMAR IDADE',
                           style: TextStyle(
-                            color: Color(0xFF392EA3),
+                            color: Color(0xFF0b0951),
                             fontSize: 20.0,
                             fontWeight: FontWeight.bold,
                           ),
@@ -104,87 +105,98 @@ class _InitialPageState extends State<InitialPage> {
                         const Text(
                           'QUANDO VOCÊ NASCEU?',
                           style: TextStyle(
-                            color: Color(0xFF392EA3),
+                            color: Color(0xFF0b0951),
                             fontSize: 16.0,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 20.0),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [
-                                Colors.white,
-                                Colors.pink.shade50,
-                              ],
-                            ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.white,
+                              Colors.pink.shade50,
+                            ],
                           ),
-                          child: SizedBox(
-                            height: 100.0,
-                            child: ListWheelScrollView.useDelegate(
-                              controller: FixedExtentScrollController(
-                                initialItem: currentYear - birthYear,
-                              ),
-                              itemExtent: 25.0,
-                              perspective: 0.003,
-                              physics: const FixedExtentScrollPhysics(),
-                              onSelectedItemChanged: (index) {
-                                setState(() {
-                                  selectedYear = currentYear - index;
-                                });
-                              },
-                              childDelegate: ListWheelChildBuilderDelegate(
-                                builder: (context, index) {
-                                  final year = currentYear - index;
-                                  final isSelected = year == selectedYear;
-                                  return Text(
+                          borderRadius: BorderRadius.circular(30.0),
+                        ),
+                        child: SizedBox(
+                          height: 100.0,
+                          child: ListWheelScrollView.useDelegate(
+                            controller: FixedExtentScrollController(
+                              initialItem: currentYear - birthYear,
+                            ),
+                            itemExtent: 25.0,
+                            perspective: 0.003,
+                            physics: const FixedExtentScrollPhysics(),
+                            onSelectedItemChanged: (index) {
+                              setState(() {
+                                selectedYear = currentYear - index;
+                              });
+                            },
+                            childDelegate: ListWheelChildBuilderDelegate(
+                              builder: (context, index) {
+                                final year = currentYear - index;
+                                final isSelected = year == selectedYear;
+                                return Container(
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    border: isSelected
+                                        ? Border(
+                                      top: BorderSide(color: Colors.grey.shade300, width: 1.0),
+                                      bottom: BorderSide(color: Colors.grey.shade300, width: 1.0),
+                                    )
+                                        : null,
+                                  ),
+                                  child: Text(
                                     year.toString(),
                                     style: TextStyle(
                                       fontSize: 18.0,
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                      color: isSelected
-                                          ? Color(0xFF392EA3)
-                                          : Colors.black,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? Color(0xFF0b0951) : Colors.black,
                                     ),
-                                  );
-                                },
-                                childCount: currentYear - minYear + 1,
-                              ),
+                                  ),
+                                );
+                              },
+                              childCount: currentYear - minYear + 1,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20.0),
+                      ),
+                      const SizedBox(height: 20.0),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
                             OutlinedButton(
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.all(16.0),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 25.0, vertical: 8.0),
                                 side: const BorderSide(
-                                  color: Color(0xFF392EA3),
+                                  color: Color(0xFF0b0951),
                                 ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16.0),
+                                  borderRadius: BorderRadius.circular(30.0),
                                 ),
                               ),
                               onPressed: () => Navigator.of(context).pop(),
                               child: const Text(
                                 'VOLTAR',
                                 style: TextStyle(
-                                  color: Color(0xFF392EA3),
+                                  color: Color(0xFF0b0951),
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.all(16.0),
-                                backgroundColor: Color(0xFF392EA3),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 25.0, vertical: 8.0),
+                                backgroundColor: Color(0xFF0b0951),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16.0),
+                                  borderRadius: BorderRadius.circular(30.0),
                                 ),
                               ),
                               onPressed: () {
@@ -199,7 +211,10 @@ class _InitialPageState extends State<InitialPage> {
                               },
                               child: const Text(
                                 'AVANÇAR',
-                                style: TextStyle(color: Colors.white),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
