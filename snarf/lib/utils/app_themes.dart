@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppThemes {
   static final ThemeData lightTheme = ThemeData(
+    fontFamily: GoogleFonts.kanit().fontFamily,
     brightness: Brightness.light,
     appBarTheme: AppBarTheme(
       iconTheme: const IconThemeData(color: Colors.black),
@@ -27,6 +29,7 @@ class AppThemes {
   );
 
   static final ThemeData darkTheme = ThemeData(
+    fontFamily: GoogleFonts.kanit().fontFamily,
     brightness: Brightness.dark,
     appBarTheme: AppBarTheme(
       iconTheme: const IconThemeData(color: Colors.white),
