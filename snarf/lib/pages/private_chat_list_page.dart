@@ -108,54 +108,71 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chats Privados'),
-        actions: [
-          ThemeToggle(),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _recentChats.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Nenhuma conversa encontrada.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                )
-              : ListView.builder(
-                  itemCount: _recentChats.length,
-                  itemBuilder: (context, index) {
-                    final chat = _recentChats[index];
-                    return ListTile(
-                      title: Text(chat['UserName']),
-                      subtitle: Text(
+        appBar: AppBar(
+          title: const Text('Chats Privados'),
+          actions: [
+            ThemeToggle(),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _recentChats.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Nenhuma conversa encontrada.',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _recentChats.length,
+                    itemBuilder: (context, index) {
+                      final chat = _recentChats[index];
+                      return ListTile(
+                        title: Text(chat['UserName']),
+                        subtitle: Text(
                           chat['LastMessage'].toString().startsWith('https://')
                               ? 'Arquivo'
-                              : chat['LastMessage']),
-                      trailing: Text(
-                        DateJSONUtils.formatRelativeTime(
-                            chat['LastMessageDate']),
-                        style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                            fontStyle: FontStyle.italic),
-                      ),
-                      onTap: () {
-                        log('Abrindo chat com ${chat['UserName']}');
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => PrivateChatPage(
-                              userId: chat['UserId'],
-                              userName: chat['UserName'],
+                              : chat['LastMessage'],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              DateJSONUtils.formatRelativeTime(
+                                  chat['LastMessageDate']),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-    );
+                            if (chat['UnreadCount'] > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8.0),
+                                child: Icon(
+                                  Icons.mark_email_unread,
+                                  color: Colors.red,
+                                  size: 16,
+                                ),
+                              ),
+                          ],
+                        ),
+                        onTap: () async {
+                          log('Abrindo chat com ${chat['UserName']}');
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PrivateChatPage(
+                                userId: chat['UserId'],
+                                userName: chat['UserName'],
+                              ),
+                            ),
+                          );
+                          await _signalRService
+                              .invokeMethod("GetRecentChats", []);
+                        },
+                      );
+                    },
+                  ));
   }
 }

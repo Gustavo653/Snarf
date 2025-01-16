@@ -43,8 +43,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         },
       );
       log('Conexão estabelecida com sucesso');
-      await _signalRService
-          .invokeMethod("GetPreviousMessages", [widget.userId]);
+      await _signalRService.invokeMethod("GetPreviousMessages", [widget.userId]);
+      await _signalRService.invokeMethod('MarkMessagesAsRead', [widget.userId]);
     } catch (err) {
       log("Erro ao conectar: $err");
       showSnackbar(context, "Erro ao conectar ao chat: $err");

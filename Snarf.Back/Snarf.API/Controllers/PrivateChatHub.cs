@@ -46,7 +46,8 @@ namespace Snarf.API.Controllers
                     ReceiverId = m.Receiver.Id,
                     ReceiverName = m.Receiver.Name,
                     m.Message,
-                    m.CreatedAt
+                    m.CreatedAt,
+                    m.IsRead
                 })
                 .ToListAsync();
 
@@ -63,7 +64,8 @@ namespace Snarf.API.Controllers
                         ? group.FirstOrDefault()?.SenderName
                         : group.FirstOrDefault()?.ReceiverName,
                     LastMessage = group.OrderByDescending(m => m.CreatedAt).FirstOrDefault()?.Message,
-                    LastMessageDate = group.Max(m => m.CreatedAt)
+                    LastMessageDate = group.Max(m => m.CreatedAt),
+                    UnreadCount = group.Count(m => m.ReceiverId == userId && !m.IsRead)
                 })
                 .OrderByDescending(c => c.LastMessageDate)
                 .ToList();
@@ -73,6 +75,23 @@ namespace Snarf.API.Controllers
             Log.Information($"Usuário {userId} recebeu {recentChats.Count} conversas recentes.");
 
             await Clients.Caller.SendAsync("ReceiveRecentChats", messagesJson);
+        }
+
+        public async Task MarkMessagesAsRead(string senderUserId)
+        {
+            var receiverUserId = GetUserId();
+            var messages = await _chatMessageRepository.GetTrackedEntities()
+                .Where(m => m.Sender.Id == senderUserId && m.Receiver.Id == receiverUserId && !m.IsRead)
+                .ToListAsync();
+
+            Log.Information($"Usuário {receiverUserId} leu {messages.Count} de {senderUserId}");
+
+            foreach (var message in messages)
+            {
+                message.IsRead = true;
+            }
+
+            await _chatMessageRepository.SaveChangesAsync();
         }
 
         public async Task SendImage(string receiverUserId, string imageBase64, string fileName)
@@ -173,6 +192,7 @@ namespace Snarf.API.Controllers
                 Sender = sender,
                 Receiver = receiver,
                 Message = message,
+                IsRead = false
             };
 
             chatMessage.SetCreatedAt(dateTime);
