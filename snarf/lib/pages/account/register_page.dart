@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
 import 'package:snarf/services/api_service.dart';
-import 'home_page.dart';
+import '../home_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});

@@ -13,6 +13,12 @@ class AppThemes {
       bodyMedium: TextStyle(color: Colors.black),
       bodyLarge: TextStyle(color: Colors.black),
     ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Colors.white,
+      selectedItemColor: Colors.blue, // Cor do item selecionado
+      unselectedItemColor: Colors.grey, // Cor dos itens não selecionados
+      showUnselectedLabels: true,
+    ),
     buttonTheme: ButtonThemeData(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24.0),
@@ -38,6 +44,12 @@ class AppThemes {
       bodySmall: TextStyle(color: Colors.white),
       bodyMedium: TextStyle(color: Colors.white),
       bodyLarge: TextStyle(color: Colors.white),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Colors.black,
+      selectedItemColor: Colors.blue, // Cor do item selecionado
+      unselectedItemColor: Colors.grey, // Cor dos itens não selecionados
+      showUnselectedLabels: true,
     ),
     buttonTheme: ButtonThemeData(
       shape: RoundedRectangleBorder(

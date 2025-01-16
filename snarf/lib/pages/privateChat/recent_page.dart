@@ -2,21 +2,20 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:snarf/components/toggle_theme_component.dart';
+import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/services/signalr_service.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
-import 'private_chat_page.dart';
 
-class PrivateChatListPage extends StatefulWidget {
-  const PrivateChatListPage({super.key});
+class RecentPage extends StatefulWidget {
+  const RecentPage({super.key});
 
   @override
-  _PrivateChatListPageState createState() => _PrivateChatListPageState();
+  _RecentChatPageState createState() => _RecentChatPageState();
 }
 
-class _PrivateChatListPageState extends State<PrivateChatListPage> {
+class _RecentChatPageState extends State<RecentPage> {
   final SignalRService _signalRService = SignalRService();
   List<Map<String, dynamic>> _recentChats = [];
   final FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -108,12 +107,6 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text('Chats Privados'),
-          actions: [
-            ThemeToggle(),
-          ],
-        ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _recentChats.isEmpty
