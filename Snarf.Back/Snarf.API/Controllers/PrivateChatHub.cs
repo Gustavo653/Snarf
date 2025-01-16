@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Snarf.DataAccess;
 using Snarf.Domain.Entities;
 using Snarf.Infrastructure.Repository;
 using Snarf.Service;
@@ -10,7 +11,7 @@ using System.Text.Json;
 
 namespace Snarf.API.Controllers
 {
-    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IUserRepository _userRepository, MessagePersistenceService _messagePersistenceService) : Hub
+    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IUserRepository _userRepository, IFavoriteChatRepository _favoriteChatRepository, MessagePersistenceService _messagePersistenceService) : Hub
     {
         private static JsonSerializerOptions GetJsonSerializerOptions()
         {
@@ -172,6 +173,51 @@ namespace Snarf.API.Controllers
             //    var jobId = BackgroundJob.Enqueue(() => _messagePersistenceService.PersistMessageAsync(senderUserId, receiverUserId, message, DateTime.UtcNow));
             //    BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, message));
             //});
+        }
+
+        public async Task AddFavorite(string chatUserId)
+        {
+            var userId = GetUserId();
+
+            var user = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId);
+            var chatUser = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == chatUserId);
+
+            var favorite = new FavoriteChat
+            {
+                User = user!,
+                ChatUser = chatUser!,
+            };
+
+            await _favoriteChatRepository.InsertAsync(favorite);
+            await _favoriteChatRepository.SaveChangesAsync();
+
+            Log.Information($"Usuário {userId} favoritou o chat com {chatUserId}");
+        }
+
+        public async Task RemoveFavorite(string chatUserId)
+        {
+            var userId = GetUserId();
+            var favorite = await _favoriteChatRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(f => f.User.Id == userId && f.ChatUser.Id == chatUserId);
+
+            if (favorite != null)
+            {
+                _favoriteChatRepository.Delete(favorite);
+                await _favoriteChatRepository.SaveChangesAsync();
+                Log.Information($"Usuário {userId} removeu o favorito do chat com {chatUserId}");
+            }
+        }
+
+        public async Task GetFavorites()
+        {
+            var userId = GetUserId();
+            var favorites = await _favoriteChatRepository.GetEntities()
+                .Where(f => f.User.Id == userId)
+                .Select(f => new { f.ChatUser.Id })
+                .ToListAsync();
+
+            var favoriteIdsJson = JsonSerializer.Serialize(favorites.Select(f => f.Id));
+            await Clients.Caller.SendAsync("ReceiveFavorites", favoriteIdsJson);
         }
     }
 

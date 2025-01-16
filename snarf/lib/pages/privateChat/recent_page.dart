@@ -18,6 +18,7 @@ class RecentPage extends StatefulWidget {
 class _RecentChatPageState extends State<RecentPage> {
   final SignalRService _signalRService = SignalRService();
   List<Map<String, dynamic>> _recentChats = [];
+  Set<String> _favoriteChatIds = {};
   final FlutterSecureStorage _storage = FlutterSecureStorage();
   bool _isLoading = true;
 
@@ -43,15 +44,21 @@ class _RecentChatPageState extends State<RecentPage> {
       log('Iniciando conexão com o chat privado...');
       await _signalRService.setupConnection(
         hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
-        onMethods: ['ReceiveRecentChats', 'ReceivePrivateMessage'],
+        onMethods: [
+          'ReceiveRecentChats',
+          'ReceivePrivateMessage',
+          'ReceiveFavorites'
+        ],
         eventHandlers: {
           'ReceiveRecentChats': _handleRecentChats,
           'ReceivePrivateMessage': _receiveNewMessages,
+          'ReceiveFavorites': _handleFavorites,
         },
       );
 
-      log('Conexão estabelecida, buscando chats recentes...');
+      log('Conexão estabelecida, buscando dados...');
       await _signalRService.invokeMethod("GetRecentChats", []);
+      await _signalRService.invokeMethod("GetFavorites", []);
 
       setState(() {
         _isLoading = false;
@@ -92,9 +99,51 @@ class _RecentChatPageState extends State<RecentPage> {
     }
   }
 
+  void _handleFavorites(List<Object?>? data) {
+    if (data != null && data.isNotEmpty) {
+      final jsonString = data.first as String;
+      try {
+        log('Processando favoritos...');
+        final favoriteIds = jsonDecode(jsonString) as List<dynamic>;
+        setState(() {
+          _favoriteChatIds = favoriteIds.map((id) => id.toString()).toSet();
+        });
+        log('Favoritos carregados: ${_favoriteChatIds.length}');
+      } catch (e) {
+        log('Erro ao processar JSON de favoritos: $e');
+        showSnackbar(context, "Erro ao carregar favoritos: $e");
+      }
+    } else {
+      log("Nenhum favorito encontrado.");
+    }
+  }
+
   void _receiveNewMessages(List<Object?>? data) {
     log('Sincronizando novas mensagens...');
     _signalRService.invokeMethod("GetRecentChats", []);
+  }
+
+  Future<void> _toggleFavorite(String chatUserId) async {
+    try {
+      if (_favoriteChatIds.contains(chatUserId)) {
+        log('Removendo chat $chatUserId dos favoritos...');
+        await _signalRService.invokeMethod("RemoveFavorite", [chatUserId]);
+        setState(() {
+          _favoriteChatIds.remove(chatUserId);
+        });
+        showSnackbar(context, "Chat removido dos favoritos.");
+      } else {
+        log('Adicionando chat $chatUserId aos favoritos...');
+        await _signalRService.invokeMethod("AddFavorite", [chatUserId]);
+        setState(() {
+          _favoriteChatIds.add(chatUserId);
+        });
+        showSnackbar(context, "Chat adicionado aos favoritos.");
+      }
+    } catch (e) {
+      log('Erro ao alterar favorito: $e');
+      showSnackbar(context, "Erro ao alterar favorito.");
+    }
   }
 
   @override
@@ -120,6 +169,8 @@ class _RecentChatPageState extends State<RecentPage> {
                     itemCount: _recentChats.length,
                     itemBuilder: (context, index) {
                       final chat = _recentChats[index];
+                      final isFavorite =
+                          _favoriteChatIds.contains(chat['UserId']);
                       return ListTile(
                         title: Text(chat['UserName']),
                         subtitle: Text(
@@ -130,18 +181,25 @@ class _RecentChatPageState extends State<RecentPage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            IconButton(
+                              icon: Icon(
+                                isFavorite ? Icons.star : Icons.star_border,
+                                color: isFavorite ? Colors.yellow : Colors.grey,
+                              ),
+                              onPressed: () => _toggleFavorite(chat['UserId']),
+                            ),
                             Text(
                               DateJSONUtils.formatRelativeTime(
                                   chat['LastMessageDate']),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey,
                                 fontStyle: FontStyle.italic,
                               ),
                             ),
                             if (chat['UnreadCount'] > 0)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8.0),
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8.0),
                                 child: Icon(
                                   Icons.mark_email_unread,
                                   color: Colors.red,
