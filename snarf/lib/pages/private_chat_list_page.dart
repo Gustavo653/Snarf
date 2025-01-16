@@ -131,12 +131,15 @@ class _PrivateChatListPageState extends State<PrivateChatListPage> {
                       title: Text(chat['UserName']),
                       subtitle: Text(
                           chat['LastMessage'].toString().startsWith('https://')
-                              ? 'Imagem'
+                              ? 'Arquivo'
                               : chat['LastMessage']),
                       trailing: Text(
-                        DateJSONUtils.formatDate(chat['LastMessageDate']),
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey),
+                        DateJSONUtils.formatRelativeTime(
+                            chat['LastMessageDate']),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic),
                       ),
                       onTap: () {
                         log('Abrindo chat com ${chat['UserName']}');

@@ -498,7 +498,7 @@ class _InitialPageState extends State<InitialPage> {
                   ),
                   const SizedBox(height: 48),
                   FractionallySizedBox(
-                    widthFactor: 0.70,
+                    widthFactor: 0.50,
                     child: CustomElevatedButton(
                       text: 'Espiar Anonimamente',
                       isLoading: _isLoading,
@@ -515,7 +515,7 @@ class _InitialPageState extends State<InitialPage> {
                   ),
                   const SizedBox(height: 10),
                   FractionallySizedBox(
-                    widthFactor: 0.50,
+                    widthFactor: 0.30,
                     child: CustomElevatedButton(
                       text: 'Login',
                       isLoading: false,
