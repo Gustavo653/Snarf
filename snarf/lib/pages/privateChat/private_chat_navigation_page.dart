@@ -13,8 +13,9 @@ class PrivateChatNavigationPage extends StatefulWidget {
       _PrivateChatNavigationPageState();
 }
 
-class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage> {
-  int _currentIndex = 1;
+class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
   final List<Widget> _pages = [
     const RecentPage(),
@@ -31,40 +32,38 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _pages.length, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_currentIndex]),
+        title: Text(_titles[_tabController.index]),
         actions: [
           ThemeToggle(),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(icon: Icon(Icons.chat), text: 'Recentes'),
+            Tab(icon: Icon(Icons.star), text: 'Favoritos'),
+            Tab(icon: Icon(Icons.location_on), text: 'Localizações'),
+            Tab(icon: Icon(Icons.celebration), text: 'Festas'),
+          ],
+        ),
       ),
-      body: _pages[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: 'Recentes',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.star),
-            label: 'Favoritos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.location_on),
-            label: 'Localizações',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.celebration),
-            label: 'Festas',
-          ),
-        ],
+      body: TabBarView(
+        controller: _tabController,
+        children: _pages,
       ),
     );
   }
