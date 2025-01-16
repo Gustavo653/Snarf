@@ -130,6 +130,7 @@ namespace Snarf.API.Controllers
                             (m.Sender.Id == receiverUserId && m.Receiver.Id == userId))
                 .Select(x => new
                 {
+                    x.Id,
                     x.CreatedAt,
                     SenderId = x.Sender.Id,
                     ReceiverId = x.Receiver.Id,
@@ -219,6 +220,37 @@ namespace Snarf.API.Controllers
             var favoriteIdsJson = JsonSerializer.Serialize(favorites.Select(f => f.Id));
             await Clients.Caller.SendAsync("ReceiveFavorites", favoriteIdsJson);
         }
+
+        public async Task DeleteMessage(Guid messageId)
+        {
+            var userId = GetUserId();
+
+            var message = await _chatMessageRepository
+                .GetTrackedEntities()
+                .Include(x => x.Receiver)
+                .Include(x => x.Sender)
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null)
+            {
+                Log.Warning($"Mensagem {messageId} não encontrada para exclusão pelo usuário {userId}");
+                throw new Exception("Mensagem não encontrada");
+            }
+
+            if (message.Sender.Id != userId && message.Receiver.Id != userId)
+            {
+                Log.Warning($"Usuário {userId} tentou excluir mensagem {messageId} sem permissão");
+                throw new UnauthorizedAccessException("Você não tem permissão para excluir esta mensagem");
+            }
+
+            message.Message = "Mensagem excluída";
+
+            await _chatMessageRepository.SaveChangesAsync();
+            Log.Information($"Usuário {userId} excluiu a mensagem {messageId}");
+
+            await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", messageId);
+            await Clients.User(message.Receiver.Id).SendAsync("MessageDeleted", messageId);
+        }
     }
 
     public class MessagePersistenceService(IChatMessageRepository chatMessageRepository, IUserRepository userRepository, IHubContext<PrivateChatHub> hubContext)
@@ -245,11 +277,14 @@ namespace Snarf.API.Controllers
 
             await chatMessageRepository.InsertAsync(chatMessage);
             await chatMessageRepository.SaveChangesAsync();
+
+            await hubContext.Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", chatMessage.Id, senderUserId, sender.Name, message);
+            await hubContext.Clients.User(senderUserId).SendAsync("ReceivePrivateMessage", chatMessage.Id, senderUserId, sender.Name, message);
         }
 
         public async Task SendMessageAsync(string senderUserId, string senderUserName, string receiverUserId, string message)
         {
-            await hubContext.Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", senderUserId, senderUserName, message);
+            //await hubContext.Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", senderUserId, senderUserName, message);
         }
     }
 }
