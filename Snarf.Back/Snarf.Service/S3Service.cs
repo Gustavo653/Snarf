@@ -33,5 +33,24 @@ namespace Snarf.Service
             await _s3Client.PutObjectAsync(request);
             return $"{_s3Client.Config.ServiceURL.Replace("https://", $"https://{_bucketName}.")}{key}";
         }
+
+        public async Task DeleteFileAsync(string url)
+        {
+            var key = ExtractKeyFromUrl(url);
+            var request = new DeleteObjectRequest
+            {
+                BucketName = _bucketName,
+                Key = key
+            };
+
+            await _s3Client.DeleteObjectAsync(request);
+        }
+
+        private string ExtractKeyFromUrl(string url)
+        {
+            var uri = new Uri(url);
+            var path = uri.AbsolutePath;
+            return path.TrimStart('/');
+        }
     }
 }

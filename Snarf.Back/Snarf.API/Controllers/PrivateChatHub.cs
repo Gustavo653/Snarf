@@ -243,8 +243,10 @@ namespace Snarf.API.Controllers
                 throw new UnauthorizedAccessException("Você não tem permissão para excluir esta mensagem");
             }
 
-            message.Message = "Mensagem excluída";
+            var s3Service = new S3Service();
+            await s3Service.DeleteFileAsync(message.Message);
 
+            message.Message = "Mensagem excluída";
             await _chatMessageRepository.SaveChangesAsync();
             Log.Information($"Usuário {userId} excluiu a mensagem {messageId}");
 

@@ -85,19 +85,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _sendImage(String base64Image, String fileName) async {
-    final now = DateTime.now();
-    final tempImageMessage = {
-      "createdAt": now,
-      "message": "data:image/png;base64,$base64Image",
-      "isMine": true,
-    };
-
-    setState(() {
-      _messages.add(tempImageMessage);
-    });
-
-    _scrollToBottom();
-
     try {
       log("Enviando imagem: $fileName");
       await _signalRService.invokeMethod(
@@ -207,20 +194,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       builder: (context) {
         return Dialog(
           child: InteractiveViewer(
-            child: imageContent.startsWith("http")
-                ? Image.network(
-                    imageContent,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Text("Erro ao carregar imagem");
-                    },
-                  )
-                : Image.memory(
-                    base64Decode(
-                      imageContent.replaceAll("data:image/png;base64,", ""),
-                    ),
-                    fit: BoxFit.contain,
-                  ),
+            child: Image.network(
+              imageContent,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Text("Erro ao carregar imagem");
+              },
+            ),
           ),
         );
       },
@@ -323,12 +303,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                                   }
                                 : null,
                             child: isImage
-                                ? Image.memory(
-                                    base64Decode(content.replaceAll(
-                                        "data:image/png;base64,", "")),
-                                    width: 200,
-                                    height: 200,
-                                    fit: BoxFit.cover,
+                                ? Image.network(
+                                    content,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Text(
+                                          "Erro ao carregar imagem");
+                                    },
                                   )
                                 : Text(
                                     content,
