@@ -5,9 +5,9 @@ import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
-import 'package:snarf/pages/initial_page.dart';
-import 'package:snarf/pages/private_chat_list_page.dart';
-import 'package:snarf/pages/private_chat_page.dart';
+import 'package:snarf/pages/account/initial_page.dart';
+import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
+import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/services/signalr_service.dart';
@@ -276,7 +276,7 @@ class _HomePageState extends State<HomePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const PrivateChatListPage(),
+                builder: (context) => const PrivateChatNavigationPage(),
               ),
             );
           } else if (index == 1) {

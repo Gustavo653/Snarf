@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:snarf/pages/initial_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/app_themes.dart';
+import 'pages/account/initial_page.dart';
 import 'providers/theme_provider.dart';
 import 'services/api_service.dart';
 

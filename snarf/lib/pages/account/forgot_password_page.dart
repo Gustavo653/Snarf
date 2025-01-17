@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
-import 'package:snarf/pages/reset_password_page.dart';
+import 'package:snarf/pages/account/reset_password_page.dart';
 import 'package:snarf/services/api_service.dart';
 
 class ForgotPasswordPage extends StatefulWidget {

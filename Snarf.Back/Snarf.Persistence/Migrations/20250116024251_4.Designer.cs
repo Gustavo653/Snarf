@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snarf.Persistence;
@@ -11,9 +12,11 @@ using Snarf.Persistence;
 namespace Snarf.Persistence.Migrations
 {
     [DbContext(typeof(SnarfContext))]
-    partial class SnarfContextModelSnapshot : ModelSnapshot
+    [Migration("20250116024251_4")]
+    partial class _4
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -259,33 +262,6 @@ namespace Snarf.Persistence.Migrations
                     b.ToTable("ChatMessages");
                 });
 
-            modelBuilder.Entity("Snarf.Domain.Entities.FavoriteChat", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ChatUserId")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ChatUserId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("FavoriteChats");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -350,21 +326,6 @@ namespace Snarf.Persistence.Migrations
                     b.Navigation("Receiver");
 
                     b.Navigation("Sender");
-                });
-
-            modelBuilder.Entity("Snarf.Domain.Entities.FavoriteChat", b =>
-                {
-                    b.HasOne("Snarf.Domain.Base.User", "ChatUser")
-                        .WithMany()
-                        .HasForeignKey("ChatUserId");
-
-                    b.HasOne("Snarf.Domain.Base.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId");
-
-                    b.Navigation("ChatUser");
-
-                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }

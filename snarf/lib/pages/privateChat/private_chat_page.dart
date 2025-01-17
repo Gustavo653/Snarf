@@ -12,8 +12,11 @@ class PrivateChatPage extends StatefulWidget {
   final String userId;
   final String userName;
 
-  const PrivateChatPage(
-      {super.key, required this.userId, required this.userName});
+  const PrivateChatPage({
+    super.key,
+    required this.userId,
+    required this.userName,
+  });
 
   @override
   _PrivateChatPageState createState() => _PrivateChatPageState();
@@ -36,15 +39,21 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       log('Iniciando a conexão com o chat...');
       await _signalRService.setupConnection(
         hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
-        onMethods: ['ReceivePreviousMessages', 'ReceivePrivateMessage'],
+        onMethods: [
+          'ReceivePreviousMessages',
+          'ReceivePrivateMessage',
+          'MessageDeleted'
+        ],
         eventHandlers: {
           'ReceivePreviousMessages': _handleReceivedMessages,
           'ReceivePrivateMessage': _handleNewPrivateMessage,
+          'MessageDeleted': _handleMessageDeleted,
         },
       );
       log('Conexão estabelecida com sucesso');
       await _signalRService
           .invokeMethod("GetPreviousMessages", [widget.userId]);
+      await _signalRService.invokeMethod('MarkMessagesAsRead', [widget.userId]);
     } catch (err) {
       log("Erro ao conectar: $err");
       showSnackbar(context, "Erro ao conectar ao chat: $err");
@@ -76,19 +85,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _sendImage(String base64Image, String fileName) async {
-    final now = DateTime.now();
-    final tempImageMessage = {
-      "createdAt": now,
-      "message": "data:image/png;base64,$base64Image",
-      "isMine": true,
-    };
-
-    setState(() {
-      _messages.add(tempImageMessage);
-    });
-
-    _scrollToBottom();
-
     try {
       log("Enviando imagem: $fileName");
       await _signalRService.invokeMethod(
@@ -115,6 +111,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       setState(() {
         _messages = previousMessages.map((msg) {
           return {
+            "id": msg['Id'],
             "createdAt": DateTime.parse(msg['CreatedAt']),
             "message": msg['Message'],
             "isMine": msg['SenderId'] != widget.userId,
@@ -130,18 +127,40 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   void _handleNewPrivateMessage(List<Object?>? args) {
-    final message = args?[2] as String;
+    final message = args?[3] as String;
     log("Nova mensagem recebida: $message");
 
     setState(() {
       _messages.add({
+        "id": args?[0],
         "createdAt": DateTime.now(),
         "message": message,
-        "isMine": false,
+        "isMine": args?[1] != widget.userId,
       });
     });
 
     _scrollToBottom();
+  }
+
+  void _handleMessageDeleted(List<Object?>? args) {
+    final String messageId = args?[0] as String;
+    setState(() {
+      final messageIndex =
+          _messages.indexWhere((msg) => msg['id'] == messageId);
+      if (messageIndex != -1) {
+        _messages[messageIndex]['message'] = "Mensagem excluída";
+      }
+    });
+  }
+
+  Future<void> _deleteMessage(String messageId) async {
+    try {
+      log('Solicitando exclusão da mensagem $messageId');
+      await _signalRService.invokeMethod("DeleteMessage", [messageId]);
+    } catch (err) {
+      log("Erro ao excluir mensagem: $err");
+      showSnackbar(context, "Erro ao excluir mensagem: $err");
+    }
   }
 
   void _sendMessage() async {
@@ -152,16 +171,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         log('Enviando mensagem: $message');
         await _signalRService
             .invokeMethod("SendPrivateMessage", [widget.userId, message]);
-
-        setState(() {
-          _messages.add({
-            "createdAt": DateTime.now(),
-            "message": message,
-            "isMine": true,
-          });
-          _messageController.clear();
-        });
-
+        _messageController.clear();
         _scrollToBottom();
       } catch (err) {
         log("Erro ao enviar mensagem: $err");
@@ -184,20 +194,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       builder: (context) {
         return Dialog(
           child: InteractiveViewer(
-            child: imageContent.startsWith("http")
-                ? Image.network(
-                    imageContent,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Text("Erro ao carregar imagem");
-                    },
-                  )
-                : Image.memory(
-                    base64Decode(
-                      imageContent.replaceAll("data:image/png;base64,", ""),
-                    ),
-                    fit: BoxFit.contain,
-                  ),
+            child: Image.network(
+              imageContent,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Text("Erro ao carregar imagem");
+              },
+            ),
           ),
         );
       },
@@ -243,64 +246,86 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 return Align(
                   alignment:
                       isMine ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin:
-                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isMine ? myMessageColor : otherMessageColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft:
-                            isMine ? const Radius.circular(12) : Radius.zero,
-                        bottomRight:
-                            isMine ? Radius.zero : const Radius.circular(12),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        GestureDetector(
-                          onTap: isImage
-                              ? () {
-                                  _showImageDialog(content);
-                                }
-                              : null,
-                          child: isImage
-                              ? content.startsWith("http")
-                                  ? Image.network(
-                                      content,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return const Text(
-                                            "Erro ao carregar imagem");
-                                      },
-                                    )
-                                  : Image.memory(
-                                      base64Decode(
-                                        content.replaceAll(
-                                            "data:image/png;base64,", ""),
+                  child: GestureDetector(
+                    onLongPress: isMine
+                        ? () async {
+                            if (message['message'] != 'Mensagem excluída') {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    title: const Text("Excluir Mensagem"),
+                                    content: const Text(
+                                        "Deseja realmente excluir esta mensagem?"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text("Cancelar"),
                                       ),
-                                      fit: BoxFit.cover,
-                                    )
-                              : Text(
-                                  content,
-                                  style: const TextStyle(fontSize: 16),
-                                ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text("Excluir"),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
+                              if (confirm == true) {
+                                await _deleteMessage(message['id']);
+                              }
+                            }
+                          }
+                        : null,
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isMine ? myMessageColor : otherMessageColor,
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(12),
+                          topRight: const Radius.circular(12),
+                          bottomLeft:
+                              isMine ? const Radius.circular(12) : Radius.zero,
+                          bottomRight:
+                              isMine ? Radius.zero : const Radius.circular(12),
                         ),
-                        Align(
-                          alignment: Alignment.bottomRight,
-                          child: Text(
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          GestureDetector(
+                            onTap: isImage
+                                ? () {
+                                    _showImageDialog(content);
+                                  }
+                                : null,
+                            child: isImage
+                                ? Image.network(
+                                    content,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Text(
+                                          "Erro ao carregar imagem");
+                                    },
+                                  )
+                                : Text(
+                                    content,
+                                    style: const TextStyle(fontSize: 16),
+                                  ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
                             time,
                             style: const TextStyle(
-                              fontSize: 10,
+                              fontSize: 12,
                               color: Colors.black54,
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -308,40 +333,29 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(Icons.camera_alt_outlined),
+                  icon: const Icon(Icons.camera_alt),
                   onPressed: _takePhoto,
                 ),
                 IconButton(
-                  icon: Icon(Icons.photo),
+                  icon: const Icon(Icons.photo),
                   onPressed: _pickImage,
                 ),
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: const InputDecoration(
+                      hintText: "Digite sua mensagem...",
                     ),
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: const InputDecoration(
-                        hintText: "Digite uma mensagem",
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                      ),
-                    ),
+                    onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.send),
                   onPressed: _sendMessage,
-                  color: Colors.blue,
-                  iconSize: 30,
                 ),
               ],
             ),

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Snarf.DataAccess;
 using Snarf.Domain.Entities;
 using Snarf.Infrastructure.Repository;
 using Snarf.Service;
@@ -10,7 +11,7 @@ using System.Text.Json;
 
 namespace Snarf.API.Controllers
 {
-    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IUserRepository _userRepository, MessagePersistenceService _messagePersistenceService) : Hub
+    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IUserRepository _userRepository, IFavoriteChatRepository _favoriteChatRepository, MessagePersistenceService _messagePersistenceService) : Hub
     {
         private static JsonSerializerOptions GetJsonSerializerOptions()
         {
@@ -46,7 +47,8 @@ namespace Snarf.API.Controllers
                     ReceiverId = m.Receiver.Id,
                     ReceiverName = m.Receiver.Name,
                     m.Message,
-                    m.CreatedAt
+                    m.CreatedAt,
+                    m.IsRead
                 })
                 .ToListAsync();
 
@@ -63,7 +65,8 @@ namespace Snarf.API.Controllers
                         ? group.FirstOrDefault()?.SenderName
                         : group.FirstOrDefault()?.ReceiverName,
                     LastMessage = group.OrderByDescending(m => m.CreatedAt).FirstOrDefault()?.Message,
-                    LastMessageDate = group.Max(m => m.CreatedAt)
+                    LastMessageDate = group.Max(m => m.CreatedAt),
+                    UnreadCount = group.Count(m => m.ReceiverId == userId && !m.IsRead)
                 })
                 .OrderByDescending(c => c.LastMessageDate)
                 .ToList();
@@ -73,6 +76,23 @@ namespace Snarf.API.Controllers
             Log.Information($"Usuário {userId} recebeu {recentChats.Count} conversas recentes.");
 
             await Clients.Caller.SendAsync("ReceiveRecentChats", messagesJson);
+        }
+
+        public async Task MarkMessagesAsRead(string senderUserId)
+        {
+            var receiverUserId = GetUserId();
+            var messages = await _chatMessageRepository.GetTrackedEntities()
+                .Where(m => m.Sender.Id == senderUserId && m.Receiver.Id == receiverUserId && !m.IsRead)
+                .ToListAsync();
+
+            Log.Information($"Usuário {receiverUserId} leu {messages.Count} de {senderUserId}");
+
+            foreach (var message in messages)
+            {
+                message.IsRead = true;
+            }
+
+            await _chatMessageRepository.SaveChangesAsync();
         }
 
         public async Task SendImage(string receiverUserId, string imageBase64, string fileName)
@@ -110,6 +130,7 @@ namespace Snarf.API.Controllers
                             (m.Sender.Id == receiverUserId && m.Receiver.Id == userId))
                 .Select(x => new
                 {
+                    x.Id,
                     x.CreatedAt,
                     SenderId = x.Sender.Id,
                     ReceiverId = x.Receiver.Id,
@@ -154,6 +175,84 @@ namespace Snarf.API.Controllers
             //    BackgroundJob.ContinueJobWith(jobId, () => _messagePersistenceService.SendMessageAsync(senderUserId, senderUserName, receiverUserId, message));
             //});
         }
+
+        public async Task AddFavorite(string chatUserId)
+        {
+            var userId = GetUserId();
+
+            var user = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId);
+            var chatUser = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == chatUserId);
+
+            var favorite = new FavoriteChat
+            {
+                User = user!,
+                ChatUser = chatUser!,
+            };
+
+            await _favoriteChatRepository.InsertAsync(favorite);
+            await _favoriteChatRepository.SaveChangesAsync();
+
+            Log.Information($"Usuário {userId} favoritou o chat com {chatUserId}");
+        }
+
+        public async Task RemoveFavorite(string chatUserId)
+        {
+            var userId = GetUserId();
+            var favorite = await _favoriteChatRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(f => f.User.Id == userId && f.ChatUser.Id == chatUserId);
+
+            if (favorite != null)
+            {
+                _favoriteChatRepository.Delete(favorite);
+                await _favoriteChatRepository.SaveChangesAsync();
+                Log.Information($"Usuário {userId} removeu o favorito do chat com {chatUserId}");
+            }
+        }
+
+        public async Task GetFavorites()
+        {
+            var userId = GetUserId();
+            var favorites = await _favoriteChatRepository.GetEntities()
+                .Where(f => f.User.Id == userId)
+                .Select(f => new { f.ChatUser.Id })
+                .ToListAsync();
+
+            var favoriteIdsJson = JsonSerializer.Serialize(favorites.Select(f => f.Id));
+            await Clients.Caller.SendAsync("ReceiveFavorites", favoriteIdsJson);
+        }
+
+        public async Task DeleteMessage(Guid messageId)
+        {
+            var userId = GetUserId();
+
+            var message = await _chatMessageRepository
+                .GetTrackedEntities()
+                .Include(x => x.Receiver)
+                .Include(x => x.Sender)
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null)
+            {
+                Log.Warning($"Mensagem {messageId} não encontrada para exclusão pelo usuário {userId}");
+                throw new Exception("Mensagem não encontrada");
+            }
+
+            if (message.Sender.Id != userId && message.Receiver.Id != userId)
+            {
+                Log.Warning($"Usuário {userId} tentou excluir mensagem {messageId} sem permissão");
+                throw new UnauthorizedAccessException("Você não tem permissão para excluir esta mensagem");
+            }
+
+            var s3Service = new S3Service();
+            await s3Service.DeleteFileAsync(message.Message);
+
+            message.Message = "Mensagem excluída";
+            await _chatMessageRepository.SaveChangesAsync();
+            Log.Information($"Usuário {userId} excluiu a mensagem {messageId}");
+
+            await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", messageId);
+            await Clients.User(message.Receiver.Id).SendAsync("MessageDeleted", messageId);
+        }
     }
 
     public class MessagePersistenceService(IChatMessageRepository chatMessageRepository, IUserRepository userRepository, IHubContext<PrivateChatHub> hubContext)
@@ -173,17 +272,21 @@ namespace Snarf.API.Controllers
                 Sender = sender,
                 Receiver = receiver,
                 Message = message,
+                IsRead = false
             };
 
             chatMessage.SetCreatedAt(dateTime);
 
             await chatMessageRepository.InsertAsync(chatMessage);
             await chatMessageRepository.SaveChangesAsync();
+
+            await hubContext.Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", chatMessage.Id, senderUserId, sender.Name, message);
+            await hubContext.Clients.User(senderUserId).SendAsync("ReceivePrivateMessage", chatMessage.Id, senderUserId, sender.Name, message);
         }
 
         public async Task SendMessageAsync(string senderUserId, string senderUserName, string receiverUserId, string message)
         {
-            await hubContext.Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", senderUserId, senderUserName, message);
+            //await hubContext.Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", senderUserId, senderUserName, message);
         }
     }
 }

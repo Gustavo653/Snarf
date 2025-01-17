@@ -1,13 +1,12 @@
 import 'dart:ui';
-
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
-import 'package:snarf/pages/forgot_password_page.dart';
-import 'package:snarf/pages/register_page.dart';
+import 'package:snarf/pages/account/forgot_password_page.dart';
+import 'package:snarf/pages/account/register_page.dart';
+import 'package:snarf/pages/home_page.dart';
+import 'package:snarf/services/api_service.dart';
 import 'package:uuid/uuid.dart';
-import '../services/api_service.dart';
-import 'home_page.dart';
 
 class InitialPage extends StatefulWidget {
   const InitialPage({super.key});
@@ -498,7 +497,7 @@ class _InitialPageState extends State<InitialPage> {
                   ),
                   const SizedBox(height: 48),
                   FractionallySizedBox(
-                    widthFactor: 0.70,
+                    widthFactor: 0.50,
                     child: CustomElevatedButton(
                       text: 'Espiar Anonimamente',
                       isLoading: _isLoading,
@@ -515,7 +514,7 @@ class _InitialPageState extends State<InitialPage> {
                   ),
                   const SizedBox(height: 10),
                   FractionallySizedBox(
-                    widthFactor: 0.50,
+                    widthFactor: 0.30,
                     child: CustomElevatedButton(
                       text: 'Login',
                       isLoading: false,
