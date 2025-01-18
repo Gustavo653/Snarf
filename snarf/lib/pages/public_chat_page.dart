@@ -56,7 +56,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
         onMethods: ['ReceiveMessage'],
         eventHandlers: {
           'ReceiveMessage': (args) {
-            final date = DateTime.parse(args?[0] as String);
+            final date = DateTime.parse(args?[0] as String).add(Duration(hours: -3));
             final userId = args?[1] as String;
             final userName = args?[2] as String;
             final message = args?[3] as String;
