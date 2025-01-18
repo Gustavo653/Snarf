@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snarf.Persistence;
@@ -11,9 +12,11 @@ using Snarf.Persistence;
 namespace Snarf.Persistence.Migrations
 {
     [DbContext(typeof(SnarfContext))]
-    partial class SnarfContextModelSnapshot : ModelSnapshot
+    [Migration("20250118173754_6")]
+    partial class _6
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -300,7 +303,6 @@ namespace Snarf.Persistence.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("SenderId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -398,9 +400,7 @@ namespace Snarf.Persistence.Migrations
                 {
                     b.HasOne("Snarf.Domain.Base.User", "Sender")
                         .WithMany()
-                        .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("SenderId");
 
                     b.Navigation("Sender");
                 });

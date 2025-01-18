@@ -1,8 +1,6 @@
-﻿using Hangfire;
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using Snarf.DataAccess;
 using Snarf.Domain.Entities;
 using Snarf.Infrastructure.Repository;
 using Snarf.Service;
@@ -11,7 +9,7 @@ using System.Text.Json;
 
 namespace Snarf.API.Controllers
 {
-    public class PrivateChatHub(IChatMessageRepository _chatMessageRepository, IUserRepository _userRepository, IFavoriteChatRepository _favoriteChatRepository, MessagePersistenceService _messagePersistenceService) : Hub
+    public class PrivateChatHub(IPrivateChatMessageRepository _privateChatMessageRepository, IUserRepository _userRepository, IFavoriteChatRepository _favoriteChatRepository, MessagePersistenceService _messagePersistenceService) : Hub
     {
         private static JsonSerializerOptions GetJsonSerializerOptions()
         {
@@ -38,7 +36,7 @@ namespace Snarf.API.Controllers
 
             Log.Information($"Usuário {userId} solicitou a lista de conversas recentes.");
 
-            var messages = await _chatMessageRepository.GetEntities()
+            var messages = await _privateChatMessageRepository.GetEntities()
                 .Where(m => m.Sender.Id == userId || m.Receiver.Id == userId)
                 .Select(m => new
                 {
@@ -81,7 +79,7 @@ namespace Snarf.API.Controllers
         public async Task MarkMessagesAsRead(string senderUserId)
         {
             var receiverUserId = GetUserId();
-            var messages = await _chatMessageRepository.GetTrackedEntities()
+            var messages = await _privateChatMessageRepository.GetTrackedEntities()
                 .Where(m => m.Sender.Id == senderUserId && m.Receiver.Id == receiverUserId && !m.IsRead)
                 .ToListAsync();
 
@@ -92,7 +90,7 @@ namespace Snarf.API.Controllers
                 message.IsRead = true;
             }
 
-            await _chatMessageRepository.SaveChangesAsync();
+            await _privateChatMessageRepository.SaveChangesAsync();
         }
 
         public async Task SendImage(string receiverUserId, string imageBase64, string fileName)
@@ -123,7 +121,7 @@ namespace Snarf.API.Controllers
 
             Log.Information($"Usuário {userId} solicitou mensagens anteriores com o usuário {receiverUserId}");
 
-            var previousMessages = await _chatMessageRepository.GetEntities()
+            var previousMessages = await _privateChatMessageRepository.GetEntities()
                 .Include(m => m.Sender)
                 .Include(m => m.Receiver)
                 .Where(m => (m.Sender.Id == userId && m.Receiver.Id == receiverUserId) ||
@@ -136,8 +134,9 @@ namespace Snarf.API.Controllers
                     ReceiverId = x.Receiver.Id,
                     x.Message
                 })
-                .OrderBy(m => m.CreatedAt)
+                .OrderByDescending(m => m.CreatedAt)
                 .Take(1000)
+                .OrderBy(m => m.CreatedAt)
                 .ToListAsync();
 
             var messagesJson = JsonSerializer.Serialize(previousMessages, options: GetJsonSerializerOptions());
@@ -225,7 +224,7 @@ namespace Snarf.API.Controllers
         {
             var userId = GetUserId();
 
-            var message = await _chatMessageRepository
+            var message = await _privateChatMessageRepository
                 .GetTrackedEntities()
                 .Include(x => x.Receiver)
                 .Include(x => x.Sender)
@@ -247,7 +246,7 @@ namespace Snarf.API.Controllers
             await s3Service.DeleteFileAsync(message.Message);
 
             message.Message = "Mensagem excluída";
-            await _chatMessageRepository.SaveChangesAsync();
+            await _privateChatMessageRepository.SaveChangesAsync();
             Log.Information($"Usuário {userId} excluiu a mensagem {messageId}");
 
             await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", messageId);
@@ -255,7 +254,7 @@ namespace Snarf.API.Controllers
         }
     }
 
-    public class MessagePersistenceService(IChatMessageRepository chatMessageRepository, IUserRepository userRepository, IHubContext<PrivateChatHub> hubContext)
+    public class MessagePersistenceService(IPrivateChatMessageRepository chatMessageRepository, IUserRepository userRepository, IHubContext<PrivateChatHub> hubContext)
     {
         public async Task PersistMessageAsync(string senderUserId, string receiverUserId, string message, DateTime dateTime)
         {
@@ -267,7 +266,7 @@ namespace Snarf.API.Controllers
                 throw new Exception("Usuário não encontrado");
             }
 
-            var chatMessage = new ChatMessage
+            var chatMessage = new PrivateChatMessage
             {
                 Sender = sender,
                 Receiver = receiver,

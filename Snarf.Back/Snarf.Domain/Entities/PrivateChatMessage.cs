@@ -2,7 +2,7 @@
 
 namespace Snarf.Domain.Entities
 {
-    public class ChatMessage : BaseEntity
+    public class PrivateChatMessage : BaseEntity
     {
         public required User Sender { get; set; }
         public required User Receiver { get; set; }
