@@ -7,7 +7,8 @@ namespace Snarf.Persistence
 {
     public class SnarfContext(DbContextOptions<SnarfContext> options) : IdentityDbContext<User>(options)
     {
-        public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<PrivateChatMessage> PrivateChatMessages { get; set; }
+        public DbSet<PublicChatMessage> PublicChatMessages { get; set; }
         public DbSet<FavoriteChat> FavoriteChats { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

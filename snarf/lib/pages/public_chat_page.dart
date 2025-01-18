@@ -20,7 +20,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
   final SignalRService _signalRService = SignalRService();
   List<Map<String, dynamic>> _messages = [];
   final ScrollController _scrollController = ScrollController();
-  String? _userName;
+  String? _userId;
   bool _isLoading = true;
 
   final FlutterSecureStorage _storage = FlutterSecureStorage();
@@ -29,22 +29,22 @@ class _PublicChatPageState extends State<PublicChatPage> {
   void initState() {
     super.initState();
     _setupSignalRConnection();
-    _getUserName();
+    _getUserId();
   }
 
-  Future<void> _getUserName() async {
+  Future<void> _getUserId() async {
     final token = await _storage.read(key: 'token');
     if (token != null) {
-      final userName = getUserNameFromToken(token);
+      final userId = getUserIdFromToken(token);
       setState(() {
-        _userName = userName;
+        _userId = userId;
       });
     }
   }
 
-  String? getUserNameFromToken(String token) {
+  String? getUserIdFromToken(String token) {
     Map<String, dynamic> payload = Jwt.parseJwt(token);
-    return payload['name'];
+    return payload['nameid'];
   }
 
   Future<void> _setupSignalRConnection() async {
@@ -56,21 +56,28 @@ class _PublicChatPageState extends State<PublicChatPage> {
         onMethods: ['ReceiveMessage'],
         eventHandlers: {
           'ReceiveMessage': (args) {
-            final user = args?[0] as String;
-            final message = args?[1] as String;
+            final date = DateTime.parse(args?[0] as String);
+            final userId = args?[1] as String;
+            final userName = args?[2] as String;
+            final message = args?[3] as String;
             setState(() {
               _messages.add({
-                'senderName': user,
+                'senderName': userName,
                 'message': message,
-                'isMine': user == _userName,
-                'createdAt': DateTime.now(),
+                'isMine': userId == _userId,
+                'createdAt': date,
               });
+
+              log(_messages.toString(), name: "PublicChatPage");
             });
-            _scrollToBottom();
+            if (!_isLoading) {
+              _scrollToBottom();
+            }
           },
         },
       );
       log("SignalR connection established.", name: "PublicChatPage");
+      await _signalRService.invokeMethod("GetPreviousMessages", []);
     } catch (e) {
       log("Error setting up SignalR connection: $e",
           name: "PublicChatPage", level: 1000);
@@ -90,12 +97,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
       try {
         await _signalRService.invokeMethod("SendMessage", [message]);
         setState(() {
-          _messages.add({
-            'senderName': 'Eu',
-            'message': message,
-            'isMine': true,
-            'createdAt': DateTime.now(),
-          });
           _messageController.clear();
         });
         _scrollToBottom();
@@ -136,7 +137,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
       ),
       body: Column(
         children: [
-          // Show loading indicator if SignalR is setting up
           if (_isLoading)
             const Center(
               child: CircularProgressIndicator(),
@@ -179,7 +179,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 4),
                               child: Text(
-                                message['senderName'], // Display user name
+                                message['senderName'],
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,

@@ -241,7 +241,8 @@ namespace Snarf.API
         private static void InjectRepositoryDependencies(WebApplicationBuilder builder)
         {
             builder.Services.AddScoped<IUserRepository, UserRepository>();
-            builder.Services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
+            builder.Services.AddScoped<IPrivateChatMessageRepository, PrivateChatMessageRepository>();
+            builder.Services.AddScoped<IPublicChatMessageRepository, PublicChatMessageRepository>();
             builder.Services.AddScoped<IFavoriteChatRepository, FavoriteChatRepository>();
         }
 

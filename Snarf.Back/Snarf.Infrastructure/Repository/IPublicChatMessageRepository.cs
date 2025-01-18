@@ -4,7 +4,7 @@ using Snarf.Infrastructure.Base;
 
 namespace Snarf.Infrastructure.Repository
 {
-    public interface IChatMessageRepository : IBaseRepository<ChatMessage>
+    public interface IPublicChatMessageRepository : IBaseRepository<PublicChatMessage>
     {
     }
 }
