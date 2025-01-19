@@ -1,6 +1,6 @@
 import 'dart:ui';
-import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
 import 'package:snarf/pages/account/forgot_password_page.dart';
 import 'package:snarf/pages/account/register_page.dart';
@@ -16,6 +16,7 @@ class InitialPage extends StatefulWidget {
 }
 
 class _InitialPageState extends State<InitialPage> {
+  static const _secureStorage = FlutterSecureStorage();
   bool _isLoading = false;
   final _imagePaths = <String>[
     'assets/images/snarf-bg001.jpg',
@@ -299,13 +300,30 @@ class _InitialPageState extends State<InitialPage> {
   }
 
   void _showLoginModal(BuildContext context) {
-    final TextEditingController emailController =
-        TextEditingController(text: 'admin@admin.com');
-    final TextEditingController passwordController =
-        TextEditingController(text: 'Admin@123');
+    final TextEditingController emailController = TextEditingController();
+    final TextEditingController passwordController = TextEditingController();
     final ValueNotifier<bool> isPasswordVisible = ValueNotifier(false);
     bool isLoading = false;
     String? errorMessage;
+
+    _loadCredentials() async {
+      String? savedEmail = await _secureStorage.read(key: 'email');
+      String? savedPassword = await _secureStorage.read(key: 'password');
+
+      if (savedEmail != null) {
+        emailController.text = savedEmail;
+      }
+      if (savedPassword != null) {
+        passwordController.text = savedPassword;
+      }
+    }
+
+    _saveCredencials() async {
+      await _secureStorage.write(key: 'email', value: emailController.text);
+      await _secureStorage.write(key: 'password', value: passwordController.text);
+    }
+
+    _loadCredentials();
 
     showDialog(
       context: context,
@@ -335,7 +353,8 @@ class _InitialPageState extends State<InitialPage> {
                   final loginResponse = await ApiService.login(email, password);
 
                   if (loginResponse == null) {
-                    Navigator.pop(context); // Fecha o modal
+                    _saveCredencials();
+                    Navigator.pop(context);
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (context) => const HomePage()),
