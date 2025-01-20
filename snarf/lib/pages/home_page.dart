@@ -95,7 +95,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 10000);
+    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
 
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) {
@@ -103,7 +103,10 @@ class _HomePageState extends State<HomePage> {
         _currentLocation = newLocation;
         _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
       });
-      _sendLocationUpdate();
+      if (_currentLocation.longitude != null &&
+          _currentLocation.latitude != null) {
+        _sendLocationUpdate();
+      }
     });
   }
 
