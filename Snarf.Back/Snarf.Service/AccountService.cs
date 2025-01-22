@@ -1,4 +1,5 @@
 using Hangfire;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -8,6 +9,7 @@ using Snarf.DTO;
 using Snarf.DTO.Base;
 using Snarf.Infrastructure.Repository;
 using Snarf.Infrastructure.Service;
+using Snarf.Utils;
 
 namespace Snarf.Service
 {
@@ -15,7 +17,10 @@ namespace Snarf.Service
                                 SignInManager<User> signInManager,
                                 IEmailService emailService,
                                 IUserRepository userRepository,
-                                ITokenService tokenService) : IAccountService
+                                ITokenService tokenService,
+                                IPrivateChatMessageRepository privateChatMessageRepository,
+                                IPublicChatMessageRepository publicChatMessageRepository,
+                                S3Service s3Service) : IAccountService
     {
         private async Task<SignInResult> CheckUserPassword(User user, UserLoginDTO userLoginDTO)
         {
@@ -78,6 +83,22 @@ namespace Snarf.Service
             return responseDTO;
         }
 
+        public async Task<ResponseDTO> GetCurrent(Guid id)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                Log.Information("Obtendo o usuário atual: {email}", id);
+                responseDTO.Object = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id.ToString());
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
+
         public async Task<ResponseDTO> CreateUser(UserDTO userDTO)
         {
             ResponseDTO responseDTO = new();
@@ -96,8 +117,14 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
+                var imageBytes = Convert.FromBase64String(userDTO.Image);
+                var imageStream = new MemoryStream(imageBytes);
+                var s3Service = new S3Service();
+                var imageUrl = await s3Service.UploadFileAsync($"userImages/{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
+
                 var userEntity = new User
                 {
+                    ImageUrl = imageUrl,
                     Name = userDTO.Name,
                     Role = RoleName.Admin,
                     Email = userDTO.Email,
@@ -113,6 +140,96 @@ namespace Snarf.Service
                 Log.Information("Usuário persistido id: {id}", userEntity.Id);
 
                 responseDTO.Object = userDTO;
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> UpdateUser(Guid id, UserDTO userDTO)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id.ToString());
+                if (userEntity == null)
+                {
+                    responseDTO.SetBadInput($"Usuário não encotrado com este id: {id}!");
+                    return responseDTO;
+                }
+
+                var imageBytes = Convert.FromBase64String(userDTO.Image);
+                var imageStream = new MemoryStream(imageBytes);
+                var s3Service = new S3Service();
+                try
+                {
+                    await s3Service.DeleteFileAsync(userEntity.ImageUrl);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Erro ao deletar arquivo {media}", userEntity.ImageUrl);
+                }
+                var imageUrl = await s3Service.UploadFileAsync($"userImages/{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
+
+                userEntity.ImageUrl = imageUrl;
+                userEntity.Name = userDTO.Name;
+                if (userDTO.Password != null)
+                {
+                    userEntity.PasswordHash = userManager.PasswordHasher.HashPassword(userEntity, userDTO.Password);
+                    await userManager.UpdateSecurityStampAsync(userEntity);
+                }
+
+                await userRepository.SaveChangesAsync();
+                Log.Information("Usuário persistido id: {id}", userEntity.Id);
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> RemoveUser(Guid id)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id.ToString());
+                if (userEntity == null)
+                {
+                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {id}!");
+                    return responseDTO;
+                }
+
+                var publicMessages = await publicChatMessageRepository.GetTrackedEntities().Where(x => x.SenderId == id.ToString()).ToListAsync();
+                var privateMessages = await privateChatMessageRepository.GetTrackedEntities().Where(x => x.Sender.Id == id.ToString() || x.Receiver.Id == id.ToString()).ToListAsync();
+
+                var medias = privateMessages.Where(x => x.Message.StartsWith("http")).Select(x => x.Message).ToList();
+                medias.Add(userEntity.ImageUrl);
+                var tasks = medias.Select(async media =>
+                {
+                    try
+                    {
+                        await s3Service.DeleteFileAsync(media);
+                        Log.Information("Arquivo removido: {media}", media);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Erro ao deletar arquivo {media}", media);
+                    }
+                });
+                await Task.WhenAll(tasks);
+
+                publicChatMessageRepository.DeleteRange(publicMessages.ToArray());
+                privateChatMessageRepository.DeleteRange(privateMessages.ToArray());
+                userRepository.Delete(userEntity);
+
+                await userRepository.SaveChangesAsync();
+                Log.Information("Usuário removido id: {id}", userEntity.Id);
             }
             catch (Exception ex)
             {

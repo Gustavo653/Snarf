@@ -42,11 +42,13 @@ namespace Snarf.API.Controllers
                 {
                     SenderId = m.Sender.Id,
                     SenderName = m.Sender.Name,
+                    SenderImage = m.Sender.ImageUrl,
                     ReceiverId = m.Receiver.Id,
                     ReceiverName = m.Receiver.Name,
+                    ReceiverImage = m.Receiver.ImageUrl,
                     m.Message,
                     m.CreatedAt,
-                    m.IsRead
+                    m.IsRead,
                 })
                 .ToListAsync();
 
@@ -62,6 +64,9 @@ namespace Snarf.API.Controllers
                     UserName = group.FirstOrDefault()?.ReceiverId == userId
                         ? group.FirstOrDefault()?.SenderName
                         : group.FirstOrDefault()?.ReceiverName,
+                    UserImage = group.FirstOrDefault()?.ReceiverId == userId
+                        ? group.FirstOrDefault()?.SenderImage
+                        : group.FirstOrDefault()?.ReceiverImage,
                     LastMessage = group.OrderByDescending(m => m.CreatedAt).FirstOrDefault()?.Message,
                     LastMessageDate = group.Max(m => m.CreatedAt),
                     UnreadCount = group.Count(m => m.ReceiverId == userId && !m.IsRead)

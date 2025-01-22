@@ -216,6 +216,7 @@ class _RecentChatPageState extends State<RecentPage> {
                               builder: (context) => PrivateChatPage(
                                 userId: chat['UserId'],
                                 userName: chat['UserName'],
+                                userImage: chat['UserImage'],
                               ),
                             ),
                           );

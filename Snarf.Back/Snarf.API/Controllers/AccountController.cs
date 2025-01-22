@@ -2,6 +2,7 @@ using Snarf.DTO;
 using Snarf.Infrastructure.Service;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Snarf.API.Controllers
 {
@@ -12,6 +13,30 @@ namespace Snarf.API.Controllers
         public async Task<IActionResult> Login([FromBody] UserLoginDTO userLogin)
         {
             var user = await accountService.Login(userLogin);
+            return StatusCode(user.Code, user);
+        }
+
+        [HttpGet("Current")]
+        public async Task<IActionResult> GetUser([FromRoute] Guid id)
+        {
+            id = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var user = await accountService.GetCurrent(id);
+            return StatusCode(user.Code, user);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UserDTO userDTO)
+        {
+            id = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var user = await accountService.UpdateUser(id, userDTO);
+            return StatusCode(user.Code, user);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> RemoveUser([FromRoute] Guid id)
+        {
+            id = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var user = await accountService.RemoveUser(id);
             return StatusCode(user.Code, user);
         }
 

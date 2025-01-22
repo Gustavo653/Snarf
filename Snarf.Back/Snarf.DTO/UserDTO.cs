@@ -9,6 +9,8 @@ namespace Snarf.DTO
         public required string Email { get; set; }
         [Required]
         public required string Name { get; set; }
+        [Required]
+        public required string Image { get; set; }
         public string? Password { get; set; }
     }
 }

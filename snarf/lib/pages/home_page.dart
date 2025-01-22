@@ -5,11 +5,13 @@ import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
+import 'package:snarf/pages/account/edit_user.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
+import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_service.dart';
 import 'dart:developer';
 
@@ -32,6 +34,7 @@ class _HomePageState extends State<HomePage> {
   Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   late SignalRService _signalRService;
+  late String userImage = '';
 
   @override
   void initState() {
@@ -41,7 +44,17 @@ class _HomePageState extends State<HomePage> {
     _initializeApp();
   }
 
+  Future<void> _loadUserInfo() async {
+    final userInfo = await ApiService.getUserInfo();
+    if (userInfo != null) {
+      userImage = userInfo['imageUrl'];
+    } else {
+      showSnackbar(context, 'Erro ao carregar informações do usuário');
+    }
+  }
+
   Future<void> _initializeApp() async {
+    await _loadUserInfo();
     await _initializeLocation();
     await _setupSignalRConnection();
   }
@@ -86,10 +99,11 @@ class _HomePageState extends State<HomePage> {
   void _updateUserMarker(double latitude, double longitude) {
     _userLocationMarker = Marker(
       point: LatLng(latitude, longitude),
-      child: const Icon(
-        Icons.person_pin_circle_outlined,
-        color: Colors.red,
-        size: 40,
+      width: 50,
+      height: 50,
+      child: CircleAvatar(
+        backgroundImage: NetworkImage(userImage),
+        radius: 25,
       ),
     );
   }
@@ -128,7 +142,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _openPrivateChat(String userId, String userName) {
+  void _openPrivateChat(String userId, String userImage, String userName) {
     log('Abrindo chat privado com usuário $userId');
     Navigator.push(
       context,
@@ -136,6 +150,7 @@ class _HomePageState extends State<HomePage> {
         builder: (context) => PrivateChatPage(
           userId: userId,
           userName: userName,
+          userImage: userImage,
         ),
       ),
     );
@@ -147,20 +162,19 @@ class _HomePageState extends State<HomePage> {
       final latitude = args?[1] as double;
       final longitude = args?[2] as double;
       final userName = args?[3] as String;
-
+      final userImage = args?[4] as String;
       setState(() {
         _userMarkers[userId] = Marker(
           point: LatLng(latitude, longitude),
-          width: 30,
-          height: 30,
+          width: 50,
+          height: 50,
           child: GestureDetector(
             onTap: () {
-              _openPrivateChat(userId, userName);
+              _openPrivateChat(userId, userImage, userName);
             },
-            child: const Icon(
-              Icons.person_pin_circle_outlined,
-              color: Colors.blue,
-              size: 30,
+            child: CircleAvatar(
+              backgroundImage: NetworkImage(userImage),
+              radius: 25,
             ),
           ),
         );
@@ -289,11 +303,28 @@ class _HomePageState extends State<HomePage> {
                 builder: (context) => const PublicChatPage(),
               ),
             );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const EditUserPage(),
+              ),
+            ).whenComplete(_loadUserInfo);
           }
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Privado'),
-          BottomNavigationBarItem(icon: Icon(Icons.group), label: 'Público'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
+            label: 'Privado',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.group),
+            label: 'Público',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Meu Perfil',
+          ),
         ],
       ),
     );

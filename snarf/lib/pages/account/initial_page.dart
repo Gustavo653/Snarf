@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
 import 'package:snarf/pages/account/forgot_password_page.dart';
 import 'package:snarf/pages/account/register_page.dart';
@@ -19,6 +24,7 @@ class InitialPage extends StatefulWidget {
 class _InitialPageState extends State<InitialPage> {
   static const _secureStorage = FlutterSecureStorage();
   bool _isLoading = false;
+  final String _defaultImagePath = 'assets/images/user_anonymous.png';
   final _imagePaths = <String>[
     'assets/images/snarf-bg001.jpg',
     'assets/images/snarf-bg002.jpg',
@@ -112,62 +118,70 @@ class _InitialPageState extends State<InitialPage> {
                           ),
                         ),
                         const SizedBox(height: 20.0),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              Colors.white,
-                              Colors.pink.shade50,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(30.0),
-                        ),
-                        child: SizedBox(
-                          height: 100.0,
-                          child: ListWheelScrollView.useDelegate(
-                            controller: FixedExtentScrollController(
-                              initialItem: currentYear - birthYear,
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.white,
+                                Colors.pink.shade50,
+                              ],
                             ),
-                            itemExtent: 25.0,
-                            perspective: 0.003,
-                            physics: const FixedExtentScrollPhysics(),
-                            onSelectedItemChanged: (index) {
-                              setState(() {
-                                selectedYear = currentYear - index;
-                              });
-                            },
-                            childDelegate: ListWheelChildBuilderDelegate(
-                              builder: (context, index) {
-                                final year = currentYear - index;
-                                final isSelected = year == selectedYear;
-                                return Container(
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    border: isSelected
-                                        ? Border(
-                                      top: BorderSide(color: Colors.grey.shade300, width: 1.0),
-                                      bottom: BorderSide(color: Colors.grey.shade300, width: 1.0),
-                                    )
-                                        : null,
-                                  ),
-                                  child: Text(
-                                    year.toString(),
-                                    style: TextStyle(
-                                      fontSize: 18.0,
-                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                      color: isSelected ? Color(0xFF0b0951) : Colors.black,
-                                    ),
-                                  ),
-                                );
+                            borderRadius: BorderRadius.circular(30.0),
+                          ),
+                          child: SizedBox(
+                            height: 100.0,
+                            child: ListWheelScrollView.useDelegate(
+                              controller: FixedExtentScrollController(
+                                initialItem: currentYear - birthYear,
+                              ),
+                              itemExtent: 25.0,
+                              perspective: 0.003,
+                              physics: const FixedExtentScrollPhysics(),
+                              onSelectedItemChanged: (index) {
+                                setState(() {
+                                  selectedYear = currentYear - index;
+                                });
                               },
-                              childCount: currentYear - minYear + 1,
+                              childDelegate: ListWheelChildBuilderDelegate(
+                                builder: (context, index) {
+                                  final year = currentYear - index;
+                                  final isSelected = year == selectedYear;
+                                  return Container(
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      border: isSelected
+                                          ? Border(
+                                              top: BorderSide(
+                                                  color: Colors.grey.shade300,
+                                                  width: 1.0),
+                                              bottom: BorderSide(
+                                                  color: Colors.grey.shade300,
+                                                  width: 1.0),
+                                            )
+                                          : null,
+                                    ),
+                                    child: Text(
+                                      year.toString(),
+                                      style: TextStyle(
+                                        fontSize: 18.0,
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? Color(0xFF0b0951)
+                                            : Colors.black,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                childCount: currentYear - minYear + 1,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 20.0),
+                        const SizedBox(height: 20.0),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
@@ -232,6 +246,15 @@ class _InitialPageState extends State<InitialPage> {
     );
   }
 
+  Future<File> getAssetFile(String assetPath) async {
+    final byteData = await rootBundle.load(assetPath);
+    final tempDir = await getTemporaryDirectory();
+    final tempFilePath = '${tempDir.path}/user_anonymous.png';
+    final file = File(tempFilePath);
+    await file.writeAsBytes(byteData.buffer.asUint8List());
+    return file;
+  }
+
   Future<void> _createAnonymousAccount(BuildContext context) async {
     final birthYear = await _showAgeConfirmationDialog(context);
     if (birthYear == null) return;
@@ -245,9 +268,23 @@ class _InitialPageState extends State<InitialPage> {
     });
 
     try {
-      final errorMessage = await ApiService.register(email, name, 'Senha@123');
+      final pickedFile = await getAssetFile(_defaultImagePath);
+      String base64Image = '';
+      final compressedImage = await FlutterImageCompress.compressWithFile(
+        pickedFile.absolute.path,
+        quality: 50,
+      );
+
+      if (compressedImage != null) {
+        base64Image = base64Encode(compressedImage);
+      }
+
+      final errorMessage =
+          await ApiService.register(email, name, 'Senha@123', base64Image);
       if (errorMessage == null) {
         final loginResponse = await ApiService.login(email, 'Senha@123');
+        await _secureStorage.write(key: 'email', value: email);
+        await _secureStorage.write(key: 'password', value: 'Senha@123');
         if (loginResponse == null) {
           Navigator.pushReplacement(
             context,
@@ -321,7 +358,8 @@ class _InitialPageState extends State<InitialPage> {
 
     _saveCredencials() async {
       await _secureStorage.write(key: 'email', value: emailController.text);
-      await _secureStorage.write(key: 'password', value: passwordController.text);
+      await _secureStorage.write(
+          key: 'password', value: passwordController.text);
     }
 
     _loadCredentials();

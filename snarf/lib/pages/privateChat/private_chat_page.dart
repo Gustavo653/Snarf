@@ -11,11 +11,13 @@ import 'package:snarf/utils/show_snackbar.dart';
 class PrivateChatPage extends StatefulWidget {
   final String userId;
   final String userName;
+  final String userImage;
 
   const PrivateChatPage({
     super.key,
     required this.userId,
     required this.userName,
+    required this.userImage,
   });
 
   @override
