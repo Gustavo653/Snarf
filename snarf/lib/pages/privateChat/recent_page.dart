@@ -156,75 +156,114 @@ class _RecentChatPageState extends State<RecentPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _recentChats.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Nenhuma conversa encontrada.',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _recentChats.length,
-                    itemBuilder: (context, index) {
-                      final chat = _recentChats[index];
-                      final isFavorite =
-                          _favoriteChatIds.contains(chat['UserId']);
-                      return ListTile(
-                        title: Text(chat['UserName']),
-                        subtitle: Text(
-                          chat['LastMessage'].toString().startsWith('https://')
-                              ? 'Arquivo'
-                              : chat['LastMessage'],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _recentChats.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Nenhuma conversa encontrada.',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: _recentChats.length,
+                  separatorBuilder: (context, index) => const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Colors.grey,
+                  ),
+                  itemBuilder: (context, index) {
+                    final chat = _recentChats[index];
+                    final isFavorite =
+                        _favoriteChatIds.contains(chat['UserId']);
+
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: NetworkImage(chat['UserImage']),
+                        radius: 24,
+                      ),
+                      title: Text(
+                        chat['UserName'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                isFavorite ? Icons.star : Icons.star_border,
-                                color: isFavorite ? Colors.yellow : Colors.grey,
-                              ),
-                              onPressed: () => _toggleFavorite(chat['UserId']),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            chat['LastMessage']
+                                    .toString()
+                                    .startsWith('https://')
+                                ? 'Arquivo'
+                                : chat['LastMessage'],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            DateJSONUtils.formatRelativeTime(
+                                chat['LastMessageDate']),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
                             ),
-                            Text(
-                              DateJSONUtils.formatRelativeTime(
-                                  chat['LastMessageDate']),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                                fontStyle: FontStyle.italic,
-                              ),
+                          ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              isFavorite ? Icons.star : Icons.star_border,
+                              color: isFavorite ? Colors.yellow : Colors.grey,
                             ),
-                            if (chat['UnreadCount'] > 0)
-                              const Padding(
-                                padding: EdgeInsets.only(left: 8.0),
-                                child: Icon(
-                                  Icons.mark_email_unread,
+                            onPressed: () => _toggleFavorite(chat['UserId']),
+                          ),
+                          if (chat['UnreadCount'] > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8.0),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
                                   color: Colors.red,
-                                  size: 16,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${chat['UnreadCount']}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                          ],
-                        ),
-                        onTap: () async {
-                          log('Abrindo chat com ${chat['UserName']}');
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PrivateChatPage(
-                                userId: chat['UserId'],
-                                userName: chat['UserName'],
-                                userImage: chat['UserImage'],
-                              ),
                             ),
-                          );
-                          await _signalRService
-                              .invokeMethod("GetRecentChats", []);
-                        },
-                      );
-                    },
-                  ));
+                        ],
+                      ),
+                      onTap: () async {
+                        log('Abrindo chat com ${chat['UserName']}');
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PrivateChatPage(
+                              userId: chat['UserId'],
+                              userName: chat['UserName'],
+                              userImage: chat['UserImage'],
+                            ),
+                          ),
+                        );
+                        await _signalRService
+                            .invokeMethod("GetRecentChats", []);
+                      },
+                    );
+                  },
+                ),
+    );
   }
 }

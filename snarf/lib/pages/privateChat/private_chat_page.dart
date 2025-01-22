@@ -224,7 +224,21 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.userName),
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: NetworkImage(widget.userImage),
+              radius: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                widget.userName,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         actions: [
           ThemeToggle(),
         ],
