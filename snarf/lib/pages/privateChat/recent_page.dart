@@ -123,6 +123,49 @@ class _RecentChatPageState extends State<RecentPage> {
     _signalRService.invokeMethod("GetRecentChats", []);
   }
 
+  Future<void> _deleteChat(String chatUserId) async {
+    try {
+      bool confirmDelete = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: Text('Confirmar Exclusão'),
+                content: Text('Você tem certeza que deseja deletar este chat?'),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(false);
+                    },
+                    child: Text('Cancelar'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(true);
+                    },
+                    child: Text('Excluir'),
+                  ),
+                ],
+              );
+            },
+          ) ??
+          false;
+
+      if (confirmDelete) {
+        log('Deletando chat $chatUserId...');
+        await _signalRService.invokeMethod("DeleteChat", [chatUserId]);
+        setState(() {
+          _recentChats.removeWhere((chat) => chat['UserId'] == chatUserId);
+        });
+      } else {
+        log('Exclusão de chat cancelada.');
+      }
+    } catch (e) {
+      log('Erro ao deletar chat: $e');
+      showSnackbar(context, "Erro ao deletar chat.");
+    }
+  }
+
   Future<void> _toggleFavorite(String chatUserId) async {
     try {
       if (_favoriteChatIds.contains(chatUserId)) {
@@ -223,6 +266,13 @@ class _RecentChatPageState extends State<RecentPage> {
                               color: isFavorite ? Colors.yellow : Colors.grey,
                             ),
                             onPressed: () => _toggleFavorite(chat['UserId']),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_forever,
+                              color: Colors.red,
+                            ),
+                            onPressed: () => _deleteChat(chat['UserId']),
                           ),
                           if (chat['UnreadCount'] > 0)
                             Padding(
