@@ -42,11 +42,13 @@ namespace Snarf.API.Controllers
                 {
                     SenderId = m.Sender.Id,
                     SenderName = m.Sender.Name,
+                    SenderImage = m.Sender.ImageUrl,
                     ReceiverId = m.Receiver.Id,
                     ReceiverName = m.Receiver.Name,
+                    ReceiverImage = m.Receiver.ImageUrl,
                     m.Message,
                     m.CreatedAt,
-                    m.IsRead
+                    m.IsRead,
                 })
                 .ToListAsync();
 
@@ -62,6 +64,9 @@ namespace Snarf.API.Controllers
                     UserName = group.FirstOrDefault()?.ReceiverId == userId
                         ? group.FirstOrDefault()?.SenderName
                         : group.FirstOrDefault()?.ReceiverName,
+                    UserImage = group.FirstOrDefault()?.ReceiverId == userId
+                        ? group.FirstOrDefault()?.SenderImage
+                        : group.FirstOrDefault()?.ReceiverImage,
                     LastMessage = group.OrderByDescending(m => m.CreatedAt).FirstOrDefault()?.Message,
                     LastMessageDate = group.Max(m => m.CreatedAt),
                     UnreadCount = group.Count(m => m.ReceiverId == userId && !m.IsRead)
@@ -242,7 +247,7 @@ namespace Snarf.API.Controllers
                 throw new UnauthorizedAccessException("Você não tem permissão para excluir esta mensagem");
             }
 
-            if (message.Message.StartsWith("http"))
+            if (message.Message.StartsWith("https://"))
             {
                 var s3Service = new S3Service();
                 await s3Service.DeleteFileAsync(message.Message);
@@ -254,6 +259,33 @@ namespace Snarf.API.Controllers
 
             await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", messageId);
             await Clients.User(message.Receiver.Id).SendAsync("MessageDeleted", messageId);
+        }
+
+        public async Task DeleteChat(string receiverUserId)
+        {
+            var userId = GetUserId();
+            var messages = await _privateChatMessageRepository.GetTrackedEntities()
+                .Include(x => x.Sender)
+                .Include(x => x.Receiver)
+                .Where(m => (m.Sender.Id == userId && m.Receiver.Id == receiverUserId) ||
+                            (m.Sender.Id == receiverUserId && m.Receiver.Id == userId))
+                .ToListAsync();
+            foreach (var message in messages)
+            {
+                await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", message.Id);
+                await Clients.User(message.Receiver.Id).SendAsync("MessageDeleted", message.Id);
+                if (message.Message.StartsWith("https://"))
+                {
+                    var s3Service = new S3Service();
+                    await s3Service.DeleteFileAsync(message.Message);
+                }
+                else
+                {
+                    _privateChatMessageRepository.Delete(message);
+                }
+            }
+            await _privateChatMessageRepository.SaveChangesAsync();
+            Log.Information($"Usuário {userId} excluiu o chat com {receiverUserId}");
         }
     }
 

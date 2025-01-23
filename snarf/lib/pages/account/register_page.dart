@@ -1,4 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:snarf/components/custom_elevated_button.dart';
 import 'package:snarf/services/api_service.dart';
 import '../home_page.dart';
@@ -14,8 +20,18 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final String _defaultImagePath = 'assets/images/user_anonymous.png';
   bool _isLoading = false;
   String? _errorMessage;
+
+  Future<File> getAssetFile(String assetPath) async {
+    final byteData = await rootBundle.load(assetPath);
+    final tempDir = await getTemporaryDirectory();
+    final tempFilePath = '${tempDir.path}/user_anonymous.png';
+    final file = File(tempFilePath);
+    await file.writeAsBytes(byteData.buffer.asUint8List());
+    return file;
+  }
 
   Future<void> _register() async {
     final String email = _emailController.text.trim();
@@ -35,7 +51,18 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final createResponse = await ApiService.register(email, name, password);
+      final pickedFile = await getAssetFile(_defaultImagePath);
+      String base64Image = '';
+      final compressedImage = await FlutterImageCompress.compressWithFile(
+        pickedFile.absolute.path,
+        quality: 50,
+      );
+
+      if (compressedImage != null) {
+        base64Image = base64Encode(compressedImage);
+      }
+
+      final createResponse = await ApiService.register(email, name, password, base64Image);
 
       if (createResponse == null) {
         final loginResponse = await ApiService.login(email, password);

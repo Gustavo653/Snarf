@@ -11,11 +11,13 @@ import 'package:snarf/utils/show_snackbar.dart';
 class PrivateChatPage extends StatefulWidget {
   final String userId;
   final String userName;
+  final String userImage;
 
   const PrivateChatPage({
     super.key,
     required this.userId,
     required this.userName,
+    required this.userImage,
   });
 
   @override
@@ -222,7 +224,21 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.userName),
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: NetworkImage(widget.userImage),
+              radius: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                widget.userName,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         actions: [
           ThemeToggle(),
         ],

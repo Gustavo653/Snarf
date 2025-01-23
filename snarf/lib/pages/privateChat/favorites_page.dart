@@ -180,6 +180,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                             builder: (context) => PrivateChatPage(
                               userId: chat['UserId'],
                               userName: chat['UserName'],
+                              userImage: chat['UserImage'],
                             ),
                           ),
                         );

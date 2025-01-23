@@ -11,35 +11,33 @@ namespace Snarf.API.Controllers
     public class LocationHub(IUserRepository _userRepository) : Hub
     {
         private static readonly ConcurrentDictionary<string, (double latitude, double longitude)> _userLocations = new();
-        private static readonly ConcurrentDictionary<string, string> _userNamesCache = new(); // Cache de nomes
+        private static readonly ConcurrentDictionary<string, User> _users = new();
 
         public async Task UpdateLocation(double latitude, double longitude)
         {
             var userId = GetUserId();
 
-            if (!_userNamesCache.TryGetValue(userId, out var userName))
+            if (!_users.TryGetValue(userId, out var user))
             {
-                userName = await _userRepository.GetEntities()
+                user = await _userRepository.GetEntities()
                     .Where(x => x.Id == userId)
-                    .Select(x => x.Name)
                     .FirstOrDefaultAsync();
 
-                if (userName != null)
+                if (user != null)
                 {
-                    _userNamesCache[userId] = userName;
+                    _users[userId] = user;
                 }
                 else
                 {
-                    Log.Warning($"Nome de usuário não encontrado para {userId}");
-                    userName = "Desconhecido";
+                    throw new Exception($"Usuário não encontrado para {userId}");
                 }
             }
 
-            Log.Information($"Atualizando localização de {userId} ({userName}): ({latitude}, {longitude})");
+            Log.Information($"Atualizando localização de {userId} ({user.Name}): ({latitude}, {longitude})");
 
             _userLocations[userId] = (latitude, longitude);
 
-            await Clients.Others.SendAsync("ReceiveLocation", userId, latitude, longitude, userName);
+            await Clients.Others.SendAsync("ReceiveLocation", userId, latitude, longitude, user.Name, user.ImageUrl);
         }
 
         public override async Task OnConnectedAsync()
@@ -50,24 +48,23 @@ namespace Snarf.API.Controllers
 
             foreach (var userLocation in _userLocations)
             {
-                if (!_userNamesCache.TryGetValue(userLocation.Key, out var userName))
+                if (!_users.TryGetValue(userLocation.Key, out var user))
                 {
-                    userName = await _userRepository.GetEntities()
+                    user = await _userRepository.GetEntities()
                         .Where(x => x.Id == userLocation.Key)
-                        .Select(x => x.Name)
                         .FirstOrDefaultAsync();
 
-                    if (userName != null)
+                    if (user != null)
                     {
-                        _userNamesCache[userLocation.Key] = userName;
+                        _users[userLocation.Key] = user;
                     }
                     else
                     {
-                        userName = "Desconhecido";
+                        throw new Exception($"Usuário não encontrado para {userId}");
                     }
                 }
 
-                await Clients.Caller.SendAsync("ReceiveLocation", userLocation.Key, userLocation.Value.latitude, userLocation.Value.longitude, userName);
+                await Clients.Caller.SendAsync("ReceiveLocation", userLocation.Key, userLocation.Value.latitude, userLocation.Value.longitude, user.Name, user.ImageUrl);
             }
 
             await base.OnConnectedAsync();
@@ -87,7 +84,7 @@ namespace Snarf.API.Controllers
             }
 
             _userLocations.TryRemove(userId, out _);
-            _userNamesCache.TryRemove(userId, out _);
+            _users.TryRemove(userId, out _);
 
             await Clients.Others.SendAsync("UserDisconnected", userId);
 

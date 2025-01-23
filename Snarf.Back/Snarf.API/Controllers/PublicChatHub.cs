@@ -1,14 +1,18 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Snarf.Domain.Base;
 using Snarf.Domain.Entities;
 using Snarf.Infrastructure.Repository;
 using Snarf.Utils;
+using System.Collections.Concurrent;
 
 namespace Snarf.API.Controllers
 {
     public class PublicChatHub(IPublicChatMessageRepository _publicChatMessageRepository, IUserRepository _userRepository) : Hub
     {
+        private static readonly ConcurrentDictionary<string, User> _users = new();
+
         private string GetUserId()
         {
             return Context.User?.GetUserId() ?? throw new ArgumentNullException("O token não possui ID de usuário");
@@ -30,6 +34,7 @@ namespace Snarf.API.Controllers
                 {
                     SenderId = x.Sender.Id,
                     SenderName = x.Sender.Name,
+                    SenderImage = x.Sender.ImageUrl,
                     x.Message,
                     x.CreatedAt
                 })
@@ -37,7 +42,7 @@ namespace Snarf.API.Controllers
 
             foreach (var message in previousMessages)
             {
-                await Clients.Caller.SendAsync("ReceiveMessage", message.CreatedAt, message.SenderId, message.SenderName, message.Message);
+                await Clients.Caller.SendAsync("ReceiveMessage", message.CreatedAt, message.SenderId, message.SenderName, message.Message, message.SenderImage);
             }
         }
 
@@ -45,6 +50,22 @@ namespace Snarf.API.Controllers
         {
             var userId = GetUserId();
             Log.Information($"Mensagem recebida do usuário {userId}: {message}");
+
+            if (!_users.TryGetValue(userId, out var user))
+            {
+                user = await _userRepository.GetEntities()
+                    .Where(x => x.Id == userId)
+                    .FirstOrDefaultAsync();
+
+                if (user != null)
+                {
+                    _users[userId] = user;
+                }
+                else
+                {
+                    throw new Exception($"Usuário não encontrado para {userId}");
+                }
+            }
 
             var publicChatMessage = new PublicChatMessage
             {
@@ -55,7 +76,7 @@ namespace Snarf.API.Controllers
             await _publicChatMessageRepository.InsertAsync(publicChatMessage);
             await _publicChatMessageRepository.SaveChangesAsync();
 
-            await Clients.All.SendAsync("ReceiveMessage", DateTime.UtcNow, GetUserId(), GetUserName(), message);
+            await Clients.All.SendAsync("ReceiveMessage", DateTime.UtcNow, GetUserId(), GetUserName(), message, _users[userId].ImageUrl);
         }
 
         public override async Task OnConnectedAsync()

@@ -42,8 +42,7 @@ namespace Snarf.Service
             {
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new(ClaimTypes.Name, user.Name),
-                new(ClaimTypes.Email, user.Email ?? ""),
-                new(ClaimTypes.Role, user.Role.ToString())
+                new(ClaimTypes.Email, user.Email!)
             };
 
             var creds = new SigningCredentials(_key, SecurityAlgorithms.HmacSha512Signature);
@@ -51,7 +50,7 @@ namespace Snarf.Service
             var tokenDescription = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddYears(1),
+                Expires = DateTime.UtcNow.AddYears(10),
                 NotBefore = DateTime.UtcNow,
                 SigningCredentials = creds
             };

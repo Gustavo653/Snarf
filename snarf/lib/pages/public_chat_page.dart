@@ -56,14 +56,17 @@ class _PublicChatPageState extends State<PublicChatPage> {
         onMethods: ['ReceiveMessage'],
         eventHandlers: {
           'ReceiveMessage': (args) {
-            final date = DateTime.parse(args?[0] as String).add(Duration(hours: -3));
+            final date =
+                DateTime.parse(args?[0] as String).add(Duration(hours: -3));
             final userId = args?[1] as String;
             final userName = args?[2] as String;
             final message = args?[3] as String;
+            final senderImage = args?[4] as String;
             setState(() {
               _messages.add({
                 'senderName': userName,
                 'message': message,
+                'senderImage': senderImage,
                 'isMine': userId == _userId,
                 'createdAt': date,
               });
@@ -178,12 +181,25 @@ class _PublicChatPageState extends State<PublicChatPage> {
                           if (!isMine)
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Text(
-                                message['senderName'],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundImage:
+                                        NetworkImage(message['senderImage']),
+                                    radius: 16,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      message['senderName'],
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           Padding(
