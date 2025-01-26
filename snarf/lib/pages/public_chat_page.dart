@@ -366,6 +366,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                     itemBuilder: (context, index) {
                       final msg = sortedMessages[index];
                       final isMine = msg['isMine'] as bool;
+                      final senderName = msg['senderName'] as String;
                       final createdAt = msg['createdAt'] as DateTime;
                       final distance = msg['distance'] as double?;
                       final time = DateJSONUtils.formatMessageTime(createdAt);
@@ -382,9 +383,10 @@ class _PublicChatPageState extends State<PublicChatPage> {
                               vertical: 4,
                             ),
                             child: Text(
-                              time,
+                              '$time${!isMine ? ' • $senderName' : ''}',
                               style: const TextStyle(
                                 fontSize: 10,
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
                           ),

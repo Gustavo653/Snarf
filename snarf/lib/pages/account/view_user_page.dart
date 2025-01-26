@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 
@@ -69,28 +70,52 @@ class _ViewUserPageState extends State<ViewUserPage> {
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _buildUserImage(),
-                    const SizedBox(height: 20),
-                    Text(
-                      _userName ?? 'Nome não disponível',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                child: Center(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildUserImage(),
+                      const SizedBox(height: 20),
+                      Text(
+                        _userName ?? 'Nome não disponível',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _userEmail ?? 'E-mail não disponível',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
+                      const SizedBox(height: 10),
+                      Text(
+                        _userEmail ?? 'E-mail não disponível',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 30),
-                  ],
+                      const SizedBox(height: 30),
+                      ElevatedButton(
+                        onPressed: _userName != null && _userImageUrl != null
+                            ? () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PrivateChatPage(
+                                      userId: widget.userId,
+                                      userName: _userName!,
+                                      userImage: _userImageUrl!,
+                                    ),
+                                  ),
+                                );
+                              }
+                            : null,
+                        child: const Text(
+                          'Iniciar Chat',
+                          style: TextStyle(
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
