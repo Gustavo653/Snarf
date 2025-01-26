@@ -259,7 +259,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                       final isMine = msg['isMine'] as bool;
                       final senderName = msg['senderName'] as String;
                       final createdAt = msg['createdAt'] as DateTime;
-                      final distance = msg['distance'] as double?;
+                      final distance = msg['distance'] ?? 0.0;
                       final color = isMine ? myMessageColor : otherMessageColor;
 
                       return Column(
@@ -360,9 +360,11 @@ class _PublicChatPageState extends State<PublicChatPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  GestureDetector(
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    GestureDetector(
                       onTap: () {
                         if (senderId == null) return;
                         Navigator.push(
@@ -388,28 +390,35 @@ class _PublicChatPageState extends State<PublicChatPage> {
                             bottomRight: Radius.circular(30),
                           ),
                         ),
-                      )),
-                  const SizedBox(width: 8),
-                  Container(
-                    margin:
-                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: messageColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft: Radius.zero,
-                        bottomRight: const Radius.circular(12),
                       ),
                     ),
-                    child: Text(
-                      msgText,
-                      style: const TextStyle(fontSize: 14),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(
+                            vertical: 4, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: messageColor,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(12),
+                            topRight: const Radius.circular(12),
+                            bottomLeft: Radius.zero,
+                            bottomRight: const Radius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          msgText,
+                          style: const TextStyle(fontSize: 14),
+                          softWrap: true,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 3,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
