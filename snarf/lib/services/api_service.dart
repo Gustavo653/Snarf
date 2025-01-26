@@ -47,12 +47,8 @@ class ApiService {
     final headers = {
       'Content-Type': 'application/json',
     };
-    final body = jsonEncode({
-      'email': email,
-      'name': name,
-      'password': password,
-      'image': image
-    });
+    final body = jsonEncode(
+        {'email': email, 'name': name, 'password': password, 'image': image});
 
     try {
       final response = await http.post(url, headers: headers, body: body);
@@ -123,6 +119,62 @@ class ApiService {
       return payload['nameid'];
     }
     return null;
+  }
+
+  static Future<String?> blockUser(String blockedUserId) async {
+    final token = await ApiService.getToken();
+    if (token == null) return 'Token não encontrado';
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/Account/BlockUser?blockedUserId=$blockedUserId',
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        return responseData['message'] ?? 'Erro ao bloquear usuário';
+      }
+    } catch (e) {
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
+  static Future<String?> unblockUser(String blockedUserId) async {
+    final token = await ApiService.getToken();
+    if (token == null) return 'Token não encontrado';
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/Account/UnblockUser?blockedUserId=$blockedUserId',
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        return responseData['message'] ?? 'Erro ao desbloquear usuário';
+      }
+    } catch (e) {
+      return 'Erro ao conectar à API: $e';
+    }
   }
 
   static Future<Map<String, dynamic>?> getUserInfoById(String userId) async {

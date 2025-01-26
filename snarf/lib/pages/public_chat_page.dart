@@ -388,11 +388,20 @@ class _PublicChatPageState extends State<PublicChatPage> {
                   },
                 ),
               IconButton(
-                onPressed: () {},
-                icon: const Icon(
-                  Icons.block,
-                ),
-              )
+                icon: const Icon(Icons.block),
+                onPressed: () async {
+                  if (senderId == null) return;
+
+                  final response = await ApiService.blockUser(senderId);
+
+                  if (response == null) {
+                    showSnackbar(context, 'Usuário bloqueado com sucesso.');
+                  } else {
+                    showSnackbar(
+                        context, 'Erro ao bloquear usuário: $response');
+                  }
+                },
+              ),
             ],
           ),
       ],

@@ -19,11 +19,17 @@ class _EditUserPageState extends State<EditUserPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
   String? _userId;
   String? _userImageUrl;
+  int favoritedByCount = 0;
+  int blockedByCount = 0;
   bool _isLoading = true;
   File? _pickedFile;
   final String _defaultImagePath = 'assets/images/user_anonymous.png';
+
+  List<dynamic> _blockedUsers = [];
+  List<dynamic> _favoriteUsers = [];
 
   @override
   void initState() {
@@ -46,12 +52,17 @@ class _EditUserPageState extends State<EditUserPage> {
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
     final userInfo = await ApiService.getUserInfoById(userId!);
+
     if (userInfo != null) {
       setState(() {
         _nameController.text = userInfo['name'];
         _emailController.text = userInfo['email'];
         _userId = userInfo['id'];
         _userImageUrl = userInfo['imageUrl'];
+        _blockedUsers = userInfo['blockedUsers'] ?? [];
+        blockedByCount = userInfo['blockedBy'] ?? [];
+        _favoriteUsers = userInfo['favoriteChats'] ?? [];
+        favoritedByCount = userInfo['favoritedBy'] ?? [];
         _isLoading = false;
       });
     } else {
@@ -134,6 +145,17 @@ class _EditUserPageState extends State<EditUserPage> {
     }
   }
 
+  Future<void> _unblockUser(String blockedUserId) async {
+    final result = await ApiService.unblockUser(blockedUserId);
+    if (result == null) {
+      showSnackbar(context, 'Usuário desbloqueado com sucesso',
+          color: Colors.green);
+      _loadUserInfo();
+    } else {
+      showSnackbar(context, result);
+    }
+  }
+
   Widget _buildUserImage() {
     return Container(
       width: 120,
@@ -159,6 +181,41 @@ class _EditUserPageState extends State<EditUserPage> {
     );
   }
 
+  Widget _buildUserList(String title, List<dynamic> users, bool isBlockedList) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: users.length,
+          itemBuilder: (context, index) {
+            final user = users[index];
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundImage:
+                    NetworkImage(user['imageUrl'] ?? _defaultImagePath),
+              ),
+              title: Text(user['name'] ?? 'Usuário'),
+              trailing: isBlockedList
+                  ? IconButton(
+                      icon: const Icon(Icons.lock_open, color: Colors.green),
+                      onPressed: () => _unblockUser(user['id']),
+                    )
+                  : null,
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -174,7 +231,7 @@ class _EditUserPageState extends State<EditUserPage> {
               padding: const EdgeInsets.all(16.0),
               child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildUserImage(),
                     const SizedBox(height: 10),
@@ -220,41 +277,50 @@ class _EditUserPageState extends State<EditUserPage> {
                       obscureText: true,
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: _pickImage,
-                      icon: const Icon(
-                        Icons.photo_camera,
-                        color: Colors.white,
-                      ),
-                      label: const Text(
-                        'Upload Foto',
-                        style: TextStyle(color: Colors.white),
+                    Center(
+                      child: Column(
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _pickImage,
+                            icon: const Icon(
+                              Icons.photo_camera,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              'Upload Foto',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            onPressed: _saveChanges,
+                            icon: const Icon(
+                              Icons.save,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              'Salvar Alterações',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            onPressed: _deleteAccount,
+                            icon: const Icon(
+                              Icons.delete_forever,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              'Deletar Conta',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: _saveChanges,
-                      icon: const Icon(
-                        Icons.save,
-                        color: Colors.white,
-                      ),
-                      label: const Text(
-                        'Salvar Alterações',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      onPressed: _deleteAccount,
-                      icon: const Icon(
-                        Icons.delete_forever,
-                        color: Colors.white,
-                      ),
-                      label: const Text(
-                        'Deletar Conta',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    )
+                    _buildUserList('Usuários Bloqueados', _blockedUsers, true),
+                    _buildUserList('Usuários Favoritos', _favoriteUsers, false),
                   ],
                 ),
               ),
