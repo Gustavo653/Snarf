@@ -147,8 +147,8 @@ class _PublicChatPageState extends State<PublicChatPage> {
         onMethods: ['ReceiveMessage'],
         eventHandlers: {
           'ReceiveMessage': (args) {
-            final date = DateTime.parse(args?[0] as String)
-                .add(const Duration(hours: -3));
+            final dateUtc = DateTime.parse(args?[0] as String);
+            final dateLocal = dateUtc.toLocal();
             final userId = args?[1] as String;
             final userName = args?[2] as String;
             final messageText = args?[3] as String;
@@ -171,7 +171,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
             setState(() {
               _messages.add({
-                'createdAt': date,
+                'createdAt': dateLocal,
                 'senderName': userName,
                 'message': messageText,
                 'senderImage': senderImage,
