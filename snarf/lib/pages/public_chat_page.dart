@@ -1,125 +1,14 @@
 import 'dart:developer';
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
+import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_service.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
-
-class ChatMessageWidget extends StatelessWidget {
-  final Map<String, dynamic> message;
-  final bool isMine;
-  final Color? messageColor;
-  final double? distance;
-  final Function(String) onDelete;
-
-  const ChatMessageWidget({
-    super.key,
-    required this.message,
-    required this.isMine,
-    required this.messageColor,
-    required this.distance,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final msgText = message['message'] as String;
-    final msgId = message['id'] as String?;
-    final senderId = message['senderId'] as String?;
-
-    void _openViewUserPage() {
-      if (senderId == null) return;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ViewUserPage(userId: senderId),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment:
-          isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
-        if (!isMine && distance != null)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                '${distance!.toStringAsFixed(2)} km',
-                style: const TextStyle(fontSize: 12),
-              ),
-            ),
-          ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment:
-              isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            if (!isMine)
-              GestureDetector(
-                onTap: _openViewUserPage,
-                child: CircleAvatar(
-                  backgroundImage: NetworkImage(
-                    message['senderImage'] ?? '',
-                  ),
-                  radius: 20,
-                ),
-              ),
-            if (!isMine) const SizedBox(width: 8),
-            Flexible(
-              child: GestureDetector(
-                onTap: _openViewUserPage,
-                child: Container(
-                  margin:
-                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: messageColor,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(12),
-                      topRight: const Radius.circular(12),
-                      bottomLeft:
-                          isMine ? const Radius.circular(12) : Radius.zero,
-                      bottomRight:
-                          isMine ? Radius.zero : const Radius.circular(12),
-                    ),
-                  ),
-                  child: Expanded(
-                    child: Text(
-                      msgText,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (isMine && msgText != "Mensagem excluída")
-              IconButton(
-                icon: const Icon(
-                  Icons.delete,
-                  size: 18,
-                ),
-                onPressed: () {
-                  if (msgId != null) {
-                    onDelete(msgId);
-                  }
-                },
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
 
 class PublicChatPage extends StatefulWidget {
   const PublicChatPage({super.key});
@@ -205,6 +94,8 @@ class _PublicChatPageState extends State<PublicChatPage> {
                 'senderId': userId,
                 'isMine': userId == _userId,
                 'distance': distance,
+                'senderLat': senderLat,
+                'senderLng': senderLng,
               });
             });
 
@@ -240,6 +131,28 @@ class _PublicChatPageState extends State<PublicChatPage> {
       });
     }
   }
+
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371.0;
+    double dLat = _deg2rad(lat2 - lat1);
+    double dLon = _deg2rad(lon2 - lon1);
+
+    double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_deg2rad(lat1)) *
+            math.cos(_deg2rad(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    double distance = R * c;
+    return distance;
+  }
+
+  double _deg2rad(double deg) => deg * (math.pi / 180);
 
   void _deleteMessage(String messageId) async {
     try {
@@ -278,28 +191,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
       }
     });
   }
-
-  double _calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    const R = 6371.0;
-    double dLat = _deg2rad(lat2 - lat1);
-    double dLon = _deg2rad(lon2 - lon1);
-
-    double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_deg2rad(lat1)) *
-            math.cos(_deg2rad(lat2)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    double distance = R * c;
-    return distance;
-  }
-
-  double _deg2rad(double deg) => deg * (math.pi / 180);
 
   @override
   void dispose() {
@@ -369,7 +260,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
                       final senderName = msg['senderName'] as String;
                       final createdAt = msg['createdAt'] as DateTime;
                       final distance = msg['distance'] as double?;
-                      final time = DateJSONUtils.formatMessageTime(createdAt);
                       final color = isMine ? myMessageColor : otherMessageColor;
 
                       return Column(
@@ -383,7 +273,8 @@ class _PublicChatPageState extends State<PublicChatPage> {
                               vertical: 4,
                             ),
                             child: Text(
-                              '$time${!isMine ? ' • $senderName' : ''}',
+                              '${DateJSONUtils.formatMessageTime(createdAt)}'
+                              '${!isMine ? ' • $senderName' : ''}',
                               style: const TextStyle(
                                 fontSize: 10,
                                 fontStyle: FontStyle.italic,
@@ -394,14 +285,11 @@ class _PublicChatPageState extends State<PublicChatPage> {
                             alignment: isMine
                                 ? Alignment.centerRight
                                 : Alignment.centerLeft,
-                            child: ChatMessageWidget(
+                            child: _buildMessageWidget(
                               message: msg,
                               isMine: isMine,
                               messageColor: color,
                               distance: distance,
-                              onDelete: (messageId) {
-                                _deleteMessage(messageId);
-                              },
                             ),
                           ),
                         ],
@@ -412,6 +300,89 @@ class _PublicChatPageState extends State<PublicChatPage> {
                 _buildMessageInput(),
               ],
             ),
+    );
+  }
+
+  Widget _buildMessageWidget({
+    required Map<String, dynamic> message,
+    required bool isMine,
+    required Color? messageColor,
+    required double? distance,
+  }) {
+    final msgText = message['message'] as String;
+    final msgId = message['id'] as String?;
+    final senderId = message['senderId'] as String?;
+    final senderLat = message['senderLat'] as double?;
+    final senderLng = message['senderLng'] as double?;
+    final senderImage = message['senderImage'] as String? ?? '';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment:
+          isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: [
+        if (!isMine)
+          GestureDetector(
+            onTap: () {
+              if (senderId == null) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ViewUserPage(userId: senderId),
+                ),
+              );
+            },
+            child: CircleAvatar(
+              backgroundImage: NetworkImage(senderImage),
+              radius: 20,
+            ),
+          ),
+        if (!isMine) const SizedBox(width: 8),
+        Flexible(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: messageColor,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(12),
+                topRight: const Radius.circular(12),
+                bottomLeft: isMine ? const Radius.circular(12) : Radius.zero,
+                bottomRight: isMine ? Radius.zero : const Radius.circular(12),
+              ),
+            ),
+            child: Text(
+              msgText,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ),
+        if (isMine && msgText != "Mensagem excluída")
+          IconButton(
+            icon: const Icon(Icons.delete, size: 18),
+            onPressed: () {
+              if (msgId != null) {
+                _deleteMessage(msgId);
+              }
+            },
+          ),
+        if (!isMine && senderLat != null && senderLng != null)
+          IconButton(
+            icon: const Icon(Icons.location_on),
+            onPressed: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomePage(
+                    initialLatitude: senderLat,
+                    initialLongitude: senderLng,
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 

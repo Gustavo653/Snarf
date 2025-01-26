@@ -19,7 +19,14 @@ import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final double? initialLatitude;
+  final double? initialLongitude;
+
+  const HomePage({
+    super.key,
+    this.initialLatitude,
+    this.initialLongitude,
+  });
 
   @override
   _HomePageState createState() => _HomePageState();
