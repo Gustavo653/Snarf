@@ -392,13 +392,39 @@ class _PublicChatPageState extends State<PublicChatPage> {
                 onPressed: () async {
                   if (senderId == null) return;
 
-                  final response = await ApiService.blockUser(senderId);
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Confirmar Bloqueio'),
+                        content: const Text(
+                            'Tem certeza de que deseja bloquear este usuário?'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(false);
+                            },
+                            child: const Text('Cancelar'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(true);
+                            },
+                            child: const Text('Bloquear'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
 
-                  if (response == null) {
-                    showSnackbar(context, 'Usuário bloqueado com sucesso.');
-                  } else {
-                    showSnackbar(
-                        context, 'Erro ao bloquear usuário: $response');
+                  if (confirm == true) {
+                    final response = await ApiService.blockUser(senderId);
+                    if (response == null) {
+                      showSnackbar(context, 'Usuário bloqueado com sucesso.');
+                    } else {
+                      showSnackbar(
+                          context, 'Erro ao bloquear usuário: $response');
+                    }
                   }
                 },
               ),

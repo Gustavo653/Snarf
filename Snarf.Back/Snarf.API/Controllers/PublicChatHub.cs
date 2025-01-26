@@ -9,9 +9,9 @@ using System.Collections.Concurrent;
 
 namespace Snarf.API.Controllers
 {
-    public class PublicChatHub(IPublicChatMessageRepository _publicChatMessageRepository, IUserRepository _userRepository) : Hub
+    public class PublicChatHub(IPublicChatMessageRepository _publicChatMessageRepository, IUserRepository _userRepository, IBlockedUserRepository _blockedUserRepository) : Hub
     {
-        private static readonly ConcurrentDictionary<string, User> _users = new();
+        private static ConcurrentDictionary<string, List<string>> _userConnections = new();
 
         private string GetUserId()
         {
@@ -25,8 +25,10 @@ namespace Snarf.API.Controllers
 
         public async Task GetPreviousMessages()
         {
+            var userId = GetUserId();
             var previousMessages = await _publicChatMessageRepository
                 .GetEntities()
+                .Where(x => !x.Sender.BlockedBy.Select(x => x.Blocker.Id).Contains(userId))
                 .OrderByDescending(m => m.CreatedAt)
                 .Take(1000)
                 .OrderBy(m => m.CreatedAt)
@@ -54,21 +56,7 @@ namespace Snarf.API.Controllers
             var userId = GetUserId();
             Log.Information($"Mensagem recebida do usuário {userId}: {text}");
 
-            if (!_users.TryGetValue(userId, out var user))
-            {
-                user = await _userRepository.GetEntities()
-                    .Where(x => x.Id == userId)
-                    .FirstOrDefaultAsync();
-
-                if (user != null)
-                {
-                    _users[userId] = user;
-                }
-                else
-                {
-                    throw new Exception($"Usuário não encontrado para {userId}");
-                }
-            }
+            var user = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId);
 
             var message = new PublicChatMessage
             {
@@ -79,7 +67,32 @@ namespace Snarf.API.Controllers
             await _publicChatMessageRepository.InsertAsync(message);
             await _publicChatMessageRepository.SaveChangesAsync();
 
-            await Clients.All.SendAsync("ReceiveMessage", message.Id, DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), GetUserId(), GetUserName(), text, _users[userId].ImageUrl, _users[userId].LastLatitude, _users[userId].LastLongitude);
+            var blockedByUsers = await _blockedUserRepository
+                .GetEntities()
+                .Where(b => b.Blocked.Id == userId)
+                .Select(b => b.Blocker.Id)
+                .ToListAsync();
+
+            var blockedConnectionIds = new List<string>();
+
+            foreach (var blockedUserId in blockedByUsers)
+            {
+                if (_userConnections.TryGetValue(blockedUserId, out var connections))
+                {
+                    blockedConnectionIds.AddRange(connections);
+                }
+            }
+
+            await Clients.AllExcept(blockedConnectionIds)
+                         .SendAsync("ReceiveMessage",
+                                    message.Id,
+                                    DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                                    GetUserId(),
+                                    GetUserName(),
+                                    text,
+                                    user.ImageUrl,
+                                    user.LastLatitude,
+                                    user.LastLongitude);
         }
 
         public async Task DeleteMessage(Guid messageId)
@@ -112,6 +125,15 @@ namespace Snarf.API.Controllers
             var userId = GetUserId();
             Log.Information($"Usuário {userId} conectado ao chat público");
 
+            if (_userConnections.TryGetValue(userId, out var connections))
+            {
+                connections.Add(Context.ConnectionId);
+            }
+            else
+            {
+                _userConnections[userId] = new List<string> { Context.ConnectionId };
+            }
+
             await base.OnConnectedAsync();
         }
 
@@ -119,6 +141,15 @@ namespace Snarf.API.Controllers
         {
             var userId = GetUserId();
             Log.Information($"Usuário {userId} desconectado do chat público");
+
+            if (_userConnections.TryGetValue(userId, out var connections))
+            {
+                connections.Remove(Context.ConnectionId);
+                if (!connections.Any())
+                {
+                    _userConnections.TryRemove(userId, out _);
+                }
+            }
 
             await base.OnDisconnectedAsync(exception);
         }

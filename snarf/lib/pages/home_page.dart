@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
+import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
@@ -173,15 +174,12 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _openPrivateChat(String userId, String userImage, String userName) {
-    log('Abrindo chat privado com usuário $userId');
+  void _openProfile(String userId) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PrivateChatPage(
+        builder: (context) => ViewUserPage(
           userId: userId,
-          userName: userName,
-          userImage: userImage,
         ),
       ),
     );
@@ -201,7 +199,7 @@ class _HomePageState extends State<HomePage> {
           height: 50,
           child: GestureDetector(
             onTap: () {
-              _openPrivateChat(userId, userImage, userName);
+              _openProfile(userId);
             },
             child: Container(
               decoration: BoxDecoration(

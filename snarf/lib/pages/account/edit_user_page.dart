@@ -60,9 +60,9 @@ class _EditUserPageState extends State<EditUserPage> {
         _userId = userInfo['id'];
         _userImageUrl = userInfo['imageUrl'];
         _blockedUsers = userInfo['blockedUsers'] ?? [];
-        blockedByCount = userInfo['blockedBy'] ?? [];
+        blockedByCount = userInfo['blockedBy'] ?? 0;
         _favoriteUsers = userInfo['favoriteChats'] ?? [];
-        favoritedByCount = userInfo['favoritedBy'] ?? [];
+        favoritedByCount = userInfo['favoritedBy'] ?? 0;
         _isLoading = false;
       });
     } else {
@@ -146,13 +146,40 @@ class _EditUserPageState extends State<EditUserPage> {
   }
 
   Future<void> _unblockUser(String blockedUserId) async {
-    final result = await ApiService.unblockUser(blockedUserId);
-    if (result == null) {
-      showSnackbar(context, 'Usuário desbloqueado com sucesso',
-          color: Colors.green);
-      _loadUserInfo();
-    } else {
-      showSnackbar(context, result);
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar Desbloqueio'),
+          content:
+              const Text('Tem certeza de que deseja desbloquear este usuário?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Desbloquear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      final result = await ApiService.unblockUser(blockedUserId);
+      if (result == null) {
+        showSnackbar(context, 'Usuário desbloqueado com sucesso',
+            color: Colors.green);
+        _loadUserInfo();
+      } else {
+        showSnackbar(context, result);
+      }
     }
   }
 
@@ -216,6 +243,83 @@ class _EditUserPageState extends State<EditUserPage> {
     );
   }
 
+  Widget _buildCounters() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        Column(
+          children: [
+            const Text('Favoritado por'),
+            Text(
+              '$favoritedByCount',
+              style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green),
+            ),
+          ],
+        ),
+        Column(
+          children: [
+            const Text('Bloqueado por'),
+            Text(
+              '$blockedByCount',
+              style: const TextStyle(
+                  fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        ElevatedButton.icon(
+          onPressed: _pickImage,
+          icon: const Icon(
+            Icons.photo_camera,
+            color: Colors.white,
+          ),
+          label: const Text(
+            'Upload',
+            style: TextStyle(
+              color: Colors.white,
+            ),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: _saveChanges,
+          icon: const Icon(
+            Icons.save,
+            color: Colors.white,
+          ),
+          label: const Text(
+            'Salvar',
+            style: TextStyle(
+              color: Colors.white,
+            ),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: _deleteAccount,
+          icon: const Icon(
+            Icons.delete_forever,
+            color: Colors.white,
+          ),
+          label: const Text(
+            'Excluir',
+            style: TextStyle(
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -231,7 +335,6 @@ class _EditUserPageState extends State<EditUserPage> {
               padding: const EdgeInsets.all(16.0),
               child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildUserImage(),
                     const SizedBox(height: 10),
@@ -244,6 +347,8 @@ class _EditUserPageState extends State<EditUserPage> {
                           style: TextStyle(color: Colors.red),
                         ),
                       ),
+                    const SizedBox(height: 20),
+                    _buildCounters(),
                     const SizedBox(height: 20),
                     TextField(
                       controller: _emailController,
@@ -277,48 +382,8 @@ class _EditUserPageState extends State<EditUserPage> {
                       obscureText: true,
                     ),
                     const SizedBox(height: 20),
-                    Center(
-                      child: Column(
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: _pickImage,
-                            icon: const Icon(
-                              Icons.photo_camera,
-                              color: Colors.white,
-                            ),
-                            label: const Text(
-                              'Upload Foto',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton.icon(
-                            onPressed: _saveChanges,
-                            icon: const Icon(
-                              Icons.save,
-                              color: Colors.white,
-                            ),
-                            label: const Text(
-                              'Salvar Alterações',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton.icon(
-                            onPressed: _deleteAccount,
-                            icon: const Icon(
-                              Icons.delete_forever,
-                              color: Colors.white,
-                            ),
-                            label: const Text(
-                              'Deletar Conta',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          const SizedBox(height: 30),
-                        ],
-                      ),
-                    ),
+                    _buildActionButtons(),
+                    const SizedBox(height: 30),
                     _buildUserList('Usuários Bloqueados', _blockedUsers, true),
                     _buildUserList('Usuários Favoritos', _favoriteUsers, false),
                   ],

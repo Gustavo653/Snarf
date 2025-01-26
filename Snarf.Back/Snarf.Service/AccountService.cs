@@ -102,7 +102,7 @@ namespace Snarf.Service
                                                              x.LastLatitude,
                                                              x.LastLongitude,
                                                              x.ImageUrl,
-                                                             BlockedUsers = showSensitiveInfo ? x.BlockedUsers.Select(x => new { x.Blocked.Name, x.Blocked.ImageUrl }) : null,
+                                                             BlockedUsers = showSensitiveInfo ? x.BlockedUsers.Select(x => new { x.Blocked.Id, x.Blocked.Name, x.Blocked.ImageUrl }) : null,
                                                              BlockedBy = showSensitiveInfo ? x.BlockedBy.Count : 0,
                                                              FavoriteChats = showSensitiveInfo ? x.FavoriteChats.Select(x => new { x.ChatUser.Name, x.ChatUser.ImageUrl }) : null,
                                                              FavoritedBy = showSensitiveInfo ? x.FavoritedBy.Count : 0,
