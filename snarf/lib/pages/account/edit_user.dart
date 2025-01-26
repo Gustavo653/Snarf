@@ -134,18 +134,28 @@ class _EditUserPageState extends State<EditUserPage> {
   }
 
   Widget _buildUserImage() {
-    if (_userImageUrl != null) {
-      return Image.network(_userImageUrl!);
-    } else {
-      if (_pickedFile != null) {
-        if (_pickedFile?.path == _defaultImagePath) {
-          return Image.asset(_pickedFile?.path ?? _defaultImagePath);
-        } else {
-          return Image.file(_pickedFile!);
-        }
-      }
-    }
-    return Text('Sem imagem');
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.grey.shade300, width: 2),
+        image: _userImageUrl != null
+            ? DecorationImage(
+                image: NetworkImage(_userImageUrl!),
+                fit: BoxFit.cover,
+              )
+            : _pickedFile != null
+                ? DecorationImage(
+                    image: FileImage(_pickedFile!),
+                    fit: BoxFit.cover,
+                  )
+                : const DecorationImage(
+                    image: AssetImage('assets/images/user_anonymous.png'),
+                    fit: BoxFit.cover,
+                  ),
+      ),
+    );
   }
 
   @override
@@ -163,47 +173,87 @@ class _EditUserPageState extends State<EditUserPage> {
               padding: const EdgeInsets.all(16.0),
               child: SingleChildScrollView(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    TextField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(labelText: 'E-mail'),
-                      enabled: false,
-                    ),
-                    TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Nome'),
-                    ),
-                    TextField(
-                      controller: _passwordController,
-                      decoration:
-                          const InputDecoration(labelText: 'Senha (opcional)'),
-                      obscureText: true,
-                    ),
-                    const SizedBox(height: 20),
                     _buildUserImage(),
                     const SizedBox(height: 10),
                     if (_pickedFile != null || _userImageUrl != null)
-                      TextButton(
+                      TextButton.icon(
                         onPressed: _deleteImage,
-                        child: const Text('Remover Foto'),
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        label: const Text(
+                          'Remover Foto',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
                     const SizedBox(height: 20),
-                    ElevatedButton(
+                    TextField(
+                      controller: _emailController,
+                      decoration: InputDecoration(
+                        labelText: 'E-mail',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      enabled: false,
+                    ),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nome',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    TextField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Senha (opcional)',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
                       onPressed: _pickImage,
-                      child: const Text('Upload Foto'),
+                      icon: const Icon(
+                        Icons.photo_camera,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Upload Foto',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton(
+                    ElevatedButton.icon(
                       onPressed: _saveChanges,
-                      child: const Text('Salvar Alterações'),
+                      icon: const Icon(
+                        Icons.save,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Salvar Alterações',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton(
+                    ElevatedButton.icon(
                       onPressed: _deleteAccount,
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent.shade200),
-                      child: Text('Deletar Conta'),
-                    ),
+                      icon: const Icon(
+                        Icons.delete_forever,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Deletar Conta',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    )
                   ],
                 ),
               ),
