@@ -1,12 +1,110 @@
 import 'dart:developer';
+
 import 'package:flutter/material.dart';
-import 'package:snarf/services/signalr_service.dart';
-import 'package:snarf/components/toggle_theme_component.dart';
-import 'package:snarf/utils/api_constants.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decode/jwt_decode.dart';
+import 'package:snarf/components/toggle_theme_component.dart';
+import 'package:snarf/services/signalr_service.dart';
+import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
+
+class ChatMessageWidget extends StatelessWidget {
+  final Map<String, dynamic> message;
+  final bool isMine;
+  final Color? messageColor;
+  final String time;
+
+  const ChatMessageWidget({
+    super.key,
+    required this.message,
+    required this.isMine,
+    required this.messageColor,
+    required this.time,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: messageColor,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(12),
+            topRight: const Radius.circular(12),
+            bottomLeft: isMine ? const Radius.circular(12) : Radius.zero,
+            bottomRight: isMine ? Radius.zero : const Radius.circular(12),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!isMine)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundImage: NetworkImage(message['senderImage']),
+                      radius: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        message['senderName'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 18),
+              child: Align(
+                alignment:
+                    isMine ? Alignment.centerRight : Alignment.centerLeft,
+                child: Text(
+                  message['message'],
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Text(
+                time,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.black54,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AuthService {
+  final FlutterSecureStorage _storage = FlutterSecureStorage();
+
+  Future<String?> getUserIdFromToken() async {
+    final token = await _storage.read(key: 'token');
+    if (token != null) {
+      Map<String, dynamic> payload = Jwt.parseJwt(token);
+      return payload['nameid'];
+    }
+    return null;
+  }
+}
 
 class PublicChatPage extends StatefulWidget {
   const PublicChatPage({super.key});
@@ -17,34 +115,26 @@ class PublicChatPage extends StatefulWidget {
 
 class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
-  final SignalRService _signalRService = SignalRService();
-  List<Map<String, dynamic>> _messages = [];
   final ScrollController _scrollController = ScrollController();
+  final SignalRService _signalRService = SignalRService();
+  final AuthService _authService = AuthService();
+
+  List<Map<String, dynamic>> _messages = [];
   String? _userId;
   bool _isLoading = true;
-
-  final FlutterSecureStorage _storage = FlutterSecureStorage();
 
   @override
   void initState() {
     super.initState();
     _setupSignalRConnection();
-    _getUserId();
+    _loadUserId();
   }
 
-  Future<void> _getUserId() async {
-    final token = await _storage.read(key: 'token');
-    if (token != null) {
-      final userId = getUserIdFromToken(token);
-      setState(() {
-        _userId = userId;
-      });
-    }
-  }
-
-  String? getUserIdFromToken(String token) {
-    Map<String, dynamic> payload = Jwt.parseJwt(token);
-    return payload['nameid'];
+  Future<void> _loadUserId() async {
+    final userId = await _authService.getUserIdFromToken();
+    setState(() {
+      _userId = userId;
+    });
   }
 
   Future<void> _setupSignalRConnection() async {
@@ -56,8 +146,8 @@ class _PublicChatPageState extends State<PublicChatPage> {
         onMethods: ['ReceiveMessage'],
         eventHandlers: {
           'ReceiveMessage': (args) {
-            final date =
-                DateTime.parse(args?[0] as String).add(Duration(hours: -3));
+            final date = DateTime.parse(args?[0] as String)
+                .add(const Duration(hours: -3));
             final userId = args?[1] as String;
             final userName = args?[2] as String;
             final message = args?[3] as String;
@@ -70,15 +160,12 @@ class _PublicChatPageState extends State<PublicChatPage> {
                 'isMine': userId == _userId,
                 'createdAt': date,
               });
-
-              log(_messages.toString(), name: "PublicChatPage");
             });
-            if (!_isLoading) {
-              _scrollToBottom();
-            }
+            if (!_isLoading) _scrollToBottom();
           },
         },
       );
+
       log("SignalR connection established.", name: "PublicChatPage");
       await _signalRService.invokeMethod("GetPreviousMessages", []);
     } catch (e) {
@@ -95,8 +182,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
   void _sendMessage() async {
     final message = _messageController.text;
     if (message.isNotEmpty) {
-      log("Sending message: $message", name: "PublicChatPage");
-
       try {
         await _signalRService.invokeMethod("SendMessage", [message]);
         setState(() {
@@ -138,128 +223,61 @@ class _PublicChatPageState extends State<PublicChatPage> {
           ThemeToggle(),
         ],
       ),
-      body: Column(
-        children: [
-          if (_isLoading)
-            const Center(
+      body: _isLoading
+          ? Center(
               child: CircularProgressIndicator(),
             )
-          else
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final message = _messages[index];
-                  final isMine = message['isMine'] as bool;
-                  final time =
-                      DateJSONUtils.formatMessageTime(message['createdAt']);
-                  final messageColor =
-                      isMine ? myMessageColor : otherMessageColor;
-
-                  return Align(
-                    alignment:
-                        isMine ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                          vertical: 4, horizontal: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: messageColor,
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(12),
-                          topRight: const Radius.circular(12),
-                          bottomLeft:
-                              isMine ? const Radius.circular(12) : Radius.zero,
-                          bottomRight:
-                              isMine ? Radius.zero : const Radius.circular(12),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!isMine)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundImage:
-                                        NetworkImage(message['senderImage']),
-                                    radius: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      message['senderName'],
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 0, horizontal: 18),
-                            child: Align(
-                              alignment: isMine
-                                  ? Alignment.centerRight
-                                  : Alignment.centerLeft,
-                              child: Text(
-                                message['message'],
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                          ),
-                          Align(
-                            alignment: Alignment.bottomRight,
-                            child: Text(
-                              time,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
+          : Column(
               children: [
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: const InputDecoration(
-                        hintText: "Digite uma mensagem",
-                        border: InputBorder.none,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                    ),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isMine = message['isMine'] as bool;
+                      final time = DateJSONUtils.formatMessageTime(
+                        message['createdAt'],
+                      );
+                      final messageColor =
+                          isMine ? myMessageColor : otherMessageColor;
+
+                      return ChatMessageWidget(
+                        message: message,
+                        isMine: isMine,
+                        messageColor: messageColor,
+                        time: time,
+                      );
+                    },
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                  color: Colors.blue,
-                  iconSize: 30,
-                ),
+                _buildMessageInput(),
               ],
             ),
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              decoration: const InputDecoration(
+                hintText: "Digite uma mensagem",
+                border: InputBorder.none,
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.send),
+            onPressed: _sendMessage,
+            color: Colors.blue,
+            iconSize: 30,
           ),
         ],
       ),

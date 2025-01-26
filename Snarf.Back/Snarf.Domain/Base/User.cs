@@ -7,6 +7,9 @@ namespace Snarf.Domain.Base
     {
         public required string Name { get; set; }
         public required string ImageUrl { get; set; }
+        public DateTime? LastActivity { get; set; }
+        public double? LastLatitude { get; set; }
+        public double? LastLongitude { get; set; }
         public required RoleName Role { get; set; }
     }
 }

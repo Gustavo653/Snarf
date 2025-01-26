@@ -126,7 +126,7 @@ namespace Snarf.Service
                 {
                     ImageUrl = imageUrl,
                     Name = userDTO.Name,
-                    Role = RoleName.Admin,
+                    Role = RoleName.User,
                     Email = userDTO.Email,
                     NormalizedEmail = userDTO.Email.ToUpper(),
                     NormalizedUserName = userDTO.Email.ToUpper()

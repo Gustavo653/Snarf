@@ -101,9 +101,18 @@ class _HomePageState extends State<HomePage> {
       point: LatLng(latitude, longitude),
       width: 50,
       height: 50,
-      child: CircleAvatar(
-        backgroundImage: NetworkImage(userImage),
-        radius: 25,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.red,
+            width: 3.0,
+          ),
+        ),
+        child: CircleAvatar(
+          backgroundImage: NetworkImage(userImage),
+          radius: 25,
+        ),
       ),
     );
   }
@@ -172,9 +181,18 @@ class _HomePageState extends State<HomePage> {
             onTap: () {
               _openPrivateChat(userId, userImage, userName);
             },
-            child: CircleAvatar(
-              backgroundImage: NetworkImage(userImage),
-              radius: 25,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.blue,
+                  width: 3.0,
+                ),
+              ),
+              child: CircleAvatar(
+                backgroundImage: NetworkImage(userImage),
+                radius: 25,
+              ),
             ),
           ),
         );
