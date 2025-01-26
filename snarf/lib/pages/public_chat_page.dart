@@ -15,6 +15,7 @@ class ChatMessageWidget extends StatelessWidget {
   final bool isMine;
   final Color? messageColor;
   final double? distance;
+  final Function(String) onDelete;
 
   const ChatMessageWidget({
     super.key,
@@ -22,10 +23,14 @@ class ChatMessageWidget extends StatelessWidget {
     required this.isMine,
     required this.messageColor,
     required this.distance,
+    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    final msgText = message['message'] as String;
+    final msgId = message['id'] as String?;
+
     return Column(
       crossAxisAlignment:
           isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -48,7 +53,9 @@ class ChatMessageWidget extends StatelessWidget {
           children: [
             if (!isMine)
               CircleAvatar(
-                backgroundImage: NetworkImage(message['senderImage']),
+                backgroundImage: NetworkImage(
+                  message['senderImage'] ?? '',
+                ),
                 radius: 20,
               ),
             if (!isMine) const SizedBox(width: 8),
@@ -68,12 +75,27 @@ class ChatMessageWidget extends StatelessWidget {
                         isMine ? Radius.zero : const Radius.circular(12),
                   ),
                 ),
-                child: Text(
-                  message['message'],
-                  style: const TextStyle(fontSize: 14),
+                child: Expanded(
+                  child: Text(
+                    msgText,
+                    style: const TextStyle(fontSize: 14),
+                  ),
                 ),
               ),
             ),
+            if (isMine && msgText != "Mensagem excluída")
+              IconButton(
+                icon: const Icon(
+                  Icons.delete,
+                  color: Colors.red,
+                  size: 18,
+                ),
+                onPressed: () {
+                  if (msgId != null) {
+                    onDelete(msgId);
+                  }
+                },
+              ),
           ],
         ),
       ],
@@ -144,17 +166,18 @@ class _PublicChatPageState extends State<PublicChatPage> {
       await _initLocation();
       await _signalRService.setupConnection(
         hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PublicChatHub',
-        onMethods: ['ReceiveMessage'],
+        onMethods: ['ReceiveMessage', 'ReceiveMessageDeleted'],
         eventHandlers: {
           'ReceiveMessage': (args) {
-            final dateUtc = DateTime.parse(args?[0] as String);
+            final messageId = args?[0] as String;
+            final dateUtc = DateTime.parse(args?[1] as String);
             final dateLocal = dateUtc.toLocal();
-            final userId = args?[1] as String;
-            final userName = args?[2] as String;
-            final messageText = args?[3] as String;
-            final senderImage = args?[4] as String;
-            final senderLat = args?[5] as double?;
-            final senderLng = args?[6] as double?;
+            final userId = args?[2] as String;
+            final userName = args?[3] as String;
+            final messageText = args?[4] as String;
+            final senderImage = args?[5] as String;
+            final senderLat = args?[6] as double?;
+            final senderLng = args?[7] as double?;
 
             double? distance;
             if (senderLat != null &&
@@ -171,6 +194,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
             setState(() {
               _messages.add({
+                'id': messageId,
                 'createdAt': dateLocal,
                 'senderName': userName,
                 'message': messageText,
@@ -181,6 +205,18 @@ class _PublicChatPageState extends State<PublicChatPage> {
             });
 
             if (!_isLoading) _scrollToBottom();
+          },
+          'ReceiveMessageDeleted': (args) {
+            final deletedMessageId = args?[0] as String;
+            final newText = args?[2] as String;
+
+            setState(() {
+              final index =
+                  _messages.indexWhere((m) => m['id'] == deletedMessageId);
+              if (index != -1) {
+                _messages[index]['message'] = newText;
+              }
+            });
           },
         },
       );
@@ -198,6 +234,14 @@ class _PublicChatPageState extends State<PublicChatPage> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  void _deleteMessage(String messageId) async {
+    try {
+      await _signalRService.invokeMethod("DeleteMessage", [messageId]);
+    } catch (e) {
+      showSnackbar(context, "Erro ao excluir a mensagem: $e");
     }
   }
 
@@ -350,6 +394,9 @@ class _PublicChatPageState extends State<PublicChatPage> {
                               isMine: isMine,
                               messageColor: color,
                               distance: distance,
+                              onDelete: (messageId) {
+                                _deleteMessage(messageId);
+                              },
                             ),
                           ),
                         ],

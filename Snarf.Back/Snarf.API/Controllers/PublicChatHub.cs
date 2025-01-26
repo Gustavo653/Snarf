@@ -32,6 +32,7 @@ namespace Snarf.API.Controllers
                 .OrderBy(m => m.CreatedAt)
                 .Select(x => new
                 {
+                    x.Id,
                     SenderId = x.Sender.Id,
                     SenderName = x.Sender.Name,
                     SenderImage = x.Sender.ImageUrl,
@@ -44,14 +45,14 @@ namespace Snarf.API.Controllers
 
             foreach (var message in previousMessages)
             {
-                await Clients.Caller.SendAsync("ReceiveMessage", message.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), message.SenderId, message.SenderName, message.Message, message.SenderImage, message.SenderLatitude, message.SenderLongitude);
+                await Clients.Caller.SendAsync("ReceiveMessage", message.Id, message.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), message.SenderId, message.SenderName, message.Message, message.SenderImage, message.SenderLatitude, message.SenderLongitude);
             }
         }
 
-        public async Task SendMessage(string message)
+        public async Task SendMessage(string text)
         {
             var userId = GetUserId();
-            Log.Information($"Mensagem recebida do usuário {userId}: {message}");
+            Log.Information($"Mensagem recebida do usuário {userId}: {text}");
 
             if (!_users.TryGetValue(userId, out var user))
             {
@@ -69,16 +70,41 @@ namespace Snarf.API.Controllers
                 }
             }
 
-            var publicChatMessage = new PublicChatMessage
+            var message = new PublicChatMessage
             {
                 SenderId = userId,
-                Message = message,
+                Message = text,
             };
 
-            await _publicChatMessageRepository.InsertAsync(publicChatMessage);
+            await _publicChatMessageRepository.InsertAsync(message);
             await _publicChatMessageRepository.SaveChangesAsync();
 
-            await Clients.All.SendAsync("ReceiveMessage", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), GetUserId(), GetUserName(), message, _users[userId].ImageUrl, _users[userId].LastLatitude, _users[userId].LastLongitude);
+            await Clients.All.SendAsync("ReceiveMessage", message.Id, DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"), GetUserId(), GetUserName(), text, _users[userId].ImageUrl, _users[userId].LastLatitude, _users[userId].LastLongitude);
+        }
+
+        public async Task DeleteMessage(Guid messageId)
+        {
+            var userId = GetUserId();
+
+            var message = await _publicChatMessageRepository
+                .GetTrackedEntities()
+                .FirstOrDefaultAsync(m => m.Id == messageId)
+                ?? throw new Exception("Mensagem não encontrada.");
+
+            if (message.SenderId != userId)
+                throw new Exception("Você não pode excluir mensagens de outro usuário.");
+
+            message.Message = "Mensagem excluída";
+
+            await _publicChatMessageRepository.SaveChangesAsync();
+            Log.Information($"Mensagem {message.Id} do usuário {userId} marcada como excluída.");
+
+            await Clients.All.SendAsync(
+                "ReceiveMessageDeleted",
+                message.Id,
+                userId,
+                "Mensagem excluída"
+            );
         }
 
         public override async Task OnConnectedAsync()
