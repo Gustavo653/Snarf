@@ -317,121 +317,152 @@ class _PublicChatPageState extends State<PublicChatPage> {
     final senderLng = message['senderLng'] as double?;
     final senderImage = message['senderImage'] as String? ?? '';
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment:
-          isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
-      children: [
-        if (!isMine)
-          GestureDetector(
-            onTap: () {
-              if (senderId == null) return;
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ViewUserPage(userId: senderId),
-                ),
-              );
-            },
-            child: CircleAvatar(
-              backgroundImage: NetworkImage(senderImage),
-              radius: 20,
-            ),
-          ),
-        if (!isMine) const SizedBox(width: 8),
-        Flexible(
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            decoration: BoxDecoration(
-              color: messageColor,
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(12),
-                topRight: const Radius.circular(12),
-                bottomLeft: isMine ? const Radius.circular(12) : Radius.zero,
-                bottomRight: isMine ? Radius.zero : const Radius.circular(12),
-              ),
-            ),
-            child: Text(
-              msgText,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-        ),
-        if (isMine && msgText != "Mensagem excluída")
-          IconButton(
-            icon: const Icon(Icons.delete, size: 18),
-            onPressed: () {
-              if (msgId != null) {
-                _deleteMessage(msgId);
-              }
-            },
-          ),
-        if (!isMine)
-          Row(
-            mainAxisSize: MainAxisSize.min,
+    return isMine
+        ? Row(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              if (senderLat != null && senderLng != null)
+              Flexible(
+                child: Container(
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: messageColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(12),
+                      topRight: const Radius.circular(12),
+                      bottomLeft: const Radius.circular(12),
+                      bottomRight: Radius.zero,
+                    ),
+                  ),
+                  child: Text(
+                    msgText,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+              ),
+              if (msgText != "Mensagem excluída")
                 IconButton(
-                  icon: const Icon(Icons.my_location),
+                  icon: const Icon(Icons.delete, size: 18),
                   onPressed: () {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (context) => HomePage(
-                          initialLatitude: senderLat,
-                          initialLongitude: senderLng,
-                        ),
-                      ),
-                      (Route<dynamic> route) => false,
-                    );
+                    if (msgId != null) {
+                      _deleteMessage(msgId);
+                    }
                   },
                 ),
-              IconButton(
-                icon: const Icon(Icons.block),
-                onPressed: () async {
-                  if (senderId == null) return;
-
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text('Confirmar Bloqueio'),
-                        content: const Text(
-                            'Tem certeza de que deseja bloquear este usuário?'),
-                        actions: <Widget>[
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(false);
-                            },
-                            child: const Text('Cancelar'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(true);
-                            },
-                            child: const Text('Bloquear'),
-                          ),
-                        ],
+            ],
+          )
+        : Row(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (senderId == null) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ViewUserPage(userId: senderId),
+                        ),
                       );
                     },
-                  );
+                    child: CircleAvatar(
+                      backgroundImage: NetworkImage(senderImage),
+                      radius: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    margin:
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: messageColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(12),
+                        topRight: const Radius.circular(12),
+                        bottomLeft: Radius.zero,
+                        bottomRight: const Radius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      msgText,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (senderLat != null && senderLng != null)
+                    IconButton(
+                      icon: const Icon(Icons.my_location),
+                      onPressed: () {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => HomePage(
+                              initialLatitude: senderLat,
+                              initialLongitude: senderLng,
+                            ),
+                          ),
+                          (Route<dynamic> route) => false,
+                        );
+                      },
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.block),
+                    onPressed: () async {
+                      if (senderId == null) return;
 
-                  if (confirm == true) {
-                    final response = await ApiService.blockUser(senderId);
-                    if (response == null) {
-                      showSnackbar(context, 'Usuário bloqueado com sucesso.');
-                    } else {
-                      showSnackbar(
-                          context, 'Erro ao bloquear usuário: $response');
-                    }
-                  }
-                },
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Confirmar Bloqueio'),
+                            content: const Text(
+                                'Tem certeza de que deseja bloquear este usuário?'),
+                            actions: <Widget>[
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop(false);
+                                },
+                                child: const Text('Cancelar'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop(true);
+                                },
+                                child: const Text('Bloquear'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+
+                      if (confirm == true) {
+                        final response = await ApiService.blockUser(senderId);
+                        if (response == null) {
+                          showSnackbar(
+                              context, 'Usuário bloqueado com sucesso.');
+                        } else {
+                          showSnackbar(
+                              context, 'Erro ao bloquear usuário: $response');
+                        }
+                      }
+                    },
+                  ),
+                ],
               ),
             ],
-          ),
-      ],
-    );
+          );
   }
 
   Widget _buildMessageInput() {
