@@ -5,7 +5,7 @@ import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
-import 'package:snarf/pages/account/edit_user.dart';
+import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
@@ -45,7 +45,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadUserInfo() async {
-    final userInfo = await ApiService.getUserInfo();
+    final userId = await ApiService.getUserIdFromToken();
+    final userInfo = await ApiService.getUserInfoById(userId!);
     if (userInfo != null) {
       userImage = userInfo['imageUrl'];
     } else {
@@ -259,7 +260,6 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
-          ThemeToggle(),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => Navigator.pushReplacement(

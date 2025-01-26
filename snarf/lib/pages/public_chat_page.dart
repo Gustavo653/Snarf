@@ -2,9 +2,9 @@ import 'dart:developer';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 import 'package:location/location.dart';
+import 'package:snarf/pages/account/view_user_page.dart';
+import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_service.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/date_utils.dart';
@@ -30,6 +30,18 @@ class ChatMessageWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final msgText = message['message'] as String;
     final msgId = message['id'] as String?;
+    final senderId = message['senderId'] as String?;
+
+    void _openViewUserPage() {
+      if (senderId == null) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ViewUserPage(userId: senderId),
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment:
@@ -42,7 +54,7 @@ class ChatMessageWidget extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: Text(
                 '${distance!.toStringAsFixed(2)} km',
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
+                style: const TextStyle(fontSize: 12),
               ),
             ),
           ),
@@ -52,33 +64,40 @@ class ChatMessageWidget extends StatelessWidget {
               isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!isMine)
-              CircleAvatar(
-                backgroundImage: NetworkImage(
-                  message['senderImage'] ?? '',
+              GestureDetector(
+                onTap: _openViewUserPage,
+                child: CircleAvatar(
+                  backgroundImage: NetworkImage(
+                    message['senderImage'] ?? '',
+                  ),
+                  radius: 20,
                 ),
-                radius: 20,
               ),
             if (!isMine) const SizedBox(width: 8),
             Flexible(
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: messageColor,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(12),
-                    topRight: const Radius.circular(12),
-                    bottomLeft:
-                        isMine ? const Radius.circular(12) : Radius.zero,
-                    bottomRight:
-                        isMine ? Radius.zero : const Radius.circular(12),
+              child: GestureDetector(
+                onTap: _openViewUserPage,
+                child: Container(
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: messageColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(12),
+                      topRight: const Radius.circular(12),
+                      bottomLeft:
+                          isMine ? const Radius.circular(12) : Radius.zero,
+                      bottomRight:
+                          isMine ? Radius.zero : const Radius.circular(12),
+                    ),
                   ),
-                ),
-                child: Expanded(
-                  child: Text(
-                    msgText,
-                    style: const TextStyle(fontSize: 14),
+                  child: Expanded(
+                    child: Text(
+                      msgText,
+                      style: const TextStyle(fontSize: 14),
+                    ),
                   ),
                 ),
               ),
@@ -87,7 +106,6 @@ class ChatMessageWidget extends StatelessWidget {
               IconButton(
                 icon: const Icon(
                   Icons.delete,
-                  color: Colors.red,
                   size: 18,
                 ),
                 onPressed: () {
@@ -103,19 +121,6 @@ class ChatMessageWidget extends StatelessWidget {
   }
 }
 
-class AuthService {
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
-
-  Future<String?> getUserIdFromToken() async {
-    final token = await _storage.read(key: 'token');
-    if (token != null) {
-      Map<String, dynamic> payload = Jwt.parseJwt(token);
-      return payload['nameid'];
-    }
-    return null;
-  }
-}
-
 class PublicChatPage extends StatefulWidget {
   const PublicChatPage({super.key});
 
@@ -127,7 +132,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final SignalRService _signalRService = SignalRService();
-  final AuthService _authService = AuthService();
 
   List<Map<String, dynamic>> _messages = [];
 
@@ -141,12 +145,11 @@ class _PublicChatPageState extends State<PublicChatPage> {
   @override
   void initState() {
     super.initState();
-    _loadUserId();
     _setupSignalRConnection();
   }
 
   Future<void> _loadUserId() async {
-    final userId = await _authService.getUserIdFromToken();
+    final userId = await ApiService.getUserIdFromToken();
     setState(() {
       _userId = userId;
     });
@@ -161,7 +164,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
   Future<void> _setupSignalRConnection() async {
     log("Setting up SignalR connection...", name: "PublicChatPage");
-
+    await _loadUserId();
     try {
       await _initLocation();
       await _signalRService.setupConnection(
@@ -199,6 +202,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                 'senderName': userName,
                 'message': messageText,
                 'senderImage': senderImage,
+                'senderId': userId,
                 'isMine': userId == _userId,
                 'distance': distance,
               });
@@ -381,7 +385,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
                               time,
                               style: const TextStyle(
                                 fontSize: 10,
-                                color: Colors.black54,
                               ),
                             ),
                           ),

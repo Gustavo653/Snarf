@@ -44,7 +44,8 @@ class _EditUserPageState extends State<EditUserPage> {
   }
 
   Future<void> _loadUserInfo() async {
-    final userInfo = await ApiService.getUserInfo();
+    final userId = await ApiService.getUserIdFromToken();
+    final userInfo = await ApiService.getUserInfoById(userId!);
     if (userInfo != null) {
       setState(() {
         _nameController.text = userInfo['name'];

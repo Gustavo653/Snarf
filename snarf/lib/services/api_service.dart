@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jwt_decode/jwt_decode.dart';
 import 'package:snarf/utils/api_constants.dart';
 
 class ApiService {
@@ -115,12 +116,21 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>?> getUserInfo() async {
+  static Future<String?> getUserIdFromToken() async {
+    final token = await ApiService.getToken();
+    if (token != null) {
+      Map<String, dynamic> payload = Jwt.parseJwt(token);
+      return payload['nameid'];
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> getUserInfoById(String userId) async {
     final token = await ApiService.getToken();
     if (token == null) return null;
 
     final response = await http.get(
-      Uri.parse('${ApiConstants.baseUrl}/Account/Current'),
+      Uri.parse('${ApiConstants.baseUrl}/Account/GetUser/$userId'),
       headers: {
         'accept': '*/*',
         'Authorization': 'Bearer $token',
