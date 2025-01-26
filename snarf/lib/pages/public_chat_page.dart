@@ -363,20 +363,32 @@ class _PublicChatPageState extends State<PublicChatPage> {
               Row(
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      if (senderId == null) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ViewUserPage(userId: senderId),
+                      onTap: () {
+                        if (senderId == null) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ViewUserPage(userId: senderId),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: NetworkImage(senderImage),
+                            fit: BoxFit.cover,
+                          ),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(30),
+                            topRight: Radius.circular(5),
+                            bottomLeft: Radius.circular(30),
+                            bottomRight: Radius.circular(30),
+                          ),
                         ),
-                      );
-                    },
-                    child: CircleAvatar(
-                      backgroundImage: NetworkImage(senderImage),
-                      radius: 20,
-                    ),
-                  ),
+                      )),
                   const SizedBox(width: 8),
                   Container(
                     margin:
@@ -491,5 +503,25 @@ class _PublicChatPageState extends State<PublicChatPage> {
         ],
       ),
     );
+  }
+}
+
+class DropClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    Path path = Path();
+    path.moveTo(size.width * 0.5, 0); // Começa no topo (menor parte da gota)
+    path.quadraticBezierTo(size.width, 0, size.width, size.height * 0.5);
+    path.quadraticBezierTo(
+        size.width, size.height, size.width * 0.5, size.height);
+    path.quadraticBezierTo(0, size.height, 0, size.height * 0.5);
+    path.quadraticBezierTo(0, 0, size.width * 0.5, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) {
+    return false;
   }
 }
