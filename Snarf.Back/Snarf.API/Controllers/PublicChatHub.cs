@@ -35,6 +35,8 @@ namespace Snarf.API.Controllers
                     SenderId = x.Sender.Id,
                     SenderName = x.Sender.Name,
                     SenderImage = x.Sender.ImageUrl,
+                    SenderLatitude = x.Sender.LastLatitude,
+                    SenderLongitude = x.Sender.LastLongitude,
                     x.Message,
                     x.CreatedAt
                 })
@@ -42,7 +44,7 @@ namespace Snarf.API.Controllers
 
             foreach (var message in previousMessages)
             {
-                await Clients.Caller.SendAsync("ReceiveMessage", message.CreatedAt, message.SenderId, message.SenderName, message.Message, message.SenderImage);
+                await Clients.Caller.SendAsync("ReceiveMessage", message.CreatedAt, message.SenderId, message.SenderName, message.Message, message.SenderImage, message.SenderLatitude, message.SenderLongitude);
             }
         }
 
@@ -76,7 +78,7 @@ namespace Snarf.API.Controllers
             await _publicChatMessageRepository.InsertAsync(publicChatMessage);
             await _publicChatMessageRepository.SaveChangesAsync();
 
-            await Clients.All.SendAsync("ReceiveMessage", DateTime.UtcNow, GetUserId(), GetUserName(), message, _users[userId].ImageUrl);
+            await Clients.All.SendAsync("ReceiveMessage", DateTime.UtcNow, GetUserId(), GetUserName(), message, _users[userId].ImageUrl, _users[userId].LastLatitude, _users[userId].LastLongitude);
         }
 
         public override async Task OnConnectedAsync()
