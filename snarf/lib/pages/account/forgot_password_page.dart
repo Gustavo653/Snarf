@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:snarf/components/custom_elevated_button.dart';
+import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/pages/account/reset_password_page.dart';
 import 'package:snarf/services/api_service.dart';
 
@@ -92,7 +92,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     style: const TextStyle(color: Colors.red),
                   ),
                 const SizedBox(height: 16),
-                CustomElevatedButton(
+                LoadingElevatedButton(
                   text: 'Enviar Código',
                   isLoading: _isLoading,
                   onPressed: _isLoading ? null : _requestResetCode,

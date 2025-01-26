@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:snarf/components/custom_elevated_button.dart';
+import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:flutter/services.dart';
 
@@ -140,7 +140,7 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                     style: const TextStyle(color: Colors.red),
                   ),
                 const SizedBox(height: 16),
-                CustomElevatedButton(
+                LoadingElevatedButton(
                   text: 'Redefinir Senha',
                   isLoading: _isLoading,
                   onPressed: _isLoading ? null : _resetPassword,
