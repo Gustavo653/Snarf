@@ -42,6 +42,7 @@ class _HomePageState extends State<HomePage> {
   StreamSubscription<LocationData>? _locationSubscription;
   late SignalRService _signalRService;
   late String userImage = '';
+  bool _movedToInitialCoordinates = false;
 
   @override
   void initState() {
@@ -49,6 +50,19 @@ class _HomePageState extends State<HomePage> {
     _mapController = MapController();
     _signalRService = SignalRService();
     _initializeApp();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _moveToInitialCoordinatesIfProvided();
+    });
+  }
+
+  void _moveToInitialCoordinatesIfProvided() {
+    if (widget.initialLatitude != null && widget.initialLongitude != null) {
+      _mapController.move(
+        LatLng(widget.initialLatitude!, widget.initialLongitude!),
+        15.0,
+      );
+    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -284,6 +298,16 @@ class _HomePageState extends State<HomePage> {
                 FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(
+                    onMapReady: () {
+                      if (widget.initialLatitude != null &&
+                          widget.initialLongitude != null) {
+                        _mapController.move(
+                          LatLng(widget.initialLatitude!,
+                              widget.initialLongitude!),
+                          15.0,
+                        );
+                      }
+                    },
                     initialCenter: LatLng(
                       _currentLocation.latitude!,
                       _currentLocation.longitude!,

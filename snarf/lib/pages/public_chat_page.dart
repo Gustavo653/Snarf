@@ -371,14 +371,13 @@ class _PublicChatPageState extends State<PublicChatPage> {
           IconButton(
             icon: const Icon(Icons.location_on),
             onPressed: () {
-              Navigator.pushReplacement(
-                context,
+              Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(
-                  builder: (context) => HomePage(
-                    initialLatitude: senderLat,
-                    initialLongitude: senderLng,
-                  ),
-                ),
+                    builder: (context) => HomePage(
+                          initialLatitude: senderLat,
+                          initialLongitude: senderLng,
+                        )),
+                (Route<dynamic> route) => false,
               );
             },
           ),
