@@ -20,6 +20,8 @@ class SignalRService {
           hubUrl,
           options: HttpConnectionOptions(
             accessTokenFactory: () async => await _getAccessToken(),
+            requestTimeout: 10000,
+            logMessageContent: true,
           ),
         )
         .withAutomaticReconnect()
@@ -41,20 +43,6 @@ class SignalRService {
       await _hubConnection.invoke(methodName, args: args);
     } catch (err) {
       log("Erro ao invocar o método: $err");
-    }
-  }
-
-  Future<void> _reconnect() async {
-    if (_hubConnection.state != HubConnectionState.Connected) {
-      try {
-        log("Tentando reconectar...");
-        await _hubConnection.stop();
-        await _hubConnection.start();
-        log("Reconexão bem-sucedida.");
-      } catch (err) {
-        log("Erro ao reconectar: $err");
-        rethrow;
-      }
     }
   }
 

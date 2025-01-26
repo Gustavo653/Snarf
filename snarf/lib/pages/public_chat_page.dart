@@ -1,10 +1,12 @@
 import 'dart:developer';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:location/location.dart';
+import 'package:snarf/pages/account/view_user_page.dart';
+import 'package:snarf/pages/home_page.dart';
+import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_service.dart';
-import 'package:snarf/components/toggle_theme_component.dart';
 import 'package:snarf/utils/api_constants.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 
@@ -17,74 +19,112 @@ class PublicChatPage extends StatefulWidget {
 
 class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
-  final SignalRService _signalRService = SignalRService();
-  List<Map<String, dynamic>> _messages = [];
   final ScrollController _scrollController = ScrollController();
+  final SignalRService _signalRService = SignalRService();
+
+  List<Map<String, dynamic>> _messages = [];
+
   String? _userId;
   bool _isLoading = true;
 
-  final FlutterSecureStorage _storage = FlutterSecureStorage();
+  double? _myLatitude;
+  double? _myLongitude;
+  bool _sortByDate = true;
 
   @override
   void initState() {
     super.initState();
     _setupSignalRConnection();
-    _getUserId();
   }
 
-  Future<void> _getUserId() async {
-    final token = await _storage.read(key: 'token');
-    if (token != null) {
-      final userId = getUserIdFromToken(token);
-      setState(() {
-        _userId = userId;
-      });
-    }
+  Future<void> _loadUserId() async {
+    final userId = await ApiService.getUserIdFromToken();
+    setState(() {
+      _userId = userId;
+    });
   }
 
-  String? getUserIdFromToken(String token) {
-    Map<String, dynamic> payload = Jwt.parseJwt(token);
-    return payload['nameid'];
+  Future<void> _initLocation() async {
+    Location location = Location();
+    var position = await location.getLocation();
+    _myLatitude = position.latitude;
+    _myLongitude = position.longitude;
   }
 
   Future<void> _setupSignalRConnection() async {
     log("Setting up SignalR connection...", name: "PublicChatPage");
-
+    await _loadUserId();
     try {
+      await _initLocation();
       await _signalRService.setupConnection(
         hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PublicChatHub',
-        onMethods: ['ReceiveMessage'],
+        onMethods: ['ReceiveMessage', 'ReceiveMessageDeleted'],
         eventHandlers: {
           'ReceiveMessage': (args) {
-            final date =
-                DateTime.parse(args?[0] as String).add(Duration(hours: -3));
-            final userId = args?[1] as String;
-            final userName = args?[2] as String;
-            final message = args?[3] as String;
-            final senderImage = args?[4] as String;
+            final messageId = args?[0] as String;
+            final dateUtc = DateTime.parse(args?[1] as String);
+            final dateLocal = dateUtc.toLocal();
+            final userId = args?[2] as String;
+            final userName = args?[3] as String;
+            final messageText = args?[4] as String;
+            final senderImage = args?[5] as String;
+            final senderLat = args?[6] as double?;
+            final senderLng = args?[7] as double?;
+
+            double? distance;
+            if (senderLat != null &&
+                senderLng != null &&
+                _myLatitude != null &&
+                _myLongitude != null) {
+              distance = _calculateDistance(
+                _myLatitude!,
+                _myLongitude!,
+                senderLat,
+                senderLng,
+              );
+            }
+
             setState(() {
               _messages.add({
+                'id': messageId,
+                'createdAt': dateLocal,
                 'senderName': userName,
-                'message': message,
+                'message': messageText,
                 'senderImage': senderImage,
+                'senderId': userId,
                 'isMine': userId == _userId,
-                'createdAt': date,
+                'distance': distance,
+                'senderLat': senderLat,
+                'senderLng': senderLng,
               });
-
-              log(_messages.toString(), name: "PublicChatPage");
             });
-            if (!_isLoading) {
-              _scrollToBottom();
-            }
+
+            if (!_isLoading) _scrollToBottom();
+          },
+          'ReceiveMessageDeleted': (args) {
+            final deletedMessageId = args?[0] as String;
+            final newText = args?[2] as String;
+
+            setState(() {
+              final index =
+                  _messages.indexWhere((m) => m['id'] == deletedMessageId);
+              if (index != -1) {
+                _messages[index]['message'] = newText;
+              }
+            });
           },
         },
       );
+
       log("SignalR connection established.", name: "PublicChatPage");
+
       await _signalRService.invokeMethod("GetPreviousMessages", []);
     } catch (e) {
       log("Error setting up SignalR connection: $e",
           name: "PublicChatPage", level: 1000);
-      showSnackbar(context, "Erro ao conectar com o servidor.");
+      if (mounted) {
+        showSnackbar(context, "Erro ao conectar com o servidor.");
+      }
     } finally {
       setState(() {
         _isLoading = false;
@@ -92,11 +132,39 @@ class _PublicChatPageState extends State<PublicChatPage> {
     }
   }
 
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371.0;
+    double dLat = _deg2rad(lat2 - lat1);
+    double dLon = _deg2rad(lon2 - lon1);
+
+    double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_deg2rad(lat1)) *
+            math.cos(_deg2rad(lat2)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    double distance = R * c;
+    return distance;
+  }
+
+  double _deg2rad(double deg) => deg * (math.pi / 180);
+
+  void _deleteMessage(String messageId) async {
+    try {
+      await _signalRService.invokeMethod("DeleteMessage", [messageId]);
+    } catch (e) {
+      showSnackbar(context, "Erro ao excluir a mensagem: $e");
+    }
+  }
+
   void _sendMessage() async {
     final message = _messageController.text;
     if (message.isNotEmpty) {
-      log("Sending message: $message", name: "PublicChatPage");
-
       try {
         await _signalRService.invokeMethod("SendMessage", [message]);
         setState(() {
@@ -105,17 +173,23 @@ class _PublicChatPageState extends State<PublicChatPage> {
         _scrollToBottom();
       } catch (e) {
         log("Error sending message: $e", name: "PublicChatPage", level: 1000);
-        showSnackbar(context, "Erro ao enviar mensagem.");
+        if (mounted) {
+          showSnackbar(context, "Erro ao enviar mensagem.");
+        }
       }
     }
   }
 
   void _scrollToBottom() {
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
@@ -129,137 +203,259 @@ class _PublicChatPageState extends State<PublicChatPage> {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final myMessageColor = isDarkMode ? Colors.blue[400] : Colors.blue[300];
-    final otherMessageColor = isDarkMode ? Colors.grey[700] : Colors.grey[500];
+    final otherMessageColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
+    final sortedMessages = List<Map<String, dynamic>>.from(_messages);
+
+    if (_sortByDate) {
+      sortedMessages.sort((a, b) {
+        final dateA = a['createdAt'] as DateTime;
+        final dateB = b['createdAt'] as DateTime;
+        return dateA.compareTo(dateB);
+      });
+    } else {
+      sortedMessages.sort((a, b) {
+        final distA = a['distance'] as double? ?? double.infinity;
+        final distB = b['distance'] as double? ?? double.infinity;
+        return distB.compareTo(distA);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chat Público'),
         actions: [
-          ThemeToggle(),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              setState(() {
+                _sortByDate = (value == 'date');
+              });
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'date',
+                child: Text('Ordenar por data'),
+              ),
+              const PopupMenuItem(
+                value: 'distance',
+                child: Text('Ordenar por distância'),
+              ),
+            ],
+            icon: const Icon(Icons.sort),
+          ),
         ],
       ),
-      body: Column(
-        children: [
-          if (_isLoading)
-            const Center(
+      body: _isLoading
+          ? const Center(
               child: CircularProgressIndicator(),
             )
-          else
-            Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final message = _messages[index];
-                  final isMine = message['isMine'] as bool;
-                  final time =
-                      DateJSONUtils.formatMessageTime(message['createdAt']);
-                  final messageColor =
-                      isMine ? myMessageColor : otherMessageColor;
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    itemCount: sortedMessages.length,
+                    itemBuilder: (context, index) {
+                      final msg = sortedMessages[index];
+                      final isMine = msg['isMine'] as bool;
+                      final senderName = msg['senderName'] as String;
+                      final createdAt = msg['createdAt'] as DateTime;
+                      final distance = msg['distance'] as double?;
+                      final color = isMine ? myMessageColor : otherMessageColor;
 
-                  return Align(
-                    alignment:
-                        isMine ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                          vertical: 4, horizontal: 8),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: messageColor,
-                        borderRadius: BorderRadius.only(
-                          topLeft: const Radius.circular(12),
-                          topRight: const Radius.circular(12),
-                          bottomLeft:
-                              isMine ? const Radius.circular(12) : Radius.zero,
-                          bottomRight:
-                              isMine ? Radius.zero : const Radius.circular(12),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      return Column(
+                        crossAxisAlignment: isMine
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
                         children: [
-                          if (!isMine)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundImage:
-                                        NetworkImage(message['senderImage']),
-                                    radius: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      message['senderName'],
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           Padding(
                             padding: const EdgeInsets.symmetric(
-                                vertical: 0, horizontal: 18),
-                            child: Align(
-                              alignment: isMine
-                                  ? Alignment.centerRight
-                                  : Alignment.centerLeft,
-                              child: Text(
-                                message['message'],
-                                style: const TextStyle(fontSize: 16),
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Text(
+                              '${DateJSONUtils.formatMessageTime(createdAt)}'
+                              '${!isMine ? ' • $senderName' : ''}'
+                              '${!isMine ? ' • ${distance?.toStringAsFixed(2)} km' : ''}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontStyle: FontStyle.italic,
                               ),
                             ),
                           ),
                           Align(
-                            alignment: Alignment.bottomRight,
-                            child: Text(
-                              time,
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Colors.black54,
-                              ),
+                            alignment: isMine
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: _buildMessageWidget(
+                              message: msg,
+                              isMine: isMine,
+                              messageColor: color,
+                              distance: distance,
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: const InputDecoration(
-                        hintText: "Digite uma mensagem",
-                        border: InputBorder.none,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                  color: Colors.blue,
-                  iconSize: 30,
-                ),
+                _buildMessageInput(),
               ],
             ),
+    );
+  }
+
+  Widget _buildMessageWidget({
+    required Map<String, dynamic> message,
+    required bool isMine,
+    required Color? messageColor,
+    required double? distance,
+  }) {
+    final msgText = message['message'] as String;
+    final msgId = message['id'] as String?;
+    final senderId = message['senderId'] as String?;
+    final senderLat = message['senderLat'] as double?;
+    final senderLng = message['senderLng'] as double?;
+    final senderImage = message['senderImage'] as String? ?? '';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment:
+          isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: [
+        if (!isMine)
+          GestureDetector(
+            onTap: () {
+              if (senderId == null) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ViewUserPage(userId: senderId),
+                ),
+              );
+            },
+            child: CircleAvatar(
+              backgroundImage: NetworkImage(senderImage),
+              radius: 20,
+            ),
+          ),
+        if (!isMine) const SizedBox(width: 8),
+        Flexible(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: messageColor,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(12),
+                topRight: const Radius.circular(12),
+                bottomLeft: isMine ? const Radius.circular(12) : Radius.zero,
+                bottomRight: isMine ? Radius.zero : const Radius.circular(12),
+              ),
+            ),
+            child: Text(
+              msgText,
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+        ),
+        if (isMine && msgText != "Mensagem excluída")
+          IconButton(
+            icon: const Icon(Icons.delete, size: 18),
+            onPressed: () {
+              if (msgId != null) {
+                _deleteMessage(msgId);
+              }
+            },
+          ),
+        if (!isMine)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (senderLat != null && senderLng != null)
+                IconButton(
+                  icon: const Icon(Icons.my_location),
+                  onPressed: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => HomePage(
+                          initialLatitude: senderLat,
+                          initialLongitude: senderLng,
+                        ),
+                      ),
+                      (Route<dynamic> route) => false,
+                    );
+                  },
+                ),
+              IconButton(
+                icon: const Icon(Icons.block),
+                onPressed: () async {
+                  if (senderId == null) return;
+
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Confirmar Bloqueio'),
+                        content: const Text(
+                            'Tem certeza de que deseja bloquear este usuário?'),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(false);
+                            },
+                            child: const Text('Cancelar'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(true);
+                            },
+                            child: const Text('Bloquear'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+
+                  if (confirm == true) {
+                    final response = await ApiService.blockUser(senderId);
+                    if (response == null) {
+                      showSnackbar(context, 'Usuário bloqueado com sucesso.');
+                    } else {
+                      showSnackbar(
+                          context, 'Erro ao bloquear usuário: $response');
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMessageInput() {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 25),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              decoration: InputDecoration(
+                hintText: "Digite uma mensagem",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.send),
+            onPressed: _sendMessage,
+            color: Colors.blue,
+            iconSize: 30,
           ),
         ],
       ),

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:snarf/components/custom_elevated_button.dart';
+import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/services/api_service.dart';
 import '../home_page.dart';
 
@@ -155,7 +155,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     style: const TextStyle(color: Colors.red),
                   ),
                 const SizedBox(height: 16),
-                CustomElevatedButton(
+                LoadingElevatedButton(
                   text: 'Cadastrar',
                   isLoading: _isLoading,
                   onPressed: _isLoading ? null : _register,

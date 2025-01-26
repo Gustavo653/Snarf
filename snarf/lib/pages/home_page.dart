@@ -5,8 +5,9 @@ import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
-import 'package:snarf/pages/account/edit_user.dart';
+import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
+import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
@@ -19,7 +20,14 @@ import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final double? initialLatitude;
+  final double? initialLongitude;
+
+  const HomePage({
+    super.key,
+    this.initialLatitude,
+    this.initialLongitude,
+  });
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -35,6 +43,7 @@ class _HomePageState extends State<HomePage> {
   StreamSubscription<LocationData>? _locationSubscription;
   late SignalRService _signalRService;
   late String userImage = '';
+  bool _movedToInitialCoordinates = false;
 
   @override
   void initState() {
@@ -42,10 +51,24 @@ class _HomePageState extends State<HomePage> {
     _mapController = MapController();
     _signalRService = SignalRService();
     _initializeApp();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _moveToInitialCoordinatesIfProvided();
+    });
+  }
+
+  void _moveToInitialCoordinatesIfProvided() {
+    if (widget.initialLatitude != null && widget.initialLongitude != null) {
+      _mapController.move(
+        LatLng(widget.initialLatitude!, widget.initialLongitude!),
+        15.0,
+      );
+    }
   }
 
   Future<void> _loadUserInfo() async {
-    final userInfo = await ApiService.getUserInfo();
+    final userId = await ApiService.getUserIdFromToken();
+    final userInfo = await ApiService.getUserInfoById(userId!);
     if (userInfo != null) {
       userImage = userInfo['imageUrl'];
     } else {
@@ -101,9 +124,18 @@ class _HomePageState extends State<HomePage> {
       point: LatLng(latitude, longitude),
       width: 50,
       height: 50,
-      child: CircleAvatar(
-        backgroundImage: NetworkImage(userImage),
-        radius: 25,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.red,
+            width: 3.0,
+          ),
+        ),
+        child: CircleAvatar(
+          backgroundImage: NetworkImage(userImage),
+          radius: 25,
+        ),
       ),
     );
   }
@@ -142,15 +174,12 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _openPrivateChat(String userId, String userImage, String userName) {
-    log('Abrindo chat privado com usuário $userId');
+  void _openProfile(String userId) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PrivateChatPage(
+        builder: (context) => ViewUserPage(
           userId: userId,
-          userName: userName,
-          userImage: userImage,
         ),
       ),
     );
@@ -170,11 +199,20 @@ class _HomePageState extends State<HomePage> {
           height: 50,
           child: GestureDetector(
             onTap: () {
-              _openPrivateChat(userId, userImage, userName);
+              _openProfile(userId);
             },
-            child: CircleAvatar(
-              backgroundImage: NetworkImage(userImage),
-              radius: 25,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.blue,
+                  width: 3.0,
+                ),
+              ),
+              child: CircleAvatar(
+                backgroundImage: NetworkImage(userImage),
+                radius: 25,
+              ),
             ),
           ),
         );
@@ -241,7 +279,6 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Home'),
         actions: [
-          ThemeToggle(),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => Navigator.pushReplacement(
@@ -259,6 +296,16 @@ class _HomePageState extends State<HomePage> {
                 FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(
+                    onMapReady: () {
+                      if (widget.initialLatitude != null &&
+                          widget.initialLongitude != null) {
+                        _mapController.move(
+                          LatLng(widget.initialLatitude!,
+                              widget.initialLongitude!),
+                          15.0,
+                        );
+                      }
+                    },
                     initialCenter: LatLng(
                       _currentLocation.latitude!,
                       _currentLocation.longitude!,

@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:snarf/components/custom_elevated_button.dart';
+import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/pages/account/forgot_password_page.dart';
 import 'package:snarf/pages/account/register_page.dart';
 import 'package:snarf/pages/home_page.dart';
@@ -24,6 +24,7 @@ class InitialPage extends StatefulWidget {
 class _InitialPageState extends State<InitialPage> {
   static const _secureStorage = FlutterSecureStorage();
   bool _isLoading = false;
+
   final String _defaultImagePath = 'assets/images/user_anonymous.png';
   final _imagePaths = <String>[
     'assets/images/snarf-bg001.jpg',
@@ -42,217 +43,15 @@ class _InitialPageState extends State<InitialPage> {
     await ApiService.logout();
   }
 
-  void _shuffleImages() async {
+  void _shuffleImages() {
     _imagePaths.shuffle();
   }
 
   Future<int?> _showAgeConfirmationDialog(BuildContext context) async {
-    int birthYear = DateTime.now().year - 18;
-    final currentYear = DateTime.now().year;
-    final minYear = currentYear - 100;
-
-    return showDialog<int?>(
+    return showDialog(
       context: context,
-      builder: (context) {
-        int selectedYear = birthYear;
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30.0),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    height: 10.0,
-                    decoration: BoxDecoration(
-                      color: Color(0xFF392EA3),
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(30.0),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.white,
-                          Colors.pink.shade50,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.vertical(
-                        bottom: Radius.circular(30.0),
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          'CONFIRMAR IDADE',
-                          style: TextStyle(
-                            color: Color(0xFF0b0951),
-                            fontSize: 20.0,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 10.0),
-                        Text(
-                          'Snarf é um app exclusivo para maiores de idade.\nPrecisamos verificar a sua idade.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.grey.shade800,
-                            fontSize: 14.0,
-                          ),
-                        ),
-                        const SizedBox(height: 20.0),
-                        const Text(
-                          'QUANDO VOCÊ NASCEU?',
-                          style: TextStyle(
-                            color: Color(0xFF0b0951),
-                            fontSize: 16.0,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 20.0),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.bottomCenter,
-                              end: Alignment.topCenter,
-                              colors: [
-                                Colors.white,
-                                Colors.pink.shade50,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(30.0),
-                          ),
-                          child: SizedBox(
-                            height: 100.0,
-                            child: ListWheelScrollView.useDelegate(
-                              controller: FixedExtentScrollController(
-                                initialItem: currentYear - birthYear,
-                              ),
-                              itemExtent: 25.0,
-                              perspective: 0.003,
-                              physics: const FixedExtentScrollPhysics(),
-                              onSelectedItemChanged: (index) {
-                                setState(() {
-                                  selectedYear = currentYear - index;
-                                });
-                              },
-                              childDelegate: ListWheelChildBuilderDelegate(
-                                builder: (context, index) {
-                                  final year = currentYear - index;
-                                  final isSelected = year == selectedYear;
-                                  return Container(
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      border: isSelected
-                                          ? Border(
-                                              top: BorderSide(
-                                                  color: Colors.grey.shade300,
-                                                  width: 1.0),
-                                              bottom: BorderSide(
-                                                  color: Colors.grey.shade300,
-                                                  width: 1.0),
-                                            )
-                                          : null,
-                                    ),
-                                    child: Text(
-                                      year.toString(),
-                                      style: TextStyle(
-                                        fontSize: 18.0,
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        color: isSelected
-                                            ? Color(0xFF0b0951)
-                                            : Colors.black,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                childCount: currentYear - minYear + 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20.0),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 25.0, vertical: 8.0),
-                                side: const BorderSide(
-                                  color: Color(0xFF0b0951),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30.0),
-                                ),
-                              ),
-                              onPressed: () => Navigator.of(context).pop(),
-                              child: const Text(
-                                'VOLTAR',
-                                style: TextStyle(
-                                  color: Color(0xFF0b0951),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 25.0, vertical: 8.0),
-                                backgroundColor: Color(0xFF0b0951),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(30.0),
-                                ),
-                              ),
-                              onPressed: () {
-                                if (currentYear - selectedYear >= 18) {
-                                  Navigator.of(context).pop(selectedYear);
-                                } else {
-                                  _showErrorDialog(
-                                    context,
-                                    'Você precisa ser maior de idade para continuar.',
-                                  );
-                                }
-                              },
-                              child: const Text(
-                                'AVANÇAR',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+      builder: (context) => AgeConfirmationDialog(),
     );
-  }
-
-  Future<File> getAssetFile(String assetPath) async {
-    final byteData = await rootBundle.load(assetPath);
-    final tempDir = await getTemporaryDirectory();
-    final tempFilePath = '${tempDir.path}/user_anonymous.png';
-    final file = File(tempFilePath);
-    await file.writeAsBytes(byteData.buffer.asUint8List());
-    return file;
   }
 
   Future<void> _createAnonymousAccount(BuildContext context) async {
@@ -305,6 +104,28 @@ class _InitialPageState extends State<InitialPage> {
     }
   }
 
+  Future<File> getAssetFile(String assetPath) async {
+    final byteData = await rootBundle.load(assetPath);
+    final tempDir = await getTemporaryDirectory();
+    final tempFilePath = '${tempDir.path}/user_anonymous.png';
+    final file = File(tempFilePath);
+    await file.writeAsBytes(byteData.buffer.asUint8List());
+    return file;
+  }
+
+  void _showLoginModal(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (context) => LoginModal(onLoginSuccess: () {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }),
+    );
+  }
+
   void _showModal(BuildContext context, String title, String content) {
     showDialog(
       context: context,
@@ -322,202 +143,7 @@ class _InitialPageState extends State<InitialPage> {
   }
 
   void _showErrorDialog(BuildContext context, String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Erro'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showLoginModal(BuildContext context) {
-    final TextEditingController emailController = TextEditingController();
-    final TextEditingController passwordController = TextEditingController();
-    final ValueNotifier<bool> isPasswordVisible = ValueNotifier(false);
-    bool isLoading = false;
-    String? errorMessage;
-
-    _loadCredentials() async {
-      String? savedEmail = await _secureStorage.read(key: 'email');
-      String? savedPassword = await _secureStorage.read(key: 'password');
-
-      if (savedEmail != null) {
-        emailController.text = savedEmail;
-      }
-      if (savedPassword != null) {
-        passwordController.text = savedPassword;
-      }
-    }
-
-    _saveCredencials() async {
-      await _secureStorage.write(key: 'email', value: emailController.text);
-      await _secureStorage.write(
-          key: 'password', value: passwordController.text);
-    }
-
-    _loadCredentials();
-
-    showDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
-      builder: (context) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-          child: StatefulBuilder(
-            builder: (context, setState) {
-              Future<void> login() async {
-                final String email = emailController.text.trim();
-                final String password = passwordController.text.trim();
-
-                if (email.isEmpty || password.isEmpty) {
-                  setState(() {
-                    errorMessage = 'Por favor, preencha todos os campos.';
-                  });
-                  return;
-                }
-
-                setState(() {
-                  isLoading = true;
-                  errorMessage = null;
-                });
-
-                try {
-                  final loginResponse = await ApiService.login(email, password);
-
-                  if (loginResponse == null) {
-                    _saveCredencials();
-                    Navigator.pop(context);
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const HomePage()),
-                    );
-                  } else {
-                    setState(() {
-                      errorMessage = loginResponse;
-                    });
-                  }
-                } catch (e) {
-                  setState(() {
-                    errorMessage = 'Ocorreu um erro: $e';
-                  });
-                } finally {
-                  setState(() {
-                    isLoading = false;
-                  });
-                }
-              }
-
-              return AlertDialog(
-                title: const Text('Login'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'E-mail',
-                          prefixIcon: Icon(Icons.email),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      const SizedBox(height: 16),
-                      ValueListenableBuilder(
-                        valueListenable: isPasswordVisible,
-                        builder: (context, isVisible, child) {
-                          return TextField(
-                            controller: passwordController,
-                            decoration: InputDecoration(
-                              labelText: 'Senha',
-                              prefixIcon: const Icon(Icons.lock),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  isVisible
-                                      ? Icons.visibility
-                                      : Icons.visibility_off,
-                                ),
-                                onPressed: () {
-                                  isPasswordVisible.value = !isVisible;
-                                },
-                              ),
-                            ),
-                            obscureText: !isVisible,
-                          );
-                        },
-                      ),
-                      if (errorMessage != null) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          errorMessage!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                actions: [
-                  if (isLoading)
-                    const Center(child: CircularProgressIndicator()),
-                  if (!isLoading) ...[
-                    CustomElevatedButton(
-                      text: 'Entrar',
-                      isLoading: false,
-                      onPressed: login,
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const ForgotPasswordPage()),
-                        );
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.only(top: 16.0),
-                        child: Text(
-                          'Esqueci minha senha',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const RegisterPage()),
-                        );
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          'Criar conta',
-                          style: TextStyle(
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
+    _showModal(context, 'Erro', message);
   }
 
   @override
@@ -525,24 +151,7 @@ class _InitialPageState extends State<InitialPage> {
     return Scaffold(
       body: Stack(
         children: [
-          IgnorePointer(
-            child: CarouselSlider(
-              options: CarouselOptions(
-                height: double.infinity,
-                autoPlay: true,
-                autoPlayInterval: const Duration(minutes: 5),
-                viewportFraction: 1.0,
-                enlargeCenterPage: false,
-              ),
-              items: _imagePaths.map((path) {
-                return Image.asset(
-                  path,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                );
-              }).toList(),
-            ),
-          ),
+          BackgroundCarousel(imagePaths: _imagePaths),
           Center(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -556,7 +165,7 @@ class _InitialPageState extends State<InitialPage> {
                   const SizedBox(height: 48),
                   FractionallySizedBox(
                     widthFactor: 0.50,
-                    child: CustomElevatedButton(
+                    child: LoadingElevatedButton(
                       text: 'Espiar Anonimamente',
                       isLoading: _isLoading,
                       onPressed: () => _createAnonymousAccount(context),
@@ -573,7 +182,7 @@ class _InitialPageState extends State<InitialPage> {
                   const SizedBox(height: 10),
                   FractionallySizedBox(
                     widthFactor: 0.30,
-                    child: CustomElevatedButton(
+                    child: LoadingElevatedButton(
                       text: 'Login',
                       isLoading: false,
                       onPressed: () => _showLoginModal(context),
@@ -587,51 +196,284 @@ class _InitialPageState extends State<InitialPage> {
             bottom: 30,
             left: 15,
             right: 15,
+            child: TermsFooter(
+              onTermsTap: () => _showModal(
+                  context, 'Termos de Serviço', 'Descrição Termos de Serviço'),
+              onPrivacyTap: () => _showModal(context, 'Política de Privacidade',
+                  'Descrição Política de Privacidade'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BackgroundCarousel extends StatelessWidget {
+  final List<String> imagePaths;
+
+  const BackgroundCarousel({super.key, required this.imagePaths});
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CarouselSlider(
+        options: CarouselOptions(
+          height: double.infinity,
+          autoPlay: true,
+          autoPlayInterval: const Duration(minutes: 5),
+          viewportFraction: 1.0,
+          enlargeCenterPage: false,
+        ),
+        items: imagePaths.map((path) {
+          return Image.asset(
+            path,
+            fit: BoxFit.cover,
+            width: double.infinity,
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class TermsFooter extends StatelessWidget {
+  final VoidCallback onTermsTap;
+  final VoidCallback onPrivacyTap;
+
+  const TermsFooter({
+    super.key,
+    required this.onTermsTap,
+    required this.onPrivacyTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const Text(
+          'Você deve ser maior de 18 anos para usar este aplicativo.',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: onTermsTap,
+              child: const Text(
+                'Termos de Serviço',
+                style: TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+            const Text(
+              ' e ',
+              style: TextStyle(
+                color: Colors.white,
+              ),
+            ),
+            GestureDetector(
+              onTap: onPrivacyTap,
+              child: const Text(
+                'Política de Privacidade',
+                style: TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class AgeConfirmationDialog extends StatefulWidget {
+  const AgeConfirmationDialog({super.key});
+
+  @override
+  State<AgeConfirmationDialog> createState() => _AgeConfirmationDialogState();
+}
+
+class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
+  late int selectedYear;
+  final int currentYear = DateTime.now().year;
+  final int minYear = DateTime.now().year - 100;
+  final int birthYear = DateTime.now().year - 18;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedYear = birthYear;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(30.0),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 10.0,
+            decoration: const BoxDecoration(
+              color: Color(0xFF392EA3),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(30.0),
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white,
+                  Colors.pink.shade50,
+                ],
+              ),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(30.0),
+              ),
+            ),
+            padding: const EdgeInsets.all(20.0),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  'Você deve ser maior de 18 anos para usar este aplicativo.',
+                  'Confirmar Idade',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
+                    color: Color(0xFF0b0951),
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.bold,
                   ),
-                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () => _showModal(
-                        context,
-                        'Termos de Serviço',
-                        'Descrição Termos de Serviço',
+                const SizedBox(height: 10.0),
+                Text(
+                  'Snarf é um app exclusivo para maiores de idade.\nPrecisamos verificar a sua idade.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey.shade800,
+                    fontSize: 14.0,
+                  ),
+                ),
+                const SizedBox(height: 20.0),
+                const Text(
+                  'Quando Você Nasceu?',
+                  style: TextStyle(
+                    color: Color(0xFF0b0951),
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20.0),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.white,
+                        Colors.pink.shade50,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(30.0),
+                  ),
+                  child: SizedBox(
+                    height: 100.0,
+                    child: ListWheelScrollView.useDelegate(
+                      controller: FixedExtentScrollController(
+                        initialItem: currentYear - selectedYear,
                       ),
+                      itemExtent: 25.0,
+                      perspective: 0.003,
+                      physics: const FixedExtentScrollPhysics(),
+                      onSelectedItemChanged: (index) {
+                        setState(() {
+                          selectedYear = currentYear - index;
+                        });
+                      },
+                      childDelegate: ListWheelChildBuilderDelegate(
+                        builder: (context, index) {
+                          final year = currentYear - index;
+                          final isSelected = year == selectedYear;
+                          return Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              border: isSelected
+                                  ? Border(
+                                      top: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1.0),
+                                      bottom: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1.0),
+                                    )
+                                  : null,
+                            ),
+                            child: Text(
+                              year.toString(),
+                              style: TextStyle(
+                                fontSize: 18.0,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: isSelected
+                                    ? const Color(0xFF0b0951)
+                                    : Colors.black,
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: currentYear - minYear + 1,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20.0),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
                       child: const Text(
-                        'Termos de Serviço',
+                        'Voltar',
                         style: TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
+                          color: Color(0xFF0b0951),
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                    const Text(
-                      ' e ',
-                      style: TextStyle(
-                        color: Colors.white,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _showModal(
-                        context,
-                        'Política de Privacidade',
-                        'Descrição Política de Privacidade',
-                      ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (currentYear - selectedYear >= 18) {
+                          Navigator.of(context).pop(selectedYear);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                  'Você precisa ser maior de idade para continuar.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
                       child: const Text(
-                        'Política de Privacidade',
+                        'Avançar',
                         style: TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -640,6 +482,181 @@ class _InitialPageState extends State<InitialPage> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class LoginModal extends StatefulWidget {
+  final VoidCallback onLoginSuccess;
+
+  const LoginModal({super.key, required this.onLoginSuccess});
+
+  @override
+  State<LoginModal> createState() => _LoginModalState();
+}
+
+class _LoginModalState extends State<LoginModal> {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  final ValueNotifier<bool> isPasswordVisible = ValueNotifier(false);
+  bool isLoading = false;
+  String? errorMessage;
+
+  Future<void> login() async {
+    final String email = emailController.text.trim();
+    final String password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        errorMessage = 'Por favor, preencha todos os campos.';
+      });
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final loginResponse = await ApiService.login(email, password);
+
+      if (loginResponse == null) {
+        widget.onLoginSuccess();
+      } else {
+        setState(() {
+          errorMessage = loginResponse;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Ocorreu um erro: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+      child: AlertDialog(
+        title: const Text('Login'),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: 'E-mail',
+                  prefixIcon: const Icon(Icons.email),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder(
+                valueListenable: isPasswordVisible,
+                builder: (context, isVisible, child) {
+                  return TextField(
+                    controller: passwordController,
+                    decoration: InputDecoration(
+                      labelText: 'Senha',
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          isVisible ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () {
+                          isPasswordVisible.value = !isVisible;
+                        },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    obscureText: !isVisible,
+                  );
+                },
+              ),
+              if (errorMessage != null) ...[
+                const SizedBox(height: 16),
+                Text(
+                  errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          if (isLoading) const Center(child: CircularProgressIndicator()),
+          if (!isLoading) ...[
+            Center(
+              child: Column(
+                children: [
+                  LoadingElevatedButton(
+                    text: 'Entrar',
+                    isLoading: false,
+                    onPressed: login,
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ForgotPasswordPage()),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(top: 16.0),
+                      child: Text(
+                        'Esqueci minha senha',
+                        style: TextStyle(
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const RegisterPage()),
+                      );
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.only(top: 8.0),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Primeira vez no Snarf? ',
+                          ),
+                          Text(
+                            'Criar conta',
+                            style: TextStyle(
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

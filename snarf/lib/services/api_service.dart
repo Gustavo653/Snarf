@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:jwt_decode/jwt_decode.dart';
 import 'package:snarf/utils/api_constants.dart';
 
 class ApiService {
@@ -46,12 +47,8 @@ class ApiService {
     final headers = {
       'Content-Type': 'application/json',
     };
-    final body = jsonEncode({
-      'email': email,
-      'name': name,
-      'password': password,
-      'image': image
-    });
+    final body = jsonEncode(
+        {'email': email, 'name': name, 'password': password, 'image': image});
 
     try {
       final response = await http.post(url, headers: headers, body: body);
@@ -115,12 +112,77 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>?> getUserInfo() async {
+  static Future<String?> getUserIdFromToken() async {
+    final token = await ApiService.getToken();
+    if (token != null) {
+      Map<String, dynamic> payload = Jwt.parseJwt(token);
+      return payload['nameid'];
+    }
+    return null;
+  }
+
+  static Future<String?> blockUser(String blockedUserId) async {
+    final token = await ApiService.getToken();
+    if (token == null) return 'Token não encontrado';
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/Account/BlockUser?blockedUserId=$blockedUserId',
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        return responseData['message'] ?? 'Erro ao bloquear usuário';
+      }
+    } catch (e) {
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
+  static Future<String?> unblockUser(String blockedUserId) async {
+    final token = await ApiService.getToken();
+    if (token == null) return 'Token não encontrado';
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/Account/UnblockUser?blockedUserId=$blockedUserId',
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        return responseData['message'] ?? 'Erro ao desbloquear usuário';
+      }
+    } catch (e) {
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getUserInfoById(String userId) async {
     final token = await ApiService.getToken();
     if (token == null) return null;
 
     final response = await http.get(
-      Uri.parse('${ApiConstants.baseUrl}/Account/Current'),
+      Uri.parse('${ApiConstants.baseUrl}/Account/GetUser/$userId'),
       headers: {
         'accept': '*/*',
         'Authorization': 'Bearer $token',

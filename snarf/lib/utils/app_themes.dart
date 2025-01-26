@@ -5,8 +5,8 @@ class AppThemes {
   static final ThemeData lightTheme = ThemeData(
     fontFamily: GoogleFonts.kanit().fontFamily,
     brightness: Brightness.light,
-    appBarTheme: AppBarTheme(
-      iconTheme: const IconThemeData(color: Colors.black),
+    appBarTheme: const AppBarTheme(
+      iconTheme: IconThemeData(color: Colors.black),
     ),
     textTheme: const TextTheme(
       bodySmall: TextStyle(color: Colors.black),
@@ -15,20 +15,35 @@ class AppThemes {
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: Colors.white,
-      selectedItemColor: Colors.blue, // Cor do item selecionado
-      unselectedItemColor: Colors.grey, // Cor dos itens não selecionados
+      selectedItemColor: Colors.blue,
+      unselectedItemColor: Colors.grey,
       showUnselectedLabels: true,
     ),
-    buttonTheme: ButtonThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24.0),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 25.0, vertical: 8.0),
+        side: const BorderSide(
+          color: Color(0xFF0b0951),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30.0),
+        ),
+        textStyle: const TextStyle(
+          color: Color(0xFF0b0951),
+          fontWeight: FontWeight.bold,
+        ),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 25.0, vertical: 8.0),
+        backgroundColor: const Color(0xFF0b0951),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24.0),
+          borderRadius: BorderRadius.circular(30.0),
+        ),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
         ),
       ),
     ),
@@ -37,8 +52,8 @@ class AppThemes {
   static final ThemeData darkTheme = ThemeData(
     fontFamily: GoogleFonts.kanit().fontFamily,
     brightness: Brightness.dark,
-    appBarTheme: AppBarTheme(
-      iconTheme: const IconThemeData(color: Colors.white),
+    appBarTheme: const AppBarTheme(
+      iconTheme: IconThemeData(color: Colors.white),
     ),
     textTheme: const TextTheme(
       bodySmall: TextStyle(color: Colors.white),
@@ -47,20 +62,35 @@ class AppThemes {
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: Colors.black,
-      selectedItemColor: Colors.blue, // Cor do item selecionado
-      unselectedItemColor: Colors.grey, // Cor dos itens não selecionados
+      selectedItemColor: Colors.blue,
+      unselectedItemColor: Colors.grey,
       showUnselectedLabels: true,
     ),
-    buttonTheme: ButtonThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24.0),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 25.0, vertical: 8.0),
+        side: const BorderSide(
+          color: Color(0xFF0b0951),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30.0),
+        ),
+        textStyle: const TextStyle(
+          color: Color(0xFF0b0951),
+          fontWeight: FontWeight.bold,
+        ),
       ),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 25.0, vertical: 8.0),
+        backgroundColor: const Color(0xFF0b0951),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24.0),
+          borderRadius: BorderRadius.circular(30.0),
+        ),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
         ),
       ),
     ),

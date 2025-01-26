@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snarf.Persistence;
@@ -11,9 +12,11 @@ using Snarf.Persistence;
 namespace Snarf.Persistence.Migrations
 {
     [DbContext(typeof(SnarfContext))]
-    partial class SnarfContextModelSnapshot : ModelSnapshot
+    [Migration("20250126123410_9")]
+    partial class _9
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -238,35 +241,6 @@ namespace Snarf.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Snarf.Domain.Entities.BlockedUser", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("BlockedId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("BlockerId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BlockedId");
-
-                    b.HasIndex("BlockerId");
-
-                    b.ToTable("BlockedUsers");
-                });
-
             modelBuilder.Entity("Snarf.Domain.Entities.FavoriteChat", b =>
                 {
                     b.Property<Guid>("Id")
@@ -274,7 +248,6 @@ namespace Snarf.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("ChatUserId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
@@ -284,7 +257,6 @@ namespace Snarf.Persistence.Migrations
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("UserId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -408,38 +380,15 @@ namespace Snarf.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Snarf.Domain.Entities.BlockedUser", b =>
-                {
-                    b.HasOne("Snarf.Domain.Base.User", "Blocked")
-                        .WithMany("BlockedBy")
-                        .HasForeignKey("BlockedId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Snarf.Domain.Base.User", "Blocker")
-                        .WithMany("BlockedUsers")
-                        .HasForeignKey("BlockerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Blocked");
-
-                    b.Navigation("Blocker");
-                });
-
             modelBuilder.Entity("Snarf.Domain.Entities.FavoriteChat", b =>
                 {
                     b.HasOne("Snarf.Domain.Base.User", "ChatUser")
-                        .WithMany("FavoritedBy")
-                        .HasForeignKey("ChatUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .WithMany()
+                        .HasForeignKey("ChatUserId");
 
                     b.HasOne("Snarf.Domain.Base.User", "User")
-                        .WithMany("FavoriteChats")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .WithMany()
+                        .HasForeignKey("UserId");
 
                     b.Navigation("ChatUser");
 
@@ -470,17 +419,6 @@ namespace Snarf.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Sender");
-                });
-
-            modelBuilder.Entity("Snarf.Domain.Base.User", b =>
-                {
-                    b.Navigation("BlockedBy");
-
-                    b.Navigation("BlockedUsers");
-
-                    b.Navigation("FavoriteChats");
-
-                    b.Navigation("FavoritedBy");
                 });
 #pragma warning restore 612, 618
         }
