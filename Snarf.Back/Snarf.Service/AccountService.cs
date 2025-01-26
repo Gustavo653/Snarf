@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Snarf.Domain.Base;
+using Snarf.Domain.Entities;
 using Snarf.Domain.Enum;
 using Snarf.DTO;
 using Snarf.DTO.Base;
@@ -20,6 +21,7 @@ namespace Snarf.Service
                                 ITokenService tokenService,
                                 IPrivateChatMessageRepository privateChatMessageRepository,
                                 IPublicChatMessageRepository publicChatMessageRepository,
+                                IBlockedUserRepository blockUserRepository,
                                 S3Service s3Service) : IAccountService
     {
         private async Task<SignInResult> CheckUserPassword(User user, UserLoginDTO userLoginDTO)
@@ -83,13 +85,29 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        public async Task<ResponseDTO> GetCurrent(Guid id)
+        public async Task<ResponseDTO> GetCurrent(Guid id, bool showSensitiveInfo)
         {
             ResponseDTO responseDTO = new();
             try
             {
                 Log.Information("Obtendo o usuário atual: {email}", id);
-                responseDTO.Object = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id.ToString());
+
+                responseDTO.Object = await userRepository.GetEntities()
+                                                         .Select(x => new
+                                                         {
+                                                             x.Id,
+                                                             x.Email,
+                                                             x.Name,
+                                                             x.LastActivity,
+                                                             x.LastLatitude,
+                                                             x.LastLongitude,
+                                                             x.ImageUrl,
+                                                             BlockedUsers = showSensitiveInfo ? x.BlockedUsers.Select(x => new { x.Blocked.Name, x.Blocked.ImageUrl }) : null,
+                                                             BlockedBy = showSensitiveInfo ? x.BlockedBy.Count : 0,
+                                                             FavoriteChats = showSensitiveInfo ? x.FavoriteChats.Select(x => new { x.ChatUser.Name, x.ChatUser.ImageUrl }) : null,
+                                                             FavoritedBy = showSensitiveInfo ? x.FavoritedBy.Count : 0,
+                                                         })
+                                                         .FirstOrDefaultAsync(x => x.Id == id.ToString());
             }
             catch (Exception ex)
             {
@@ -282,6 +300,57 @@ namespace Snarf.Service
                 user.PasswordHash = userManager.PasswordHasher.HashPassword(user, userEmailDTO.Password);
                 await userRepository.SaveChangesAsync();
                 await userManager.UpdateSecurityStampAsync(user);
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> BlockUser(Guid blockerUserId, Guid blockedUserId)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var blockerUser = userRepository.GetTrackedEntities().FirstOrDefault(x => x.Id == blockerUserId.ToString());
+                var blockedUser = userRepository.GetTrackedEntities().FirstOrDefault(x => x.Id == blockedUserId.ToString());
+
+                if (blockerUser == null || blockedUser == null)
+                {
+                    responseDTO.SetBadInput("Usuário não encontrado!");
+                    return responseDTO;
+                }
+
+                var blockeUserEntity = new BlockedUser
+                {
+                    Blocker = blockerUser,
+                    Blocked = blockedUser
+                };
+
+                await blockUserRepository.InsertAsync(blockeUserEntity);
+                await blockUserRepository.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> UnblockUser(Guid blockerUserId, Guid blockedUserId)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var blockeUserEntity = await blockUserRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Blocker.Id == blockerUserId.ToString() && x.Blocked.Id == blockedUserId.ToString());
+                if (blockeUserEntity == null)
+                {
+                    responseDTO.SetBadInput("Usuário bloqueado não encontrado!");
+                    return responseDTO;
+                }
+                blockUserRepository.Delete(blockeUserEntity);
+                await blockUserRepository.SaveChangesAsync();
             }
             catch (Exception ex)
             {

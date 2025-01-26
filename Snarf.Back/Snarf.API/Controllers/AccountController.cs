@@ -16,14 +16,31 @@ namespace Snarf.API.Controllers
             return StatusCode(user.Code, user);
         }
 
-        [HttpGet("GetUser/{id:guid}")]
-        public async Task<IActionResult> GetUser([FromRoute] Guid id)
+        [HttpGet("GetUser/{requestedUserId:guid}")]
+        public async Task<IActionResult> GetUser([FromRoute] Guid requestedUserId)
         {
-            var user = await accountService.GetCurrent(id);
+            var userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var user = await accountService.GetCurrent(requestedUserId, userId == requestedUserId);
             return StatusCode(user.Code, user);
         }
 
-        [HttpPut("{id}")]
+        [HttpPost("BlockUser")]
+        public async Task<IActionResult> BlockUser([FromQuery] Guid blockedUserId)
+        {
+            var blockerUserId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var user = await accountService.BlockUser(blockerUserId, blockedUserId);
+            return StatusCode(user.Code, user);
+        }
+
+        [HttpPost("UnblockUser")]
+        public async Task<IActionResult> UnblockUser([FromQuery] Guid blockedUserId)
+        {
+            var blockerUserId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var user = await accountService.UnblockUser(blockerUserId, blockedUserId);
+            return StatusCode(user.Code, user);
+        }
+
+        [HttpPut("{id:guid}")]
         public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UserDTO userDTO)
         {
             id = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
@@ -31,7 +48,7 @@ namespace Snarf.API.Controllers
             return StatusCode(user.Code, user);
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:guid}")]
         public async Task<IActionResult> RemoveUser([FromRoute] Guid id)
         {
             id = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);

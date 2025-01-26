@@ -274,7 +274,8 @@ class _PublicChatPageState extends State<PublicChatPage> {
                             ),
                             child: Text(
                               '${DateJSONUtils.formatMessageTime(createdAt)}'
-                              '${!isMine ? ' • $senderName' : ''}',
+                              '${!isMine ? ' • $senderName' : ''}'
+                              '${!isMine ? ' • ${distance?.toStringAsFixed(2)} km' : ''}',
                               style: const TextStyle(
                                 fontSize: 10,
                                 fontStyle: FontStyle.italic,
@@ -367,19 +368,32 @@ class _PublicChatPageState extends State<PublicChatPage> {
               }
             },
           ),
-        if (!isMine && senderLat != null && senderLng != null)
-          IconButton(
-            icon: const Icon(Icons.location_on),
-            onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                    builder: (context) => HomePage(
+        if (!isMine)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (senderLat != null && senderLng != null)
+                IconButton(
+                  icon: const Icon(Icons.my_location),
+                  onPressed: () {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) => HomePage(
                           initialLatitude: senderLat,
                           initialLongitude: senderLng,
-                        )),
-                (Route<dynamic> route) => false,
-              );
-            },
+                        ),
+                      ),
+                      (Route<dynamic> route) => false,
+                    );
+                  },
+                ),
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(
+                  Icons.block,
+                ),
+              )
+            ],
           ),
       ],
     );
