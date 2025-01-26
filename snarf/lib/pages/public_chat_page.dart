@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decode/jwt_decode.dart';
 import 'package:location/location.dart';
-import 'package:snarf/components/toggle_theme_component.dart';
 import 'package:snarf/services/signalr_service.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/date_utils.dart';
@@ -29,7 +28,7 @@ class ChatMessageWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment:
-      isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
         if (!isMine && distance != null)
           Padding(
@@ -45,7 +44,7 @@ class ChatMessageWidget extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment:
-          isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+              isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             if (!isMine)
               CircleAvatar(
@@ -56,15 +55,17 @@ class ChatMessageWidget extends StatelessWidget {
             Flexible(
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                 decoration: BoxDecoration(
                   color: messageColor,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(12),
                     topRight: const Radius.circular(12),
-                    bottomLeft: isMine ? const Radius.circular(12) : Radius.zero,
+                    bottomLeft:
+                        isMine ? const Radius.circular(12) : Radius.zero,
                     bottomRight:
-                    isMine ? Radius.zero : const Radius.circular(12),
+                        isMine ? Radius.zero : const Radius.circular(12),
                   ),
                 ),
                 child: Text(
@@ -107,11 +108,13 @@ class _PublicChatPageState extends State<PublicChatPage> {
   final AuthService _authService = AuthService();
 
   List<Map<String, dynamic>> _messages = [];
+
   String? _userId;
   bool _isLoading = true;
 
   double? _myLatitude;
   double? _myLongitude;
+  bool _sortByDate = true;
 
   @override
   void initState() {
@@ -262,12 +265,44 @@ class _PublicChatPageState extends State<PublicChatPage> {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final myMessageColor = isDarkMode ? Colors.blue[400] : Colors.blue[300];
     final otherMessageColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
+    final sortedMessages = List<Map<String, dynamic>>.from(_messages);
+
+    if (_sortByDate) {
+      sortedMessages.sort((a, b) {
+        final dateA = a['createdAt'] as DateTime;
+        final dateB = b['createdAt'] as DateTime;
+        return dateA.compareTo(dateB);
+      });
+    } else {
+      sortedMessages.sort((a, b) {
+        final distA = a['distance'] as double? ?? double.infinity;
+        final distB = b['distance'] as double? ?? double.infinity;
+        return distB.compareTo(distA);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Chat Público'),
-        actions: const [
-          ThemeToggle(),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              setState(() {
+                _sortByDate = (value == 'date');
+              });
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'date',
+                child: Text('Ordenar por data'),
+              ),
+              const PopupMenuItem(
+                value: 'distance',
+                child: Text('Ordenar por distância'),
+              ),
+            ],
+            icon: const Icon(Icons.sort),
+          ),
         ],
       ),
       body: _isLoading
@@ -279,9 +314,9 @@ class _PublicChatPageState extends State<PublicChatPage> {
                 Expanded(
                   child: ListView.builder(
                     controller: _scrollController,
-                    itemCount: _messages.length,
+                    itemCount: sortedMessages.length,
                     itemBuilder: (context, index) {
-                      final msg = _messages[index];
+                      final msg = sortedMessages[index];
                       final isMine = msg['isMine'] as bool;
                       final createdAt = msg['createdAt'] as DateTime;
                       final distance = msg['distance'] as double?;
