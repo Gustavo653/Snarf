@@ -14,5 +14,6 @@ namespace Snarf.Infrastructure.Service
         Task<ResponseDTO> RemoveUser(Guid id);
         Task<ResponseDTO> BlockUser(Guid blockerUserId, Guid blockedUserId);
         Task<ResponseDTO> UnblockUser(Guid blockerUserId, Guid blockedUserId);
+        Task<ResponseDTO> ReportUserPublicMessage(Guid messageId);
     }
 }

@@ -358,5 +358,25 @@ namespace Snarf.Service
             }
             return responseDTO;
         }
+
+        public async Task<ResponseDTO> ReportUserPublicMessage(Guid messageId)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var message = await publicChatMessageRepository.GetTrackedEntities().Include(x => x.Sender).FirstOrDefaultAsync(x => x.Id == messageId);
+                if (message == null)
+                {
+                    responseDTO.SetBadInput("Mensagem não encontrada!");
+                    return responseDTO;
+                }
+                var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de chat público - Snarf", emailService.BuildReportedMessageText(message.Message, message.CreatedAt, message.Sender.Name, message.Sender.Email), "oficial.snarf@gmail.com"));
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
     }
 }

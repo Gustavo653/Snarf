@@ -40,6 +40,13 @@ namespace Snarf.API.Controllers
             return StatusCode(user.Code, user);
         }
 
+        [HttpPost("ReportUserPublicMessage")]
+        public async Task<IActionResult> ReportUserPublicMessage([FromQuery] Guid messageId)
+        {
+            var user = await accountService.ReportUserPublicMessage(messageId);
+            return StatusCode(user.Code, user);
+        }
+
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> UpdateUser([FromRoute] Guid id, [FromBody] UserDTO userDTO)
         {
