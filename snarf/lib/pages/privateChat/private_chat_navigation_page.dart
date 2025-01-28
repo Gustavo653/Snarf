@@ -48,6 +48,31 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
     super.dispose();
   }
 
+  void showPrivacyPolicyDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Termo Fraude"),
+          content: const SingleChildScrollView(
+            child: Text(
+              "Texto Fraude",
+              textAlign: TextAlign.justify,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text("Fechar"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -67,6 +92,33 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
       body: TabBarView(
         controller: _tabController,
         children: _pages,
+      ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(),
+          Container(
+            padding: const EdgeInsets.fromLTRB(0, 6, 0, 25),
+            child: GestureDetector(
+              onTap: showPrivacyPolicyDialog,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.shield_outlined),
+                  const SizedBox(width: 4),
+                  const Text("Proteja-se"),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Segurança Online e Prevenção contra Fraude",
+                    style: TextStyle(
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
