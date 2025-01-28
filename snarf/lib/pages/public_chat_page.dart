@@ -438,92 +438,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                         );
                       },
                     ),
-                  IconButton(
-                    icon: const Icon(Icons.block),
-                    onPressed: () async {
-                      if (senderId == null) return;
-
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: const Text('Confirmar Bloqueio'),
-                            content: const Text(
-                                'Tem certeza de que deseja bloquear este usuário?'),
-                            actions: <Widget>[
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop(false);
-                                },
-                                child: const Text('Cancelar'),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop(true);
-                                },
-                                child: const Text('Bloquear'),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-
-                      if (confirm == true) {
-                        final response = await ApiService.blockUser(senderId);
-                        if (response == null) {
-                          showSnackbar(
-                              context, 'Usuário bloqueado com sucesso.');
-                        } else {
-                          showSnackbar(
-                              context, 'Erro ao bloquear usuário: $response');
-                        }
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.flag),
-                    onPressed: () async {
-                      final messageId = msgId;
-                      if (messageId != null) {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: const Text('Confirmar denúncia'),
-                              content: const Text(
-                                  'Tem certeza de que deseja denunciar esta mensagem?'),
-                              actions: <Widget>[
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop(false);
-                                  },
-                                  child: const Text('Cancelar'),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.of(context).pop(true);
-                                  },
-                                  child: const Text('Denunciar'),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-
-                        if (confirm == true) {
-                          final response =
-                              await ApiService.reportMessage(messageId);
-                          if (response == null) {
-                            showSnackbar(
-                                context, 'Mensagem denunciada com sucesso.');
-                          } else {
-                            showSnackbar(context,
-                                'Erro ao denunciar mensagem: $response');
-                          }
-                        }
-                      }
-                    },
-                  ),
+                  ChatMessageOptions(senderId: senderId!, messageId: msgId!, mainContext: context,)
                 ],
               ),
             ],
@@ -559,22 +474,178 @@ class _PublicChatPageState extends State<PublicChatPage> {
   }
 }
 
-class DropClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    Path path = Path();
-    path.moveTo(size.width * 0.5, 0); // Começa no topo (menor parte da gota)
-    path.quadraticBezierTo(size.width, 0, size.width, size.height * 0.5);
-    path.quadraticBezierTo(
-        size.width, size.height, size.width * 0.5, size.height);
-    path.quadraticBezierTo(0, size.height, 0, size.height * 0.5);
-    path.quadraticBezierTo(0, 0, size.width * 0.5, 0);
-    path.close();
-    return path;
-  }
+class ChatMessageOptions extends StatelessWidget {
+  final String senderId;
+  final String messageId;
+  final BuildContext mainContext;
+
+  const ChatMessageOptions({
+    required this.senderId,
+    required this.messageId,
+    required this.mainContext,
+    super.key,
+  });
 
   @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) {
-    return false;
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.more_horiz),
+      onPressed: () => _showBlockReportDialog(context),
+    );
+  }
+
+  void _showBlockReportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: const EdgeInsets.all(16),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        iconColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.block),
+                      label: const Text(
+                        "Bloquear Usuário",
+                        style: TextStyle(
+                          color: Colors.white,
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _blockUser(mainContext);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        iconColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.flag),
+                      label: const Text(
+                        "Denunciar Publicação",
+                        style: TextStyle(
+                          color: Colors.white,
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _reportMessage(mainContext, messageId);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                child: const Text("Cancelar"),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _blockUser(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar Bloqueio'),
+          content:
+              const Text('Tem certeza de que deseja bloquear este usuário?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Bloquear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      final response = await ApiService.blockUser(senderId);
+      if (response == null) {
+        showSnackbar(
+          context,
+          'Usuário bloqueado com sucesso.',
+          color: Colors.green,
+        );
+      } else {
+        showSnackbar(context, 'Erro ao bloquear usuário: $response');
+      }
+    }
+  }
+
+  Future<void> _reportMessage(BuildContext context, String messageId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar denúncia'),
+          content:
+              const Text('Tem certeza de que deseja denunciar esta mensagem?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Denunciar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      final response = await ApiService.reportMessage(messageId);
+      if (response == null) {
+        showSnackbar(
+          context,
+          'Mensagem denunciada com sucesso.',
+          color: Colors.green,
+        );
+      } else {
+        showSnackbar(context, 'Erro ao denunciar mensagem: $response');
+      }
+    }
   }
 }
