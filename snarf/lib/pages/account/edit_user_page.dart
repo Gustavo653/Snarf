@@ -385,7 +385,7 @@ class _EditUserPageState extends State<EditUserPage> {
                     _buildActionButtons(),
                     const SizedBox(height: 30),
                     _buildUserList('Usuários Bloqueados', _blockedUsers, true),
-                    _buildUserList('Usuários Favoritos', _favoriteUsers, false),
+                    //_buildUserList('Usuários Favoritos', _favoriteUsers, false),
                   ],
                 ),
               ),

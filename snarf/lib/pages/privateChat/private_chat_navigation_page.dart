@@ -26,8 +26,8 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
 
   final List<String> _titles = [
     'Recentes',
-    'Favoritos',
-    'Localizações',
+    'Fixados',
+    'Locais',
     'Festas',
   ];
 
@@ -35,6 +35,11 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: _pages.length, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -48,16 +53,14 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_tabController.index]),
-        actions: [
-          ThemeToggle(),
-        ],
+        actions: [],
         bottom: TabBar(
           controller: _tabController,
           tabs: [
-            Tab(icon: Icon(Icons.chat), text: 'Recentes'),
-            Tab(icon: Icon(Icons.star), text: 'Favoritos'),
-            Tab(icon: Icon(Icons.location_on), text: 'Localizações'),
-            Tab(icon: Icon(Icons.celebration), text: 'Festas'),
+            Tab(icon: Icon(Icons.chat)),
+            Tab(icon: Icon(Icons.push_pin)),
+            Tab(icon: Icon(Icons.location_on)),
+            Tab(icon: Icon(Icons.celebration)),
           ],
         ),
       ),

@@ -18,7 +18,6 @@ class RecentPage extends StatefulWidget {
 class _RecentChatPageState extends State<RecentPage> {
   final SignalRService _signalRService = SignalRService();
   List<Map<String, dynamic>> _recentChats = [];
-  Set<String> _favoriteChatIds = {};
   final FlutterSecureStorage _storage = FlutterSecureStorage();
   bool _isLoading = true;
 
@@ -47,18 +46,15 @@ class _RecentChatPageState extends State<RecentPage> {
         onMethods: [
           'ReceiveRecentChats',
           'ReceivePrivateMessage',
-          'ReceiveFavorites'
         ],
         eventHandlers: {
           'ReceiveRecentChats': _handleRecentChats,
           'ReceivePrivateMessage': _receiveNewMessages,
-          'ReceiveFavorites': _handleFavorites,
         },
       );
 
       log('Conexão estabelecida, buscando dados...');
       await _signalRService.invokeMethod("GetRecentChats", []);
-      await _signalRService.invokeMethod("GetFavorites", []);
 
       setState(() {
         _isLoading = false;
@@ -99,94 +95,9 @@ class _RecentChatPageState extends State<RecentPage> {
     }
   }
 
-  void _handleFavorites(List<Object?>? data) {
-    if (data != null && data.isNotEmpty) {
-      final jsonString = data.first as String;
-      try {
-        log('Processando favoritos...');
-        final favoriteIds = jsonDecode(jsonString) as List<dynamic>;
-        setState(() {
-          _favoriteChatIds = favoriteIds.map((id) => id.toString()).toSet();
-        });
-        log('Favoritos carregados: ${_favoriteChatIds.length}');
-      } catch (e) {
-        log('Erro ao processar JSON de favoritos: $e');
-        showSnackbar(context, "Erro ao carregar favoritos: $e");
-      }
-    } else {
-      log("Nenhum favorito encontrado.");
-    }
-  }
-
   void _receiveNewMessages(List<Object?>? data) {
     log('Sincronizando novas mensagens...');
     _signalRService.invokeMethod("GetRecentChats", []);
-  }
-
-  Future<void> _deleteChat(String chatUserId) async {
-    try {
-      bool confirmDelete = await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text('Confirmar Exclusão'),
-                content: Text('Você tem certeza que deseja deletar este chat?'),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(false);
-                    },
-                    child: Text('Cancelar'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(true);
-                    },
-                    child: Text('Excluir'),
-                  ),
-                ],
-              );
-            },
-          ) ??
-          false;
-
-      if (confirmDelete) {
-        log('Deletando chat $chatUserId...');
-        await _signalRService.invokeMethod("DeleteChat", [chatUserId]);
-        setState(() {
-          _recentChats.removeWhere((chat) => chat['UserId'] == chatUserId);
-        });
-      } else {
-        log('Exclusão de chat cancelada.');
-      }
-    } catch (e) {
-      log('Erro ao deletar chat: $e');
-      showSnackbar(context, "Erro ao deletar chat.");
-    }
-  }
-
-  Future<void> _toggleFavorite(String chatUserId) async {
-    try {
-      if (_favoriteChatIds.contains(chatUserId)) {
-        log('Removendo chat $chatUserId dos favoritos...');
-        await _signalRService.invokeMethod("RemoveFavorite", [chatUserId]);
-        setState(() {
-          _favoriteChatIds.remove(chatUserId);
-        });
-        showSnackbar(context, "Chat removido dos favoritos.");
-      } else {
-        log('Adicionando chat $chatUserId aos favoritos...');
-        await _signalRService.invokeMethod("AddFavorite", [chatUserId]);
-        setState(() {
-          _favoriteChatIds.add(chatUserId);
-        });
-        showSnackbar(context, "Chat adicionado aos favoritos.");
-      }
-    } catch (e) {
-      log('Erro ao alterar favorito: $e');
-      showSnackbar(context, "Erro ao alterar favorito.");
-    }
   }
 
   @override
@@ -217,13 +128,18 @@ class _RecentChatPageState extends State<RecentPage> {
                   ),
                   itemBuilder: (context, index) {
                     final chat = _recentChats[index];
-                    final isFavorite =
-                        _favoriteChatIds.contains(chat['UserId']);
-
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundImage: NetworkImage(chat['UserImage']),
-                        radius: 24,
+                        radius: 30,
+                        backgroundColor: Colors.blueAccent.shade700,
+                        child: Padding(
+                          padding: EdgeInsets.all(4),
+                          child: ClipOval(
+                            child: Image.network(
+                              chat['UserImage'],
+                            ),
+                          ),
+                        ),
                       ),
                       title: Text(
                         chat['UserName'],
@@ -245,7 +161,11 @@ class _RecentChatPageState extends State<RecentPage> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                        ],
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
                           Text(
                             DateJSONUtils.formatRelativeTime(
                                 chat['LastMessageDate']),
@@ -255,45 +175,31 @@ class _RecentChatPageState extends State<RecentPage> {
                               fontStyle: FontStyle.italic,
                             ),
                           ),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              isFavorite ? Icons.star : Icons.star_border,
-                              color: isFavorite ? Colors.yellow : Colors.grey,
-                            ),
-                            onPressed: () => _toggleFavorite(chat['UserId']),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete_forever,
-                              color: Colors.red,
-                            ),
-                            onPressed: () => _deleteChat(chat['UserId']),
-                          ),
-                          if (chat['UnreadCount'] > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${chat['UnreadCount']}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (chat['UnreadCount'] > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8.0),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '${chat['UnreadCount']}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
+                            ],
+                          ),
                         ],
                       ),
                       onTap: () async {
