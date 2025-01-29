@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:location/location.dart';
@@ -13,11 +14,13 @@ import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/services/api_service.dart';
+import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/services/signalr_service.dart';
 import 'dart:developer';
 
 import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/show_snackbar.dart';
+import 'package:snarf/utils/signalr_event_type.dart';
 
 class HomePage extends StatefulWidget {
   final double? initialLatitude;
@@ -41,15 +44,12 @@ class _HomePageState extends State<HomePage> {
   Map<String, Marker> _userMarkers = {};
   Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
-  late SignalRService _signalRService;
   late String userImage = '';
-  bool _movedToInitialCoordinates = false;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
-    _signalRService = SignalRService();
     _initializeApp();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -157,21 +157,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _setupSignalRConnection() async {
-    try {
-      log('Iniciando conexão SignalR...');
-      await _signalRService.setupConnection(
-        hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/LocationHub',
-        onMethods: ['ReceiveLocation', 'UserDisconnected'],
-        eventHandlers: {
-          'ReceiveLocation': _onReceiveLocation,
-          'UserDisconnected': _onUserDisconnected,
-        },
-      );
-      log('Conexão SignalR estabelecida');
-    } catch (err) {
-      log('Erro ao iniciar conexão SignalR: $err');
-      showSnackbar(context, "Erro ao iniciar conexão SignalR: $err");
-    }
+    await SignalRManager().initializeConnection();
+    SignalRManager().listenToEvent("SendMessage", _onReceiveMessage);
   }
 
   void _openProfile(String userId) {
@@ -185,62 +172,69 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _onReceiveLocation(List<Object?>? args) {
+  void _onReceiveMessage(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+
     try {
-      final userId = args?[0] as String;
-      final latitude = args?[1] as double;
-      final longitude = args?[2] as double;
-      final userName = args?[3] as String;
-      final userImage = args?[4] as String;
-      setState(() {
-        _userMarkers[userId] = Marker(
-          point: LatLng(latitude, longitude),
-          width: 50,
-          height: 50,
-          child: GestureDetector(
-            onTap: () {
-              _openProfile(userId);
-            },
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.blue,
-                  width: 3.0,
-                ),
-              ),
-              child: CircleAvatar(
-                backgroundImage: NetworkImage(userImage),
-                radius: 25,
-              ),
-            ),
-          ),
-        );
-      });
-      log('Localização de usuário $userId atualizada para [$latitude, $longitude]');
+      final Map<String, dynamic> message = jsonDecode(args[0] as String);
+      final SignalREventType type = SignalREventType.values
+          .firstWhere((e) => e.toString().split('.').last == message['Type']);
+
+      final dynamic data = message['Data'];
+
+      switch (type) {
+        case SignalREventType.receiveLocation:
+          _handleReceiveLocation(data);
+          break;
+        case SignalREventType.userDisconnected:
+          _handleUserDisconnected(data);
+          break;
+        default:
+          log("Evento não reconhecido: ${message['Type']}");
+      }
     } catch (e) {
-      log('Erro ao receber localização do usuário: $e');
+      log("Erro ao processar mensagem SignalR: $e");
     }
   }
 
-  void _onUserDisconnected(List<Object?>? args) {
-    final userId = args?[0] as String;
-    log('Usuário desconectado: $userId');
+  void _handleReceiveLocation(Map<String, dynamic> data) {
+    final userId = data['userId'];
+    final latitude = data['Latitude'];
+    final longitude = data['Longitude'];
+    final userImage = data['userImage'];
+
+    setState(() {
+      _userMarkers[userId] = Marker(
+        point: LatLng(latitude, longitude),
+        width: 50,
+        height: 50,
+        child: GestureDetector(
+          onTap: () => _openProfile(userId),
+          child: CircleAvatar(
+            backgroundImage: NetworkImage(userImage),
+          ),
+        ),
+      );
+    });
+
+    log("Localização recebida: $userId - ($latitude, $longitude)");
+  }
+
+  void _handleUserDisconnected(Map<String, dynamic> data) {
+    final userId = data['userId'];
     setState(() {
       _userMarkers.remove(userId);
     });
+    log("Usuário desconectado: $userId");
   }
 
   Future<void> _sendLocationUpdate() async {
     try {
-      await _signalRService.invokeMethod(
-        "UpdateLocation",
-        [
-          _currentLocation.latitude!,
-          _currentLocation.longitude!,
-        ],
-      );
-      log('Localização enviada para o servidor');
+      await SignalRManager()
+          .sendSignalRMessage(SignalREventType.UpdateLocation, {
+        "Latitude": _currentLocation.latitude,
+        "Longitude": _currentLocation.longitude,
+      });
     } catch (e) {
       log('Erro ao enviar localização: $e');
     }
@@ -269,7 +263,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _locationSubscription?.cancel();
-    _signalRService.stopConnection();
     super.dispose();
   }
 
