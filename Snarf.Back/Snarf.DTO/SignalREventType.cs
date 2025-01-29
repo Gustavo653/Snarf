@@ -10,6 +10,11 @@ namespace Snarf.DTO
     {
         UpdateLocation,
         ReceiveLocation,
-        UserDisconnected
+        UserDisconnected,
+        SendMessage,
+        ReceiveMessage,
+        DeleteMessage,
+        ReceiveMessageDeleted,
+        GetPreviousMessages
     }
 }

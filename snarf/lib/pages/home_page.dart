@@ -183,10 +183,10 @@ class _HomePageState extends State<HomePage> {
       final dynamic data = message['Data'];
 
       switch (type) {
-        case SignalREventType.receiveLocation:
+        case SignalREventType.ReceiveLocation:
           _handleReceiveLocation(data);
           break;
-        case SignalREventType.userDisconnected:
+        case SignalREventType.ReceiveLocation:
           _handleUserDisconnected(data);
           break;
         default:
