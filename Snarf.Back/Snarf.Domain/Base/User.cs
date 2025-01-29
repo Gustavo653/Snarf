@@ -1,6 +1,6 @@
-using Snarf.Domain.Enum;
 using Microsoft.AspNetCore.Identity;
 using Snarf.Domain.Entities;
+using Snarf.Domain.Enum;
 
 namespace Snarf.Domain.Base
 {

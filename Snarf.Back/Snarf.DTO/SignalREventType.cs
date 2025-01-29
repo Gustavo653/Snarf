@@ -1,21 +1,28 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Snarf.DTO
+﻿namespace Snarf.DTO
 {
     public enum SignalREventType
     {
         UserConnected,
         UserDisconnected,
+
         MapUpdateLocation,
         MapReceiveLocation,
+
         PublicChatSendMessage,
         PublicChatReceiveMessage,
         PublicChatDeleteMessage,
         PublicChatReceiveMessageDeleted,
-        PublicChatGetPreviousMessages
+        PublicChatGetPreviousMessages,
+
+        PrivateChatSendMessage,
+        PrivateChatReceiveMessage,
+        PrivateChatGetRecentChats,
+        PrivateChatReceiveRecentChats,
+        PrivateChatGetPreviousMessages,
+        PrivateChatReceivePreviousMessages,
+        PrivateChatMarkMessagesAsRead,
+        PrivateChatDeleteMessage,
+        PrivateChatDeleteChat,
+        PrivateChatSendImage
     }
 }

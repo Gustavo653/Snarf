@@ -1,15 +1,6 @@
-﻿using iText.Forms.Form.Element;
-using iText.Kernel.Geom;
-using iText.Layout.Borders;
-using iText.Layout.Element;
-using iText.Layout.Properties;
-using Snarf.Infrastructure.Service;
-using System.ComponentModel;
-using System.Drawing.Printing;
-using System;
+﻿using Snarf.Infrastructure.Service;
 using System.Net;
 using System.Net.Mail;
-using System.Runtime.InteropServices;
 
 namespace Snarf.Service
 {

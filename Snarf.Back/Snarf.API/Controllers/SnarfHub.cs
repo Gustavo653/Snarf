@@ -4,6 +4,7 @@ using Serilog;
 using Snarf.Domain.Entities;
 using Snarf.DTO;
 using Snarf.Infrastructure.Repository;
+using Snarf.Service;
 using Snarf.Utils;
 using System.Collections.Concurrent;
 using System.Text.Json;
@@ -13,6 +14,7 @@ namespace Snarf.API.Controllers
     public class SnarfHub(
         IUserRepository _userRepository,
         IPublicChatMessageRepository _publicChatMessageRepository,
+        IPrivateChatMessageRepository _privateChatMessageRepository,
         IBlockedUserRepository _blockedUserRepository) : Hub
     {
         private static ConcurrentDictionary<string, List<string>> _userConnections = new();
@@ -34,6 +36,27 @@ namespace Snarf.API.Controllers
                     break;
                 case nameof(SignalREventType.PublicChatGetPreviousMessages):
                     await HandlePublicChatGetPreviousMessages();
+                    break;
+                case nameof(SignalREventType.PrivateChatSendMessage):
+                    await HandlePrivateChatSendMessage(message.Data);
+                    break;
+                case nameof(SignalREventType.PrivateChatGetRecentChats):
+                    await HandlePrivateChatGetRecentChats();
+                    break;
+                case nameof(SignalREventType.PrivateChatGetPreviousMessages):
+                    await HandlePrivateChatGetPreviousMessages(message.Data);
+                    break;
+                case nameof(SignalREventType.PrivateChatMarkMessagesAsRead):
+                    await HandlePrivateChatMarkMessagesAsRead(message.Data);
+                    break;
+                case nameof(SignalREventType.PrivateChatDeleteMessage):
+                    await HandlePrivateChatDeleteMessage(message.Data);
+                    break;
+                case nameof(SignalREventType.PrivateChatDeleteChat):
+                    await HandlePrivateChatDeleteChat(message.Data);
+                    break;
+                case nameof(SignalREventType.PrivateChatSendImage):
+                    await HandlePrivateChatSendImage(message.Data);
                     break;
                 default:
                     Log.Warning($"Evento desconhecido recebido: {message.Type}");
@@ -65,7 +88,7 @@ namespace Snarf.API.Controllers
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,
                 user.Name,
-                user.ImageUrl
+                userImage = user.ImageUrl
             });
 
             await Clients.Others.SendAsync("ReceiveMessage", jsonResponse);
@@ -176,6 +199,238 @@ namespace Snarf.API.Controllers
                 var jsonResponse = SignalRMessage.Serialize(SignalREventType.PublicChatReceiveMessage, message);
                 await Clients.Caller.SendAsync("ReceiveMessage", jsonResponse);
             }
+        }
+
+        private async Task HandlePrivateChatSendMessage(JsonElement data)
+        {
+            var senderUserId = GetUserId();
+            var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
+            var messageText = data.GetProperty("Message").GetString();
+
+            if (string.IsNullOrWhiteSpace(messageText)) return;
+
+            var senderUser = await _userRepository
+                .GetTrackedEntities()
+                .FirstOrDefaultAsync(x => x.Id == senderUserId);
+
+            if (senderUser == null) return;
+
+            var sender = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == senderUserId);
+            var receiver = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == receiverUserId);
+
+            if (sender == null || receiver == null)
+            {
+                throw new Exception("Usuário não encontrado");
+            }
+
+            var chatMessage = new PrivateChatMessage
+            {
+                Sender = sender,
+                Receiver = receiver,
+                Message = messageText,
+                IsRead = false
+            };
+
+            chatMessage.SetCreatedAt(DateTime.UtcNow);
+
+            await _privateChatMessageRepository.InsertAsync(chatMessage);
+            await _privateChatMessageRepository.SaveChangesAsync();
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveMessage, new
+            {
+                MessageId = chatMessage.Id,
+                UserId = senderUserId,
+                UserName = sender.Name,
+                Message = messageText
+            });
+            await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
+            await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePrivateChatGetRecentChats()
+        {
+            var userId = GetUserId();
+            var messages = await _privateChatMessageRepository.GetEntities()
+                .Where(m => m.Sender.Id == userId || m.Receiver.Id == userId)
+                .Select(m => new
+                {
+                    SenderId = m.Sender.Id,
+                    SenderName = m.Sender.Name,
+                    SenderImage = m.Sender.ImageUrl,
+                    ReceiverId = m.Receiver.Id,
+                    ReceiverName = m.Receiver.Name,
+                    ReceiverImage = m.Receiver.ImageUrl,
+                    m.Message,
+                    m.CreatedAt,
+                    m.IsRead,
+                })
+                .ToListAsync();
+
+            var recentChats = messages
+                .GroupBy(m => m.ReceiverId == userId ? m.SenderId : m.ReceiverId)
+                .Select(group => new
+                {
+                    UserId = group.Key,
+                    UserName = group.First().ReceiverId == userId ? group.First().SenderName : group.First().ReceiverName,
+                    UserImage = group.First().ReceiverId == userId ? group.First().SenderImage : group.First().ReceiverImage,
+                    LastMessage = group.OrderByDescending(m => m.CreatedAt).First().Message,
+                    LastMessageDate = group.Max(m => m.CreatedAt),
+                    UnreadCount = group.Count(m => m.ReceiverId == userId && !m.IsRead)
+                })
+                .OrderByDescending(c => c.LastMessageDate)
+                .ToList();
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveRecentChats, recentChats);
+            await Clients.Caller.SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePrivateChatGetPreviousMessages(JsonElement data)
+        {
+            var userId = GetUserId();
+            var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
+
+            var previousMessages = await _privateChatMessageRepository.GetEntities()
+                .Where(m => (m.Sender.Id == userId && m.Receiver.Id == receiverUserId) ||
+                            (m.Sender.Id == receiverUserId && m.Receiver.Id == userId))
+                .Select(x => new
+                {
+                    x.Id,
+                    x.CreatedAt,
+                    SenderId = x.Sender.Id,
+                    ReceiverId = x.Receiver.Id,
+                    x.Message
+                })
+                .OrderByDescending(m => m.CreatedAt)
+                .Take(1000)
+                .OrderBy(m => m.CreatedAt)
+                .ToListAsync();
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceivePreviousMessages, previousMessages);
+            await Clients.Caller.SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+
+        public async Task HandlePrivateChatDeleteMessage(JsonElement data)
+        {
+            var messageId = data.GetProperty("MessageId").GetString();
+            var userId = GetUserId();
+
+            var message = await _privateChatMessageRepository
+                .GetTrackedEntities()
+                .Include(x => x.Receiver)
+                .Include(x => x.Sender)
+                .FirstOrDefaultAsync(m => m.Id.ToString() == messageId);
+
+            if (message == null)
+            {
+                Log.Warning($"Mensagem {messageId} não encontrada para exclusão pelo usuário {userId}");
+                throw new Exception("Mensagem não encontrada");
+            }
+
+            if (message.Sender.Id != userId && message.Receiver.Id != userId)
+            {
+                Log.Warning($"Usuário {userId} tentou excluir mensagem {messageId} sem permissão");
+                throw new UnauthorizedAccessException("Você não tem permissão para excluir esta mensagem");
+            }
+
+            if (message.Message.StartsWith("https://"))
+            {
+                var s3Service = new S3Service();
+                await s3Service.DeleteFileAsync(message.Message);
+            }
+
+            message.Message = "Mensagem excluída";
+            await _privateChatMessageRepository.SaveChangesAsync();
+            Log.Information($"Usuário {userId} excluiu a mensagem {messageId}");
+
+            await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", messageId);
+            await Clients.User(message.Receiver.Id).SendAsync("MessageDeleted", messageId);
+        }
+
+        public async Task HandlePrivateChatDeleteChat(JsonElement data)
+        {
+            var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
+            var userId = GetUserId();
+            var messages = await _privateChatMessageRepository.GetTrackedEntities()
+                .Include(x => x.Sender)
+                .Include(x => x.Receiver)
+                .Where(m => (m.Sender.Id == userId && m.Receiver.Id == receiverUserId) ||
+                            (m.Sender.Id == receiverUserId && m.Receiver.Id == userId))
+                .ToListAsync();
+            foreach (var message in messages)
+            {
+                await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", message.Id);
+                await Clients.User(message.Receiver.Id).SendAsync("MessageDeleted", message.Id);
+                if (message.Message.StartsWith("https://"))
+                {
+                    var s3Service = new S3Service();
+                    await s3Service.DeleteFileAsync(message.Message);
+                }
+                else
+                {
+                    _privateChatMessageRepository.Delete(message);
+                }
+            }
+            await _privateChatMessageRepository.SaveChangesAsync();
+            Log.Information($"Usuário {userId} excluiu o chat com {receiverUserId}");
+        }
+
+        public async Task HandlePrivateChatSendImage(JsonElement data)
+        {
+            var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
+            var imageBase64 = data.GetProperty("Image").GetString();
+            var fileName = data.GetProperty("FileName").GetString();
+            var senderUserId = GetUserId();
+            var senderUserName = Context.User?.Identity?.Name ?? "Desconhecido";
+
+            Log.Information($"Usuário {senderUserId} enviou uma imagem para {receiverUserId}.");
+
+            var imageBytes = Convert.FromBase64String(imageBase64);
+            var imageStream = new MemoryStream(imageBytes);
+            var s3Service = new S3Service();
+            var imageUrl = await s3Service.UploadFileAsync($"images/{fileName}{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
+
+            var sender = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == senderUserId);
+            var receiver = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == receiverUserId);
+
+            if (sender == null || receiver == null)
+            {
+                throw new Exception("Usuário não encontrado");
+            }
+
+            var chatMessage = new PrivateChatMessage
+            {
+                Sender = sender,
+                Receiver = receiver,
+                Message = imageUrl,
+                IsRead = false
+            };
+
+            chatMessage.SetCreatedAt(DateTime.UtcNow);
+
+            await _privateChatMessageRepository.InsertAsync(chatMessage);
+            await _privateChatMessageRepository.SaveChangesAsync();
+
+            await Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", chatMessage.Id, senderUserId, sender.Name, imageUrl);
+            await Clients.User(senderUserId).SendAsync("ReceivePrivateMessage", chatMessage.Id, senderUserId, sender.Name, imageUrl);
+        }
+
+        public async Task HandlePrivateChatMarkMessagesAsRead(JsonElement data)
+        {
+            var senderUserId = data.GetProperty("SenderUserId").GetString();
+            var receiverUserId = GetUserId();
+            var messages = await _privateChatMessageRepository.GetTrackedEntities()
+                .Where(m => m.Sender.Id == senderUserId && m.Receiver.Id == receiverUserId && !m.IsRead)
+                .ToListAsync();
+
+            Log.Information($"Usuário {receiverUserId} leu {messages.Count} de {senderUserId}");
+
+            foreach (var message in messages)
+            {
+                message.IsRead = true;
+            }
+
+            await _privateChatMessageRepository.SaveChangesAsync();
         }
 
         public override async Task OnConnectedAsync()

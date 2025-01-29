@@ -1,7 +1,7 @@
-using Snarf.Domain.Base;
-using Snarf.Infrastructure.Service;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Snarf.Domain.Base;
+using Snarf.Infrastructure.Service;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;

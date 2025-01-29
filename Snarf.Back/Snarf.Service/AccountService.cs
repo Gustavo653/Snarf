@@ -1,5 +1,4 @@
 using Hangfire;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -10,7 +9,6 @@ using Snarf.DTO;
 using Snarf.DTO.Base;
 using Snarf.Infrastructure.Repository;
 using Snarf.Infrastructure.Service;
-using Snarf.Utils;
 
 namespace Snarf.Service
 {

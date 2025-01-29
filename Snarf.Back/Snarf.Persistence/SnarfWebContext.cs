@@ -1,6 +1,6 @@
-﻿using Snarf.Domain.Base;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Snarf.Domain.Base;
 using Snarf.Domain.Entities;
 
 namespace Snarf.Persistence

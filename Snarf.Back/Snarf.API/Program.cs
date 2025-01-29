@@ -1,3 +1,14 @@
+using Hangfire;
+using Hangfire.Dashboard.BasicAuthorization;
+using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Serilog;
+using Snarf.API.Controllers;
 using Snarf.DataAccess;
 using Snarf.Domain.Base;
 using Snarf.Domain.Enum;
@@ -6,19 +17,8 @@ using Snarf.Infrastructure.Service;
 using Snarf.Persistence;
 using Snarf.Service;
 using Snarf.Utils;
-using Hangfire;
-using Hangfire.Dashboard.BasicAuthorization;
-using Hangfire.PostgreSql;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using Serilog;
 using System.Text;
 using System.Text.Json.Serialization;
-using Snarf.API.Controllers;
-using Microsoft.AspNetCore.SignalR;
 
 namespace Snarf.API
 {
@@ -155,8 +155,6 @@ namespace Snarf.API
             app.UseAuthorization();
 
             app.MapHub<SnarfHub>("/SnarfHub").RequireAuthorization();
-            app.MapHub<PublicChatHub>("/PublicChatHub").RequireAuthorization();
-            app.MapHub<PrivateChatHub>("/PrivateChatHub").RequireAuthorization();
 
             app.MapControllers();
 
@@ -250,7 +248,6 @@ namespace Snarf.API
         private static void InjectServiceDependencies(WebApplicationBuilder builder)
         {
             builder.Services.AddScoped<IAccountService, AccountService>();
-            builder.Services.AddScoped<MessagePersistenceService>();
             builder.Services.AddScoped<S3Service>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<ITokenService, TokenService>();

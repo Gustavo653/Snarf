@@ -1,7 +1,7 @@
-using Snarf.DTO;
-using Snarf.Infrastructure.Service;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Snarf.DTO;
+using Snarf.Infrastructure.Service;
 using System.Security.Claims;
 
 namespace Snarf.API.Controllers
