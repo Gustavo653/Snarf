@@ -1,7 +1,12 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:pro_image_editor/pro_image_editor.dart';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:snarf/components/toggle_theme_component.dart';
 import 'package:snarf/services/signalr_service.dart';
 import 'package:snarf/utils/api_constants.dart';
@@ -62,27 +67,47 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
+  Future<Uint8List> _compressImage(Uint8List imageBytes,
+      {int quality = 70}) async {
+    final decodedImage = img.decodeImage(imageBytes);
+    if (decodedImage != null) {
+      return Uint8List.fromList(img.encodeJpg(decodedImage, quality: quality));
+    }
+    return imageBytes;
+  }
+
+  Future<void> _editAndSendImage(XFile image) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProImageEditor.file(
+          File(image.path),
+          callbacks: ProImageEditorCallbacks(
+            onImageEditingComplete: (Uint8List bytes) async {
+              final compressedBytes = await _compressImage(bytes);
+              final base64Image = base64Encode(compressedBytes);
+              await _sendImage(base64Image, image.name);
+              Navigator.pop(context);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _takePhoto() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.camera);
-
     if (image != null) {
-      final bytes = await image.readAsBytes();
-      final base64Image = base64Encode(bytes);
-
-      await _sendImage(base64Image, image.name);
+      await _editAndSendImage(image);
     }
   }
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
     if (image != null) {
-      final bytes = await image.readAsBytes();
-      final base64Image = base64Encode(bytes);
-
-      await _sendImage(base64Image, image.name);
+      await _editAndSendImage(image);
     }
   }
 

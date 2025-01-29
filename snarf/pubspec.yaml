@@ -49,6 +49,7 @@ dependencies:
   google_fonts: ^6.2.1
   flutter_image_compress: ^2.4.0
   path_provider: ^2.1.5
+  pro_image_editor: ^8.1.0
 
 dev_dependencies:
   flutter_test:
