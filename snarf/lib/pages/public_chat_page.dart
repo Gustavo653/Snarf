@@ -7,8 +7,6 @@ import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
-import 'package:snarf/services/signalr_service.dart';
-import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
@@ -59,7 +57,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
     await _initLocation();
     SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
     await SignalRManager()
-        .sendSignalRMessage(SignalREventType.GetPreviousMessages, {});
+        .sendSignalRMessage(SignalREventType.PublicChatGetPreviousMessages, {});
     setState(() => _isLoading = false);
   }
 
@@ -75,10 +73,10 @@ class _PublicChatPageState extends State<PublicChatPage> {
       final dynamic data = message['Data'];
 
       switch (type) {
-        case SignalREventType.ReceiveMessage:
+        case SignalREventType.PublicChatReceiveMessage:
           _handleReceiveMessage(data);
           break;
-        case SignalREventType.ReceiveMessageDeleted:
+        case SignalREventType.PublicChatReceiveMessageDeleted:
           _handleMessageDeleted(data);
           break;
         default:
@@ -126,7 +124,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
     final messageText = _messageController.text.trim();
     if (messageText.isNotEmpty) {
       await SignalRManager().sendSignalRMessage(
-          SignalREventType.SendMessage, {"Message": messageText});
+          SignalREventType.PublicChatSendMessage, {"Message": messageText});
       setState(() => _messageController.clear());
       _scrollToBottom();
     }
@@ -135,7 +133,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
   void _deleteMessage(String messageId) async {
     try {
       await SignalRManager().sendSignalRMessage(
-          SignalREventType.DeleteMessage, {"MessageId": messageId});
+          SignalREventType.PublicChatDeleteMessage, {"MessageId": messageId});
     } catch (e) {
       showSnackbar(context, "Erro ao excluir a mensagem: $e");
     }

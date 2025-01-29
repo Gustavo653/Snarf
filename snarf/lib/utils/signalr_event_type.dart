@@ -1,10 +1,11 @@
 enum SignalREventType {
-  UpdateLocation,
-  ReceiveLocation,
+  UserConnected,
   UserDisconnected,
-  SendMessage,
-  ReceiveMessage,
-  DeleteMessage,
-  ReceiveMessageDeleted,
-  GetPreviousMessages
+  MapUpdateLocation,
+  MapReceiveLocation,
+  PublicChatSendMessage,
+  PublicChatReceiveMessage,
+  PublicChatDeleteMessage,
+  PublicChatReceiveMessageDeleted,
+  PublicChatGetPreviousMessages
 }

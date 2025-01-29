@@ -51,19 +51,6 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _mapController = MapController();
     _initializeApp();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _moveToInitialCoordinatesIfProvided();
-    });
-  }
-
-  void _moveToInitialCoordinatesIfProvided() {
-    if (widget.initialLatitude != null && widget.initialLongitude != null) {
-      _mapController.move(
-        LatLng(widget.initialLatitude!, widget.initialLongitude!),
-        15.0,
-      );
-    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -158,7 +145,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _setupSignalRConnection() async {
     await SignalRManager().initializeConnection();
-    SignalRManager().listenToEvent("SendMessage", _onReceiveMessage);
+    SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
   }
 
   void _openProfile(String userId) {
@@ -183,10 +170,10 @@ class _HomePageState extends State<HomePage> {
       final dynamic data = message['Data'];
 
       switch (type) {
-        case SignalREventType.ReceiveLocation:
+        case SignalREventType.MapReceiveLocation:
           _handleReceiveLocation(data);
           break;
-        case SignalREventType.ReceiveLocation:
+        case SignalREventType.UserDisconnected:
           _handleUserDisconnected(data);
           break;
         default:
@@ -231,7 +218,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _sendLocationUpdate() async {
     try {
       await SignalRManager()
-          .sendSignalRMessage(SignalREventType.UpdateLocation, {
+          .sendSignalRMessage(SignalREventType.MapUpdateLocation, {
         "Latitude": _currentLocation.latitude,
         "Longitude": _currentLocation.longitude,
       });

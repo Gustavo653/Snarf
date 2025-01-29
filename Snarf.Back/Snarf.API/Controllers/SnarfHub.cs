@@ -23,17 +23,17 @@ namespace Snarf.API.Controllers
 
             switch (message.Type)
             {
-                case "UpdateLocation":
-                    await HandleUpdateLocation(message.Data);
+                case nameof(SignalREventType.MapUpdateLocation):
+                    await HandleMapUpdateLocation(message.Data);
                     break;
-                case "SendMessage":
-                    await HandleSendMessage(message.Data);
+                case nameof(SignalREventType.PublicChatSendMessage):
+                    await HandlePublicChatSendMessage(message.Data);
                     break;
-                case "DeleteMessage":
-                    await HandleDeleteMessage(message.Data);
+                case nameof(SignalREventType.PublicChatDeleteMessage):
+                    await HandlePublicChatDeleteMessage(message.Data);
                     break;
-                case "GetPreviousMessages":
-                    await HandleGetPreviousMessages();
+                case nameof(SignalREventType.PublicChatGetPreviousMessages):
+                    await HandlePublicChatGetPreviousMessages();
                     break;
                 default:
                     Log.Warning($"Evento desconhecido recebido: {message.Type}");
@@ -41,7 +41,7 @@ namespace Snarf.API.Controllers
             }
         }
 
-        private async Task HandleUpdateLocation(JsonElement data)
+        private async Task HandleMapUpdateLocation(JsonElement data)
         {
             var userId = GetUserId();
             var location = JsonSerializer.Deserialize<LocationModel>(data.ToString());
@@ -59,7 +59,7 @@ namespace Snarf.API.Controllers
 
             Log.Information($"Localização atualizada: {userId} - ({location.Latitude}, {location.Longitude})");
 
-            var jsonResponse = SignalRMessage.Serialize(SignalREventType.ReceiveLocation, new
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.MapReceiveLocation, new
             {
                 userId,
                 Latitude = location.Latitude,
@@ -71,7 +71,7 @@ namespace Snarf.API.Controllers
             await Clients.Others.SendAsync("ReceiveMessage", jsonResponse);
         }
 
-        private async Task HandleSendMessage(JsonElement data)
+        private async Task HandlePublicChatSendMessage(JsonElement data)
         {
             var userId = GetUserId();
             var text = data.GetProperty("Message").GetString();
@@ -107,7 +107,7 @@ namespace Snarf.API.Controllers
                 }
             }
 
-            var jsonResponse = SignalRMessage.Serialize(SignalREventType.ReceiveMessage, new
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PublicChatReceiveMessage, new
             {
                 message.Id,
                 CreatedAt = DateTime.UtcNow,
@@ -122,7 +122,7 @@ namespace Snarf.API.Controllers
             await Clients.AllExcept(blockedConnectionIds).SendAsync("ReceiveMessage", jsonResponse);
         }
 
-        private async Task HandleDeleteMessage(JsonElement data)
+        private async Task HandlePublicChatDeleteMessage(JsonElement data)
         {
             var userId = GetUserId();
             var messageId = data.GetProperty("MessageId").GetString();
@@ -140,7 +140,7 @@ namespace Snarf.API.Controllers
             await _publicChatMessageRepository.SaveChangesAsync();
             Log.Information($"Mensagem {message.Id} do usuário {userId} marcada como excluída.");
 
-            var jsonResponse = SignalRMessage.Serialize(SignalREventType.ReceiveMessageDeleted, new
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PublicChatReceiveMessageDeleted, new
             {
                 MessageId = message.Id,
                 Message = "Mensagem excluída"
@@ -149,7 +149,7 @@ namespace Snarf.API.Controllers
             await Clients.All.SendAsync("ReceiveMessage", jsonResponse);
         }
 
-        private async Task HandleGetPreviousMessages()
+        private async Task HandlePublicChatGetPreviousMessages()
         {
             var userId = GetUserId();
             var previousMessages = await _publicChatMessageRepository
@@ -173,7 +173,7 @@ namespace Snarf.API.Controllers
 
             foreach (var message in previousMessages)
             {
-                var jsonResponse = SignalRMessage.Serialize(SignalREventType.ReceiveMessage, message);
+                var jsonResponse = SignalRMessage.Serialize(SignalREventType.PublicChatReceiveMessage, message);
                 await Clients.Caller.SendAsync("ReceiveMessage", jsonResponse);
             }
         }
