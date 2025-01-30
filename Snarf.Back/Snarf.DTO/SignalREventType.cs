@@ -23,6 +23,7 @@
         PrivateChatMarkMessagesAsRead,
         PrivateChatDeleteMessage,
         PrivateChatDeleteChat,
-        PrivateChatSendImage
+        PrivateChatSendImage,
+        PrivateChatReceiveMessageDeleted,
     }
 }

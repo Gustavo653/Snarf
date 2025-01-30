@@ -343,8 +343,12 @@ namespace Snarf.API.Controllers
             await _privateChatMessageRepository.SaveChangesAsync();
             Log.Information($"Usuário {userId} excluiu a mensagem {messageId}");
 
-            await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", messageId);
-            await Clients.User(message.Receiver.Id).SendAsync("MessageDeleted", messageId);
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveMessageDeleted, new
+            {
+                MessageId = messageId,
+            });
+            await Clients.User(message.Sender.Id).SendAsync("ReceiveMessage", jsonResponse);
+            await Clients.User(message.Receiver.Id).SendAsync("ReceiveMessage", jsonResponse);
         }
 
         public async Task HandlePrivateChatDeleteChat(JsonElement data)
@@ -359,8 +363,12 @@ namespace Snarf.API.Controllers
                 .ToListAsync();
             foreach (var message in messages)
             {
-                await Clients.User(message.Sender.Id).SendAsync("MessageDeleted", message.Id);
-                await Clients.User(message.Receiver.Id).SendAsync("MessageDeleted", message.Id);
+                var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveMessageDeleted, new
+                {
+                    MessageId = message.Id,
+                });
+                await Clients.User(message.Sender.Id).SendAsync("ReceiveMessage", jsonResponse);
+                await Clients.User(message.Receiver.Id).SendAsync("ReceiveMessage", jsonResponse);
                 if (message.Message.StartsWith("https://"))
                 {
                     var s3Service = new S3Service();
@@ -411,8 +419,15 @@ namespace Snarf.API.Controllers
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
 
-            await Clients.User(receiverUserId).SendAsync("ReceivePrivateMessage", chatMessage.Id, senderUserId, sender.Name, imageUrl);
-            await Clients.User(senderUserId).SendAsync("ReceivePrivateMessage", chatMessage.Id, senderUserId, sender.Name, imageUrl);
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveMessage, new
+            {
+                MessageId = chatMessage.Id,
+                UserId = senderUserId,
+                UserName = sender.Name,
+                Message = imageUrl
+            });
+            await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
+            await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
         }
 
         public async Task HandlePrivateChatMarkMessagesAsRead(JsonElement data)

@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:snarf/components/toggle_theme_component.dart';
-import 'package:snarf/services/signalr_service.dart';
-import 'package:snarf/utils/api_constants.dart';
+import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
+import 'package:snarf/utils/signalr_event_type.dart';
 
 class PrivateChatPage extends StatefulWidget {
   final String userId;
@@ -32,8 +32,7 @@ class PrivateChatPage extends StatefulWidget {
 class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final SignalRService _signalRService = SignalRService();
-  List<Map<String, dynamic>> _messages = [];
+  List<PrivateChatMessageModel> _messages = [];
 
   @override
   void initState() {
@@ -42,28 +41,42 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _initializeChat() async {
+    SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
+    await SignalRManager().sendSignalRMessage(
+        SignalREventType.PrivateChatGetPreviousMessages,
+        {'ReceiverUserId': widget.userId});
+    await SignalRManager().sendSignalRMessage(
+        SignalREventType.PrivateChatMarkMessagesAsRead,
+        {'SenderUserId': widget.userId});
+  }
+
+  void _handleSignalRMessage(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+
     try {
-      log('Iniciando a conexão com o chat...');
-      await _signalRService.setupConnection(
-        hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
-        onMethods: [
-          'ReceivePreviousMessages',
-          'ReceivePrivateMessage',
-          'MessageDeleted'
-        ],
-        eventHandlers: {
-          'ReceivePreviousMessages': _handleReceivedMessages,
-          'ReceivePrivateMessage': _handleNewPrivateMessage,
-          'MessageDeleted': _handleMessageDeleted,
-        },
-      );
-      log('Conexão estabelecida com sucesso');
-      await _signalRService
-          .invokeMethod("GetPreviousMessages", [widget.userId]);
-      await _signalRService.invokeMethod('MarkMessagesAsRead', [widget.userId]);
-    } catch (err) {
-      log("Erro ao conectar: $err");
-      showSnackbar(context, "Erro ao conectar ao chat: $err");
+      final Map<String, dynamic> message = jsonDecode(args[0] as String);
+      final typeString = message['Type'] as String;
+      final dynamic data = message['Data'];
+
+      final SignalREventType type = SignalREventType.values
+          .firstWhere((e) => e.toString().split('.').last == typeString);
+
+      switch (type) {
+        case SignalREventType.PrivateChatReceivePreviousMessages:
+          _handleReceivedMessages(data);
+          break;
+        case SignalREventType.PrivateChatReceiveMessage:
+          _handleNewPrivateMessage(data);
+          break;
+        case SignalREventType.PrivateChatReceiveMessageDeleted:
+          _handleMessageDeleted(data);
+          break;
+        // ...
+        default:
+          log("Evento desconhecido: $typeString");
+      }
+    } catch (e) {
+      log("Erro ao processar mensagem SignalR: $e");
     }
   }
 
@@ -113,79 +126,77 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<void> _sendImage(String base64Image, String fileName) async {
     try {
-      log("Enviando imagem: $fileName");
-      await _signalRService.invokeMethod(
-        "SendImage",
-        [widget.userId, base64Image, fileName],
-      );
+      await SignalRManager().sendSignalRMessage(
+          SignalREventType.PrivateChatSendImage, {
+        'ReceiverUserId': widget.userId,
+        'Image': base64Image,
+        'FileName': fileName
+      });
     } catch (e) {
-      log("Erro ao enviar imagem: $e");
       showSnackbar(context, "Erro ao enviar imagem: $e");
     }
   }
 
-  void _handleReceivedMessages(List<Object?>? args) {
-    if (args == null || args.isEmpty) {
-      log("Nenhuma mensagem recebida");
-      return;
-    }
-
-    final jsonString = args[0] as String;
-    log("JSON recebido: $jsonString");
-
+  void _handleReceivedMessages(dynamic data) {
+    if (data == null) return;
     try {
-      final List<dynamic> previousMessages = json.decode(jsonString);
+      final List<dynamic> rawList = data as List<dynamic>;
+      final List<PrivateChatMessageModel> previousMessages =
+          rawList.map((item) {
+        final map = item as Map<String, dynamic>;
+        return PrivateChatMessageModel.fromJson(map);
+      }).toList();
+
       setState(() {
-        _messages = previousMessages.map((msg) {
-          return {
-            "id": msg['Id'],
-            "createdAt": DateTime.parse(msg['CreatedAt']),
-            "message": msg['Message'],
-            "isMine": msg['SenderId'] != widget.userId,
-          };
-        }).toList();
+        _messages = previousMessages;
       });
 
       _scrollToBottom();
     } catch (err) {
-      log("Erro ao processar mensagens: $err");
       showSnackbar(context, "Erro ao processar mensagens: $err");
     }
   }
 
-  void _handleNewPrivateMessage(List<Object?>? args) {
-    final message = args?[3] as String;
-    log("Nova mensagem recebida: $message");
+  void _handleNewPrivateMessage(dynamic data) {
+    if (data == null) return;
+    try {
+      final map = data as Map<String, dynamic>;
+      final newMessage = PrivateChatMessageModel.fromJson(map);
 
-    setState(() {
-      _messages.add({
-        "id": args?[0],
-        "createdAt": DateTime.now(),
-        "message": message,
-        "isMine": args?[1] != widget.userId,
+      setState(() {
+        _messages.add(newMessage);
       });
-    });
-
-    _scrollToBottom();
+      _scrollToBottom();
+    } catch (e) {
+      showSnackbar(context, "Erro ao processar nova mensagem: $e");
+    }
   }
 
-  void _handleMessageDeleted(List<Object?>? args) {
-    final String messageId = args?[0] as String;
-    setState(() {
-      final messageIndex =
-          _messages.indexWhere((msg) => msg['id'] == messageId);
-      if (messageIndex != -1) {
-        _messages[messageIndex]['message'] = "Mensagem excluída";
-      }
-    });
+  void _handleMessageDeleted(dynamic data) {
+    if (data == null) return;
+    try {
+      final map = data as Map<String, dynamic>;
+      final String messageId = map['MessageId'] as String;
+
+      setState(() {
+        final idx = _messages.indexWhere((m) => m.id == messageId);
+        if (idx != -1) {
+          final old = _messages[idx];
+          _messages[idx] = old.copyWith(message: "Mensagem excluída");
+        }
+      });
+    } catch (e) {
+      showSnackbar(context, "Erro ao processar exclusão: $e");
+    }
   }
 
   Future<void> _deleteMessage(String messageId) async {
     try {
-      log('Solicitando exclusão da mensagem $messageId');
-      await _signalRService.invokeMethod("DeleteMessage", [messageId]);
+      await SignalRManager()
+          .sendSignalRMessage(SignalREventType.PrivateChatDeleteMessage, {
+        'MessageId': messageId,
+      });
     } catch (err) {
-      log("Erro ao excluir mensagem: $err");
       showSnackbar(context, "Erro ao excluir mensagem: $err");
     }
   }
@@ -196,8 +207,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     if (message.isNotEmpty) {
       try {
         log('Enviando mensagem: $message');
-        await _signalRService
-            .invokeMethod("SendPrivateMessage", [widget.userId, message]);
+        await SignalRManager()
+            .sendSignalRMessage(SignalREventType.PrivateChatSendMessage, {
+          'ReceiverUserId': widget.userId,
+          'Message': message,
+        });
         _messageController.clear();
         _scrollToBottom();
       } catch (err) {
@@ -236,7 +250,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   @override
   void dispose() {
-    _signalRService.stopConnection();
     _scrollController.dispose();
     super.dispose();
   }
@@ -276,10 +289,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final message = _messages[index];
-                final isMine = message['isMine'] as bool;
-                final time =
-                    DateJSONUtils.formatMessageTime(message['createdAt']);
-                final String content = message['message'];
+                final isMine = message.senderId != widget.userId;
+                final time = DateJSONUtils.formatMessageTime(message.createdAt);
+                final String content = message.message;
 
                 final isImage = content.startsWith("http") ||
                     content.startsWith("data:image");
@@ -290,7 +302,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                   child: GestureDetector(
                     onLongPress: isMine
                         ? () async {
-                            if (message['message'] != 'Mensagem excluída') {
+                            if (message.message != 'Mensagem excluída') {
                               final confirm = await showDialog<bool>(
                                 context: context,
                                 builder: (context) {
@@ -314,7 +326,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                                 },
                               );
                               if (confirm == true) {
-                                await _deleteMessage(message['id']);
+                                await _deleteMessage(message.id);
                               }
                             }
                           }
@@ -403,6 +415,43 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class PrivateChatMessageModel {
+  final String id;
+  final DateTime createdAt;
+  final String senderId;
+  final String message;
+
+  PrivateChatMessageModel({
+    required this.id,
+    required this.createdAt,
+    required this.senderId,
+    required this.message,
+  });
+
+  factory PrivateChatMessageModel.fromJson(Map<String, dynamic> json) {
+    return PrivateChatMessageModel(
+      id: json['Id'] as String? ?? json['MessageId'] as String,
+      // se vier "Id" ou "MessageId"
+      createdAt: DateTime.parse(
+              json['CreatedAt'] as String? ?? DateTime.now().toIso8601String())
+          .toLocal(),
+      senderId: json['SenderId'] as String? ?? json['UserId'] as String? ?? '',
+      message: json['Message'] as String? ?? '',
+    );
+  }
+
+  PrivateChatMessageModel copyWith({
+    String? message,
+  }) {
+    return PrivateChatMessageModel(
+      id: id,
+      createdAt: createdAt,
+      senderId: senderId,
+      message: message ?? this.message,
     );
   }
 }
