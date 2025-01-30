@@ -24,4 +24,9 @@ enum SignalREventType {
   PrivateChatSendVideo,
   PrivateChatSendAudio,
   PrivateChatReceiveMessageDeleted,
+
+  PrivateChatGetFavorites,
+  PrivateChatReceiveFavorites,
+  PrivateChatAddFavorite,
+  PrivateChatRemoveFavorite,
 }
