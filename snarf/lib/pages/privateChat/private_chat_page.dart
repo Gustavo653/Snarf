@@ -6,7 +6,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Pacotes externos
 import 'package:image_picker/image_picker.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
@@ -14,21 +13,18 @@ import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/services/signalr_manager.dart';
 
-// Para gravação de áudio (usando record)
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-// Para manipulação de imagem local (compressão)
 import 'package:image/image.dart' as img;
 import 'package:snarf/utils/signalr_event_type.dart';
 import 'package:video_compress/video_compress.dart';
 
-// Para vídeo
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 
-// Para reprodução de áudio
 import 'package:audioplayers/audioplayers.dart';
+import 'package:snarf/services/api_service.dart';
 
 /// MODELO DE MENSAGEM
 class PrivateChatMessageModel {
@@ -95,10 +91,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
 
-  /// Para controlar favoritar/desfavoritar o chat
   bool _isFavorite = false;
-
-  /// Indica se estamos enviando alguma mídia (imagem, áudio, vídeo)
   bool _isSendingMedia = false;
 
   @override
@@ -107,24 +100,19 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     _initializeChat();
   }
 
-  /// Inicializa chat: ouve eventos do SignalR, busca mensagens antigas
-  /// e busca lista de favoritos (para exibir o pino/estrela).
   Future<void> _initializeChat() async {
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
 
-    // Pegar mensagens anteriores
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatGetPreviousMessages,
       {'ReceiverUserId': widget.userId},
     );
 
-    // Marcar como lidas
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatMarkMessagesAsRead,
       {'SenderUserId': widget.userId},
     );
 
-    // Solicitar lista de favoritos
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatGetFavorites,
       {},
@@ -133,15 +121,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     await _initAudioRecorder();
   }
 
-  /// Tratador de mensagens vindas do SignalR
   void _handleSignalRMessage(List<Object?>? args) {
     if (args == null || args.isEmpty) return;
 
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
 
-      // Nem todo retorno do servidor tem "Type"/"Data" (ex: favoritos).
-      // Ajuste conforme sua implementação real no servidor.
       if (!message.containsKey('Type') && !message.containsKey('Data')) {
         // Pode ser o retorno de favoritos em outro formato
         return;
@@ -174,7 +159,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Recebe mensagens anteriores
   void _handleReceivedMessages(dynamic data) {
     if (data == null) return;
     try {
@@ -195,7 +179,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Quando chega uma mensagem nova
   void _handleNewPrivateMessage(dynamic data) {
     if (data == null) return;
     try {
@@ -211,7 +194,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Quando uma mensagem é deletada
   void _handleMessageDeleted(dynamic data) {
     if (data == null) return;
     try {
@@ -230,13 +212,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Recebendo dados de favoritos do servidor (ajustar ao seu retorno real).
   void _handleFavoritesData(dynamic data) {
     try {
       final List<dynamic> rawList = data as List<dynamic>;
       for (var item in rawList) {
         if (item is Map<String, dynamic>) {
-          final chatUserId = item['Id']; // Ajustar se sua chave for diferente
+          final chatUserId = item['Id'];
           if (chatUserId == widget.userId) {
             setState(() {
               _isFavorite = true;
@@ -250,7 +231,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Deleta mensagem
   Future<void> _deleteMessage(String messageId) async {
     try {
       await SignalRManager().sendSignalRMessage(
@@ -264,7 +244,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Deleta o chat inteiro
   Future<void> _deleteEntireChat() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -302,7 +281,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Envia mensagem de texto
   void _sendMessage() async {
     final message = _messageController.text;
     if (message.isNotEmpty) {
@@ -322,7 +300,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Rola a lista até o final
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -333,7 +310,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     });
   }
 
-  /// Abre visualização de mídia (imagem, vídeo ou áudio) em página separada
   void _openMediaPreview(String url) {
     Navigator.push(
       context,
@@ -370,7 +346,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _editAndSendImage(XFile image) async {
-    // Inicia o loading de envio
     setState(() => _isSendingMedia = true);
 
     try {
@@ -385,7 +360,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     await _compressImage(editedBytes, quality: 40);
                 final base64Image = base64Encode(compressedBytes);
                 await _sendImage(base64Image, image.name);
-                Navigator.pop(context); // Sai do editor
+                Navigator.pop(context);
               },
             ),
           ),
@@ -394,7 +369,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     } catch (e) {
       showSnackbar(context, "Erro ao editar/enviar imagem: $e");
     } finally {
-      // Encerra o loading
       if (mounted) setState(() => _isSendingMedia = false);
     }
   }
@@ -482,7 +456,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     return null;
   }
 
-  /// --------------- GRAVAÇÃO DE ÁUDIO (record) ---------------
+  /// --------------- GRAVAÇÃO DE ÁUDIO ---------------
   Future<void> _initAudioRecorder() async {
     final status = await Permission.microphone.request();
     if (status != PermissionStatus.granted) {
@@ -556,7 +530,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Alterna o favorito do chat
   Future<void> _toggleFavorite() async {
     try {
       if (_isFavorite) {
@@ -582,6 +555,27 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
+  Future<void> _blockUser() async {
+    final result = await ApiService.blockUser(widget.userId);
+    if (result == null) {
+      showSnackbar(context, 'Usuário bloqueado com sucesso.',
+          color: Colors.green);
+      Navigator.pop(context);
+    } else {
+      showSnackbar(context, 'Erro ao bloquear usuário: $result');
+    }
+  }
+
+  Future<void> _reportUser() async {
+    final result = await ApiService.reportUser(widget.userId);
+    if (result == null) {
+      showSnackbar(context, 'Usuário denunciado com sucesso.',
+          color: Colors.green);
+    } else {
+      showSnackbar(context, 'Erro ao denunciar usuário: $result');
+    }
+  }
+
   @override
   void dispose() {
     _recordingTimer?.cancel();
@@ -604,7 +598,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       appBar: AppBar(
         title: InkWell(
           onTap: () {
-            // Abrir página de visualização do usuário
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -629,17 +622,37 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
         ),
         actions: [
-          // Ícone de favorito (pino/estrela)
           IconButton(
             icon: Icon(
               _isFavorite ? Icons.star : Icons.star_border,
             ),
             onPressed: _toggleFavorite,
           ),
-          // Exclusão do chat inteiro
           IconButton(
             icon: const Icon(Icons.delete_forever),
             onPressed: _deleteEntireChat,
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              switch (value) {
+                case 'block':
+                  _blockUser();
+                  break;
+                case 'report':
+                  _reportUser();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'block',
+                child: Text('Bloquear'),
+              ),
+              const PopupMenuItem(
+                value: 'report',
+                child: Text('Denunciar'),
+              ),
+            ],
           ),
         ],
       ),
@@ -653,8 +666,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                   itemCount: _messages.length,
                   itemBuilder: (context, index) {
                     final message = _messages[index];
-                    // Se a mensagem for "minha", significa que fui eu quem enviou,
-                    // ou seja, se o Sender != widget.userId do outro. (Lógica do seu código)
                     final isMine = message.senderId != widget.userId;
                     final time =
                         DateJSONUtils.formatMessageTime(message.createdAt);
@@ -672,7 +683,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             ],
           ),
 
-          // Loading overlay ao enviar mídias
           if (_isSendingMedia)
             Container(
               color: Colors.black54,
@@ -685,7 +695,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  /// ROW que engloba o balão + ícone de lixeira à direita (fora do balão)
+  /// ROW com a bolha e lixeira
   Widget _buildMessageRow({
     required PrivateChatMessageModel message,
     required bool isMine,
@@ -722,8 +732,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  /// BOLHA DE MENSAGEM (texto/imagem/áudio/vídeo).
-  /// Agora não tem lixeira dentro da bolha, apenas o conteúdo + hora.
   Widget _buildMessageBubble({
     required PrivateChatMessageModel message,
     required bool isMine,
@@ -761,30 +769,28 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           else if (isImage)
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.image, size: 40),
-                const SizedBox(width: 8),
-                const Text("Foto"),
-                // Pode adicionar onTap para abrir a imagem
-                // Mas já temos _openMediaPreview no row pai, se preferir.
+              children: const [
+                Icon(Icons.image, size: 40),
+                SizedBox(width: 8),
+                Text("Foto"),
               ],
             )
           else if (isVideo)
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.video_file, size: 40),
-                const SizedBox(width: 8),
-                const Text("Vídeo"),
+              children: const [
+                Icon(Icons.video_file, size: 40),
+                SizedBox(width: 8),
+                Text("Vídeo"),
               ],
             )
           else if (isAudio)
             Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.audiotrack, size: 40),
-                const SizedBox(width: 8),
-                const Text("Áudio"),
+              children: const [
+                Icon(Icons.audiotrack, size: 40),
+                SizedBox(width: 8),
+                Text("Áudio"),
               ],
             )
           else
@@ -795,7 +801,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           const SizedBox(height: 4),
           GestureDetector(
             onTap: () {
-              // Se for imagem, vídeo ou áudio e não for deletada, abre preview
               if (!isDeleted && (isImage || isVideo || isAudio)) {
                 _openMediaPreview(content);
               }
@@ -883,7 +888,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 }
 
-/// PÁGINA DE VISUALIZAÇÃO DE MÍDIA (IMAGEM, VÍDEO OU ÁUDIO)
+/// PÁGINA DE VISUALIZAÇÃO DE MÍDIA
 class MediaPreviewPage extends StatefulWidget {
   final String url;
 
@@ -935,10 +940,8 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
   void dispose() {
     _chewieController?.dispose();
     _videoController?.dispose();
-
     _audioPlayer?.stop();
     _audioPlayer?.dispose();
-
     super.dispose();
   }
 

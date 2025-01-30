@@ -376,5 +376,25 @@ namespace Snarf.Service
             }
             return responseDTO;
         }
+
+        public async Task<ResponseDTO> ReportUser(Guid userId)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var user = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (user == null)
+                {
+                    responseDTO.SetBadInput("Usuário não encontrado!");
+                    return responseDTO;
+                }
+                var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de perfil - Snarf", emailService.BuildReportedUser(user.Name, user.Email), "oficial.snarf@gmail.com"));
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
     }
 }

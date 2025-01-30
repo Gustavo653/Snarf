@@ -122,6 +122,53 @@ namespace Snarf.Service
     ";
         }
 
+        public string BuildReportedUser(string userName, string userEmail)
+        {
+            return $@"<!DOCTYPE html>
+            <html lang=""en"">
+            <head>
+                <meta charset=""UTF-8"">
+                <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+                <style>
+                    body {{
+                        font-family: Arial, sans-serif;
+                        margin: 0;
+                        padding: 0;
+                        background-color: #f4f4f4;
+                    }}
+
+                    .container {{
+                        width: 80%;
+                        max-width: 600px;
+                        margin: 50px auto;
+                        background-color: #fff;
+                        padding: 20px;
+                        border-radius: 8px;
+                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                        text-align: center;
+                    }}
+
+                    h2 {{
+                        margin-top: 0;
+                    }}
+
+                    p {{
+                        font-size: 18px;
+                        line-height: 1.6;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class=""container"">
+                    <h2>Mensagem Denunciada</h2>
+                    <p>Usuário: {userName}</p>
+                    <p>Email: {userEmail}</p>
+                </div>
+            </body>
+    </html>
+    ";
+        }
+
         public async Task SendEmail(string title, string body, string recipient)
         {
             using var mailMessage = new MailMessage
