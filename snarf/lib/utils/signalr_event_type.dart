@@ -29,4 +29,9 @@ enum SignalREventType {
   PrivateChatReceiveFavorites,
   PrivateChatAddFavorite,
   PrivateChatRemoveFavorite,
+
+  PrivateChatReactToMessage,
+  PrivateChatReceiveReaction,
+  PrivateChatReplyToMessage,
+  PrivateChatReceiveReply,
 }

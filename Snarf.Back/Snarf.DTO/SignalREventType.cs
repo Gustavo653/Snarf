@@ -32,5 +32,10 @@
         PrivateChatReceiveFavorites,
         PrivateChatAddFavorite,
         PrivateChatRemoveFavorite,
+
+        PrivateChatReactToMessage,
+        PrivateChatReceiveReaction,
+        PrivateChatReplyToMessage,
+        PrivateChatReceiveReply
     }
 }

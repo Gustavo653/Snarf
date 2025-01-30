@@ -160,7 +160,7 @@ namespace Snarf.Service
             </head>
             <body>
                 <div class=""container"">
-                    <h2>Mensagem Denunciada</h2>
+                    <h2>Perfil Denunciado</h2>
                     <p>Usuário: {userName}</p>
                     <p>Email: {userEmail}</p>
                 </div>
