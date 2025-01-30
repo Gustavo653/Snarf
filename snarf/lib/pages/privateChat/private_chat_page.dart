@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -85,14 +84,11 @@ class PrivateChatPage extends StatefulWidget {
 }
 
 class _PrivateChatPageState extends State<PrivateChatPage> {
-  // Controladores
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  // Lista de mensagens
   List<PrivateChatMessageModel> _messages = [];
 
-  // Instância do pacote 'record' para gravação de áudio
   final _record = AudioRecorder();
   bool _isRecording = false;
   Timer? _recordingTimer;
@@ -106,22 +102,18 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   /// Inicializa chat, ouvindo eventos SignalR e pedindo mensagens antigas
   Future<void> _initializeChat() async {
-    // Ouvindo evento genérico do SignalR
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
 
-    // Solicita mensagens anteriores
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatGetPreviousMessages,
       {'ReceiverUserId': widget.userId},
     );
 
-    // Marca como lidas
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatMarkMessagesAsRead,
       {'SenderUserId': widget.userId},
     );
 
-    // Inicializar gravador de áudio (verifica permissão)
     await _initAudioRecorder();
   }
 
@@ -332,7 +324,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final ImagePicker picker = ImagePicker();
     final XFile? video = await picker.pickVideo(
       source: ImageSource.gallery,
-      maxDuration: const Duration(seconds: 15), // Limite de 15s
+      maxDuration: const Duration(seconds: 15),
     );
     if (video == null) return;
 
@@ -343,7 +335,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final ImagePicker picker = ImagePicker();
     final XFile? video = await picker.pickVideo(
       source: ImageSource.camera,
-      maxDuration: const Duration(seconds: 15), // Limite de 15s
+      maxDuration: const Duration(seconds: 15),
     );
     if (video == null) return;
 
@@ -359,7 +351,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         return;
       }
 
-      // Lê como bytes e converte em base64
       final fileBytes = await compressedFile.readAsBytes();
       final base64Video = base64Encode(fileBytes);
 
@@ -402,14 +393,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       showSnackbar(context, "Permissão de microfone negada");
       return;
     }
-    // O pacote 'record' não tem método específico de "open recorder".
-    // Ele gerencia sozinho internamente.
   }
 
   Future<void> _startRecording() async {
     if (_isRecording) return;
 
-    // Verifica novamente se há permissão
     final hasPermission = await _record.hasPermission();
     if (!hasPermission) {
       showSnackbar(context, "Sem permissão para gravar áudio");
@@ -419,11 +407,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     _isRecording = true;
     setState(() {});
 
-    // Reseta o timer
     _recordingSeconds = 0;
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       _recordingSeconds++;
-      // Exemplo: para em 60s
       if (_recordingSeconds >= 60) {
         await _stopRecording();
       }
@@ -433,7 +419,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final tempPath =
         '${Directory.systemTemp.path}/temp_audio_${DateTime.now().millisecondsSinceEpoch}.aac';
 
-    // Inicia gravação
     await _record.start(
       const RecordConfig(),
       path: tempPath,
@@ -443,7 +428,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Future<void> _stopRecording() async {
     if (!_isRecording) return;
 
-    final path = await _record.stop(); // Retorna o caminho do arquivo gerado
+    final path = await _record.stop();
     _isRecording = false;
     _recordingTimer?.cancel();
     _recordingTimer = null;
@@ -474,11 +459,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   @override
   void dispose() {
-    // Para segurança, encerra qualquer timer
     _recordingTimer?.cancel();
     _scrollController.dispose();
 
-    // Se ainda estiver gravando, pare
     if (_isRecording) {
       _record.stop();
     }
@@ -740,7 +723,6 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
 
-  // Player do pacote 'audioplayers'
   AudioPlayer? _audioPlayer;
 
   bool get isImage => _isImageUrl(widget.url);
@@ -772,7 +754,6 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
 
   Future<void> _initializeAudio() async {
     _audioPlayer = AudioPlayer();
-    // Inicia a reprodução de áudio remoto
     await _audioPlayer!.play(UrlSource(widget.url));
   }
 

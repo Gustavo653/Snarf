@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Snarf.DataAccess;
 using Snarf.Domain.Entities;
 using Snarf.DTO;
 using Snarf.Infrastructure.Repository;
@@ -15,7 +16,8 @@ namespace Snarf.API.Controllers
         IUserRepository _userRepository,
         IPublicChatMessageRepository _publicChatMessageRepository,
         IPrivateChatMessageRepository _privateChatMessageRepository,
-        IBlockedUserRepository _blockedUserRepository) : Hub
+        IBlockedUserRepository _blockedUserRepository,
+        IFavoriteChatRepository _favoriteChatRepository) : Hub
     {
         private static ConcurrentDictionary<string, List<string>> _userConnections = new();
 
@@ -64,7 +66,15 @@ namespace Snarf.API.Controllers
                 case nameof(SignalREventType.PrivateChatSendVideo):
                     await HandlePrivateChatSendVideo(message.Data);
                     break;
-
+                case nameof(SignalREventType.PrivateChatGetFavorites):
+                    await HandlePrivateChatGetFavorites();
+                    break;
+                case nameof(SignalREventType.PrivateChatAddFavorite):
+                    await HandlePrivateChatAddFavorite(message.Data);
+                    break;
+                case nameof(SignalREventType.PrivateChatRemoveFavorite):
+                    await HandlePrivateChatRemoveFavorite(message.Data);
+                    break;
                 default:
                     Log.Warning($"Evento desconhecido recebido: {message.Type}");
                     break;
@@ -547,6 +557,56 @@ namespace Snarf.API.Controllers
 
             await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
             await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePrivateChatAddFavorite(JsonElement data)
+        {
+            var userId = GetUserId();
+            var chatUserId = data.GetProperty("ChatUserId").GetString();
+
+            var user = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId);
+            var chatUser = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == chatUserId);
+
+            var favorite = new FavoriteChat
+            {
+                User = user!,
+                ChatUser = chatUser!,
+            };
+
+            await _favoriteChatRepository.InsertAsync(favorite);
+            await _favoriteChatRepository.SaveChangesAsync();
+
+            Log.Information($"Usuário {userId} favoritou o chat com {chatUserId}");
+        }
+
+        private async Task HandlePrivateChatRemoveFavorite(JsonElement data)
+        {
+            var userId = GetUserId();
+            var chatUserId = data.GetProperty("ChatUserId").GetString();
+
+            var favorite = await _favoriteChatRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(f => f.User.Id == userId && f.ChatUser.Id == chatUserId);
+
+            if (favorite != null)
+            {
+                _favoriteChatRepository.Delete(favorite);
+                await _favoriteChatRepository.SaveChangesAsync();
+                Log.Information($"Usuário {userId} removeu o favorito do chat com {chatUserId}");
+            }
+        }
+
+        private async Task HandlePrivateChatGetFavorites()
+        {
+            var userId = GetUserId();
+            var favorites = await _favoriteChatRepository.GetEntities()
+                .Where(f => f.User.Id == userId)
+                .Select(f => new { f.ChatUser.Id })
+                .ToListAsync();
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveFavorites, favorites);
+
+            var favoriteIdsJson = JsonSerializer.Serialize(favorites.Select(f => f.Id));
+            await Clients.Caller.SendAsync("ReceiveMessage", favoriteIdsJson);
         }
 
         public override async Task OnConnectedAsync()

@@ -27,5 +27,10 @@
         PrivateChatSendVideo,
         PrivateChatSendAudio,
         PrivateChatReceiveMessageDeleted,
+
+        PrivateChatGetFavorites,
+        PrivateChatReceiveFavorites,
+        PrivateChatAddFavorite,
+        PrivateChatRemoveFavorite,
     }
 }
