@@ -58,6 +58,13 @@ namespace Snarf.API.Controllers
                 case nameof(SignalREventType.PrivateChatSendImage):
                     await HandlePrivateChatSendImage(message.Data);
                     break;
+                case nameof(SignalREventType.PrivateChatSendAudio):
+                    await HandlePrivateChatSendAudio(message.Data);
+                    break;
+                case nameof(SignalREventType.PrivateChatSendVideo):
+                    await HandlePrivateChatSendVideo(message.Data);
+                    break;
+
                 default:
                     Log.Warning($"Evento desconhecido recebido: {message.Type}");
                     break;
@@ -238,6 +245,7 @@ namespace Snarf.API.Controllers
 
             var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveMessage, new
             {
+                CreatedAt = chatMessage.CreatedAt,
                 MessageId = chatMessage.Id,
                 UserId = senderUserId,
                 UserName = sender.Name,
@@ -295,7 +303,7 @@ namespace Snarf.API.Controllers
                 .Select(x => new
                 {
                     x.Id,
-                    x.CreatedAt,
+                    CreatedAt = x.CreatedAt.ToUniversalTime(),
                     SenderId = x.Sender.Id,
                     ReceiverId = x.Receiver.Id,
                     x.Message
@@ -309,8 +317,7 @@ namespace Snarf.API.Controllers
             await Clients.Caller.SendAsync("ReceiveMessage", jsonResponse);
         }
 
-
-        public async Task HandlePrivateChatDeleteMessage(JsonElement data)
+        private async Task HandlePrivateChatDeleteMessage(JsonElement data)
         {
             var messageId = data.GetProperty("MessageId").GetString();
             var userId = GetUserId();
@@ -351,7 +358,7 @@ namespace Snarf.API.Controllers
             await Clients.User(message.Receiver.Id).SendAsync("ReceiveMessage", jsonResponse);
         }
 
-        public async Task HandlePrivateChatDeleteChat(JsonElement data)
+        private async Task HandlePrivateChatDeleteChat(JsonElement data)
         {
             var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
             var userId = GetUserId();
@@ -383,7 +390,7 @@ namespace Snarf.API.Controllers
             Log.Information($"Usuário {userId} excluiu o chat com {receiverUserId}");
         }
 
-        public async Task HandlePrivateChatSendImage(JsonElement data)
+        private async Task HandlePrivateChatSendImage(JsonElement data)
         {
             var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
             var imageBase64 = data.GetProperty("Image").GetString();
@@ -430,7 +437,7 @@ namespace Snarf.API.Controllers
             await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
         }
 
-        public async Task HandlePrivateChatMarkMessagesAsRead(JsonElement data)
+        private async Task HandlePrivateChatMarkMessagesAsRead(JsonElement data)
         {
             var senderUserId = data.GetProperty("SenderUserId").GetString();
             var receiverUserId = GetUserId();
@@ -446,6 +453,100 @@ namespace Snarf.API.Controllers
             }
 
             await _privateChatMessageRepository.SaveChangesAsync();
+        }
+
+        private async Task HandlePrivateChatSendAudio(JsonElement data)
+        {
+            var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
+            var audioBase64 = data.GetProperty("Audio").GetString();   // Chave "Audio" ao invés de "Image"
+            var fileName = data.GetProperty("FileName").GetString();
+            var senderUserId = GetUserId();
+
+            var sender = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == senderUserId);
+            var receiver = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == receiverUserId);
+
+            if (sender == null || receiver == null)
+                throw new Exception("Usuário não encontrado");
+
+            // Decodificando e enviando para o S3
+            var audioBytes = Convert.FromBase64String(audioBase64);
+            var audioStream = new MemoryStream(audioBytes);
+            var s3Service = new S3Service();
+            var audioUrl = await s3Service.UploadFileAsync(
+                $"audios/{fileName}{Guid.NewGuid()}",
+                audioStream,
+                "audio/mpeg"  // MimeType para áudio
+            );
+
+            var chatMessage = new PrivateChatMessage
+            {
+                Sender = sender,
+                Receiver = receiver,
+                Message = audioUrl,   // O Message vai receber o URL do áudio
+                IsRead = false
+            };
+            chatMessage.SetCreatedAt(DateTime.UtcNow);
+
+            await _privateChatMessageRepository.InsertAsync(chatMessage);
+            await _privateChatMessageRepository.SaveChangesAsync();
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveMessage, new
+            {
+                MessageId = chatMessage.Id,
+                UserId = senderUserId,
+                UserName = sender.Name,
+                Message = audioUrl
+            });
+
+            await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
+            await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePrivateChatSendVideo(JsonElement data)
+        {
+            var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
+            var videoBase64 = data.GetProperty("Video").GetString();   // Chave "Video"
+            var fileName = data.GetProperty("FileName").GetString();
+            var senderUserId = GetUserId();
+
+            var sender = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == senderUserId);
+            var receiver = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == receiverUserId);
+
+            if (sender == null || receiver == null)
+                throw new Exception("Usuário não encontrado");
+
+            // Decodificando e enviando para o S3
+            var videoBytes = Convert.FromBase64String(videoBase64);
+            var videoStream = new MemoryStream(videoBytes);
+            var s3Service = new S3Service();
+            var videoUrl = await s3Service.UploadFileAsync(
+                $"videos/{fileName}{Guid.NewGuid()}",
+                videoStream,
+                "video/mp4"   // MimeType para vídeo
+            );
+
+            var chatMessage = new PrivateChatMessage
+            {
+                Sender = sender,
+                Receiver = receiver,
+                Message = videoUrl,  // O Message vai receber o URL do vídeo
+                IsRead = false
+            };
+            chatMessage.SetCreatedAt(DateTime.UtcNow);
+
+            await _privateChatMessageRepository.InsertAsync(chatMessage);
+            await _privateChatMessageRepository.SaveChangesAsync();
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveMessage, new
+            {
+                MessageId = chatMessage.Id,
+                UserId = senderUserId,
+                UserName = sender.Name,
+                Message = videoUrl
+            });
+
+            await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
+            await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
         }
 
         public override async Task OnConnectedAsync()

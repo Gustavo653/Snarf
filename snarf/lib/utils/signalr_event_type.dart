@@ -21,5 +21,7 @@ enum SignalREventType {
   PrivateChatDeleteMessage,
   PrivateChatDeleteChat,
   PrivateChatSendImage,
+  PrivateChatSendVideo,
+  PrivateChatSendAudio,
   PrivateChatReceiveMessageDeleted,
 }

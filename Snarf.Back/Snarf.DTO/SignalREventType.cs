@@ -24,6 +24,8 @@
         PrivateChatDeleteMessage,
         PrivateChatDeleteChat,
         PrivateChatSendImage,
+        PrivateChatSendVideo,
+        PrivateChatSendAudio,
         PrivateChatReceiveMessageDeleted,
     }
 }

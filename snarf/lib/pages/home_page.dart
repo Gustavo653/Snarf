@@ -5,20 +5,16 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import 'package:snarf/components/toggle_theme_component.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
-import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
-import 'package:snarf/services/signalr_service.dart';
 import 'dart:developer';
 
-import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
 
@@ -128,7 +124,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 50000);
+    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
 
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) {
