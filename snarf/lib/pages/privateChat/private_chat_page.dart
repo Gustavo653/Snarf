@@ -48,7 +48,7 @@ class PrivateChatMessageModel {
     return PrivateChatMessageModel(
       id: json['Id'] as String? ?? json['MessageId'] as String,
       createdAt: DateTime.parse(
-          json['CreatedAt'] as String? ?? DateTime.now().toIso8601String())
+              json['CreatedAt'] as String? ?? DateTime.now().toIso8601String())
           .toLocal(),
       senderId: json['SenderId'] as String? ?? json['UserId'] as String? ?? '',
       message: json['Message'] as String? ?? '',
@@ -95,8 +95,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
 
-  /// Para controlar se o chat atual é favorito ou não
+  /// Para controlar favoritar/desfavoritar o chat
   bool _isFavorite = false;
+
+  /// Indica se estamos enviando alguma mídia (imagem, áudio, vídeo)
+  bool _isSendingMedia = false;
 
   @override
   void initState() {
@@ -105,7 +108,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   /// Inicializa chat: ouve eventos do SignalR, busca mensagens antigas
-  /// e busca lista de favoritos para verificar se este chat é favorito.
+  /// e busca lista de favoritos (para exibir o pino/estrela).
   Future<void> _initializeChat() async {
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
 
@@ -137,19 +140,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
 
-      // Nem todo retorno do servidor segue o mesmo padrão com "Type"/"Data".
-      // Se não encontrar "Type" e "Data", pode ser a resposta de favoritos
-      // que está sendo enviada de forma diferente no servidor.
+      // Nem todo retorno do servidor tem "Type"/"Data" (ex: favoritos).
+      // Ajuste conforme sua implementação real no servidor.
       if (!message.containsKey('Type') && !message.containsKey('Data')) {
-        // Tentar decodificar diretamente como List de favoritos?
-        // Ex: [{"Id":"..."}] ou algo do gênero.
-        // Ajuste conforme o retorno real do servidor.
-        if (message.keys.isNotEmpty) {
-          // Se cair aqui, provavelmente é a resposta de favoritos
-          // que foi enviada como JSON simples.
-          // Você pode ajustar a forma de parse de acordo com a resposta do server.
-          return;
-        }
+        // Pode ser o retorno de favoritos em outro formato
+        return;
       }
 
       final typeString = message['Type'] as String;
@@ -184,7 +179,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     if (data == null) return;
     try {
       final List<dynamic> rawList = data as List<dynamic>;
-      final List<PrivateChatMessageModel> previousMessages = rawList.map((item) {
+      final List<PrivateChatMessageModel> previousMessages =
+          rawList.map((item) {
         final map = item as Map<String, dynamic>;
         return PrivateChatMessageModel.fromJson(map);
       }).toList();
@@ -234,19 +230,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Recebendo dados dos favoritos (chats ou IDs)
+  /// Recebendo dados de favoritos do servidor (ajustar ao seu retorno real).
   void _handleFavoritesData(dynamic data) {
-    // Ajuste de acordo com o tipo de retorno real do servidor.
-    // Se `data` for uma lista de objetos contendo "Id" do usuário:
-    // Exemplo: [{"Id":"USER_123"}, {"Id":"USER_456"}]
-    //
-    // Precisamos comparar com `widget.userId`.
     try {
       final List<dynamic> rawList = data as List<dynamic>;
-      // Se cada item for { "Id": "UserId" }, verifique se o userId está lá.
       for (var item in rawList) {
         if (item is Map<String, dynamic>) {
-          final chatUserId = item['Id'];
+          final chatUserId = item['Id']; // Ajustar se sua chave for diferente
           if (chatUserId == widget.userId) {
             setState(() {
               _isFavorite = true;
@@ -274,45 +264,41 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// Deleta chat inteiro
+  /// Deleta o chat inteiro
   Future<void> _deleteEntireChat() async {
-    try {
-      // Confirmação
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (ctx) {
-          return AlertDialog(
-            title: const Text("Excluir conversa"),
-            content: const Text("Deseja realmente excluir todo o chat?"),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text("Cancelar"),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text("Excluir"),
-              ),
-            ],
-          );
-        },
-      );
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("Excluir conversa"),
+          content: const Text("Deseja realmente excluir todo o chat?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancelar"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Excluir"),
+            ),
+          ],
+        );
+      },
+    );
 
-      if (confirm != true) return;
-
-      await SignalRManager().sendSignalRMessage(
-        SignalREventType.PrivateChatDeleteChat,
-        {
-          'ReceiverUserId': widget.userId,
-        },
-      );
-
-      // Após excluir, você pode fechar a tela
-      if (mounted) {
-        Navigator.pop(context);
+    if (confirm == true) {
+      try {
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PrivateChatDeleteChat,
+          {
+            'ReceiverUserId': widget.userId,
+          },
+        );
+        // Fecha a tela após excluir
+        if (mounted) Navigator.pop(context);
+      } catch (err) {
+        showSnackbar(context, "Erro ao excluir o chat: $err");
       }
-    } catch (err) {
-      showSnackbar(context, "Erro ao excluir o chat: $err");
     }
   }
 
@@ -358,7 +344,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   /// --------------- ENVIO DE IMAGEM ---------------
-  Future<Uint8List> _compressImage(Uint8List imageBytes, {int quality = 50}) async {
+  Future<Uint8List> _compressImage(Uint8List imageBytes,
+      {int quality = 50}) async {
     final decodedImage = img.decodeImage(imageBytes);
     if (decodedImage != null) {
       return Uint8List.fromList(img.encodeJpg(decodedImage, quality: quality));
@@ -383,22 +370,33 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _editAndSendImage(XFile image) async {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ProImageEditor.file(
-          File(image.path),
-          callbacks: ProImageEditorCallbacks(
-            onImageEditingComplete: (Uint8List editedBytes) async {
-              final compressedBytes = await _compressImage(editedBytes, quality: 40);
-              final base64Image = base64Encode(compressedBytes);
-              await _sendImage(base64Image, image.name);
-              Navigator.pop(context);
-            },
+    // Inicia o loading de envio
+    setState(() => _isSendingMedia = true);
+
+    try {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProImageEditor.file(
+            File(image.path),
+            callbacks: ProImageEditorCallbacks(
+              onImageEditingComplete: (Uint8List editedBytes) async {
+                final compressedBytes =
+                    await _compressImage(editedBytes, quality: 40);
+                final base64Image = base64Encode(compressedBytes);
+                await _sendImage(base64Image, image.name);
+                Navigator.pop(context); // Sai do editor
+              },
+            ),
           ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      showSnackbar(context, "Erro ao editar/enviar imagem: $e");
+    } finally {
+      // Encerra o loading
+      if (mounted) setState(() => _isSendingMedia = false);
+    }
   }
 
   Future<void> _sendImage(String base64Image, String fileName) async {
@@ -440,6 +438,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _sendVideo(XFile video) async {
+    setState(() => _isSendingMedia = true);
     try {
       final originalFile = File(video.path);
       final compressedFile = await _compressVideo(originalFile);
@@ -461,6 +460,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       );
     } catch (e) {
       showSnackbar(context, "Erro ao enviar vídeo: $e");
+    } finally {
+      if (mounted) setState(() => _isSendingMedia = false);
     }
   }
 
@@ -535,6 +536,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _sendAudio(String filePath) async {
+    setState(() => _isSendingMedia = true);
     try {
       final fileBytes = await File(filePath).readAsBytes();
       final base64Audio = base64Encode(fileBytes);
@@ -549,6 +551,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       );
     } catch (e) {
       showSnackbar(context, "Erro ao enviar áudio: $e");
+    } finally {
+      if (mounted) setState(() => _isSendingMedia = false);
     }
   }
 
@@ -556,7 +560,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Future<void> _toggleFavorite() async {
     try {
       if (_isFavorite) {
-        // Se já é favorito, vamos remover
         await SignalRManager().sendSignalRMessage(
           SignalREventType.PrivateChatRemoveFavorite,
           {
@@ -564,7 +567,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           },
         );
       } else {
-        // Se não é favorito, vamos adicionar
         await SignalRManager().sendSignalRMessage(
           SignalREventType.PrivateChatAddFavorite,
           {
@@ -572,7 +574,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           },
         );
       }
-
       setState(() {
         _isFavorite = !_isFavorite;
       });
@@ -604,7 +605,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         title: InkWell(
           onTap: () {
             // Abrir página de visualização do usuário
-            // Ajuste conforme seu routing real:
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -629,7 +629,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
         ),
         actions: [
-          // Ícone de favorito (pino/estrela) ao lado do nome
+          // Ícone de favorito (pino/estrela)
           IconButton(
             icon: Icon(
               _isFavorite ? Icons.star : Icons.star_border,
@@ -643,39 +643,88 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                final isMine = message.senderId != widget.userId;
-                final time =
-                DateJSONUtils.formatMessageTime(message.createdAt);
-                final content = message.message;
-
-                return _buildMessageBubble(
-                  context: context,
-                  message: message,
-                  isMine: isMine,
-                  time: time,
-                  myMessageColor: myMessageColor!,
-                  otherMessageColor: otherMessageColor!,
-                );
-              },
-            ),
+          Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  itemCount: _messages.length,
+                  itemBuilder: (context, index) {
+                    final message = _messages[index];
+                    // Se a mensagem for "minha", significa que fui eu quem enviou,
+                    // ou seja, se o Sender != widget.userId do outro. (Lógica do seu código)
+                    final isMine = message.senderId != widget.userId;
+                    final time =
+                        DateJSONUtils.formatMessageTime(message.createdAt);
+                    return _buildMessageRow(
+                      message: message,
+                      isMine: isMine,
+                      time: time,
+                      myMessageColor: myMessageColor!,
+                      otherMessageColor: otherMessageColor!,
+                    );
+                  },
+                ),
+              ),
+              _buildBottomBar(),
+            ],
           ),
-          _buildBottomBar(),
+
+          // Loading overlay ao enviar mídias
+          if (_isSendingMedia)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  /// BOLHA DE MENSAGEM (texto/imagem/áudio/vídeo)
+  /// ROW que engloba o balão + ícone de lixeira à direita (fora do balão)
+  Widget _buildMessageRow({
+    required PrivateChatMessageModel message,
+    required bool isMine,
+    required String time,
+    required Color myMessageColor,
+    required Color otherMessageColor,
+  }) {
+    final isDeleted = (message.message == 'Mensagem excluída');
+    final showTrash = !isDeleted;
+
+    return Row(
+      mainAxisAlignment:
+          isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _buildMessageBubble(
+          message: message,
+          isMine: isMine,
+          time: time,
+          myMessageColor: myMessageColor,
+          otherMessageColor: otherMessageColor,
+        ),
+        if (isMine && showTrash) ...[
+          _buildTrashIcon(message.id),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTrashIcon(String messageId) {
+    return InkWell(
+      onTap: () async => _deleteMessage(messageId),
+      child: const Icon(Icons.delete),
+    );
+  }
+
+  /// BOLHA DE MENSAGEM (texto/imagem/áudio/vídeo).
+  /// Agora não tem lixeira dentro da bolha, apenas o conteúdo + hora.
   Widget _buildMessageBubble({
-    required BuildContext context,
     required PrivateChatMessageModel message,
     required bool isMine,
     required String time,
@@ -689,90 +738,77 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final bool isAudio = lower.contains('https://') && _isAudioUrl(content);
     final bool isDeleted = content == 'Mensagem excluída';
 
-    return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isMine ? myMessageColor : otherMessageColor,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: isMine ? const Radius.circular(12) : Radius.zero,
-            bottomRight: isMine ? Radius.zero : const Radius.circular(12),
-          ),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isMine ? myMessageColor : otherMessageColor,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(12),
+          topRight: const Radius.circular(12),
+          bottomLeft: isMine ? const Radius.circular(12) : Radius.zero,
+          bottomRight: isMine ? Radius.zero : const Radius.circular(12),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (isDeleted)
-              const Text(
-                "Mensagem excluída",
-                style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
-              )
-            else if (isImage)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.image, size: 40),
-                  SizedBox(width: 8),
-                  Text("Foto"),
-                ],
-              )
-            else if (isVideo)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.video_file, size: 40),
-                    SizedBox(width: 8),
-                    Text("Vídeo"),
-                  ],
-                )
-              else if (isAudio)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.audiotrack, size: 40),
-                      SizedBox(width: 8),
-                      Text("Áudio"),
-                    ],
-                  )
-                else
-                  Text(
-                    content,
-                    style: const TextStyle(fontSize: 16),
-                  ),
-            const SizedBox(height: 4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isDeleted)
+            const Text(
+              "Mensagem excluída",
+              style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+            )
+          else if (isImage)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  time,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                  ),
-                ),
+                const Icon(Icons.image, size: 40),
                 const SizedBox(width: 8),
-                // Ícone de lixeira à direita
-                // Exibe somente se a mensagem ainda não foi excluída
-                // e se esta msg pertence ao user (sender/receiver)
-                // Pelo back-end, se o user for ou sender ou receiver, pode apagar.
-                if (!isDeleted)
-                  InkWell(
-                    onTap: () async {
-                      await _deleteMessage(message.id);
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(Icons.delete, size: 18),
-                    ),
-                  ),
+                const Text("Foto"),
+                // Pode adicionar onTap para abrir a imagem
+                // Mas já temos _openMediaPreview no row pai, se preferir.
               ],
+            )
+          else if (isVideo)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.video_file, size: 40),
+                const SizedBox(width: 8),
+                const Text("Vídeo"),
+              ],
+            )
+          else if (isAudio)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.audiotrack, size: 40),
+                const SizedBox(width: 8),
+                const Text("Áudio"),
+              ],
+            )
+          else
+            Text(
+              content,
+              style: const TextStyle(fontSize: 16),
             ),
-          ],
-        ),
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: () {
+              // Se for imagem, vídeo ou áudio e não for deletada, abre preview
+              if (!isDeleted && (isImage || isVideo || isAudio)) {
+                _openMediaPreview(content);
+              }
+            },
+            child: Text(
+              time,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black54,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -864,7 +900,9 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
   AudioPlayer? _audioPlayer;
 
   bool get isImage => _isImageUrl(widget.url);
+
   bool get isVideo => _isVideoUrl(widget.url);
+
   bool get isAudio => _isAudioUrl(widget.url);
 
   @override
@@ -919,7 +957,7 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
       return Scaffold(
         appBar: AppBar(title: const Text("Visualizando Vídeo")),
         body: _chewieController != null &&
-            _chewieController!.videoPlayerController.value.isInitialized
+                _chewieController!.videoPlayerController.value.isInitialized
             ? Chewie(controller: _chewieController!)
             : const Center(child: CircularProgressIndicator()),
       );
