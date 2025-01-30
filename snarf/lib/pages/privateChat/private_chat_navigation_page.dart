@@ -108,10 +108,13 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
                   const SizedBox(width: 4),
                   const Text("Proteja-se"),
                   const SizedBox(width: 8),
-                  const Text(
-                    "Segurança Online e Prevenção contra Fraude",
-                    style: TextStyle(
-                      color: Colors.blue,
+                  Expanded(
+                    child: Text(
+                      "Segurança Online e Prevenção contra Fraude",
+                      style: TextStyle(
+                        color: Colors.blue,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ),
                 ],

@@ -21,6 +21,7 @@ import 'package:permission_handler/permission_handler.dart';
 // Para manipulação de imagem local (compressão)
 import 'package:image/image.dart' as img;
 import 'package:snarf/utils/signalr_event_type.dart';
+import 'package:video_compress/video_compress.dart';
 
 // Para vídeo
 import 'package:video_player/video_player.dart';
@@ -261,7 +262,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   /// --------------- ENVIO DE IMAGEM ---------------
   Future<Uint8List> _compressImage(Uint8List imageBytes,
-      {int quality = 70}) async {
+      {int quality = 50}) async {
     final decodedImage = img.decodeImage(imageBytes);
     if (decodedImage != null) {
       return Uint8List.fromList(img.encodeJpg(decodedImage, quality: quality));
@@ -286,18 +287,18 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _editAndSendImage(XFile image) async {
-    // Abre o ProImageEditor
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ProImageEditor.file(
           File(image.path),
           callbacks: ProImageEditorCallbacks(
-            onImageEditingComplete: (Uint8List bytes) async {
-              final compressedBytes = await _compressImage(bytes);
+            onImageEditingComplete: (Uint8List editedBytes) async {
+              final compressedBytes =
+                  await _compressImage(editedBytes, quality: 40);
               final base64Image = base64Encode(compressedBytes);
               await _sendImage(base64Image, image.name);
-              Navigator.pop(context); // Fecha o editor
+              Navigator.pop(context);
             },
           ),
         ),
@@ -347,7 +348,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<void> _sendVideo(XFile video) async {
     try {
-      final fileBytes = await File(video.path).readAsBytes();
+      final originalFile = File(video.path);
+
+      final compressedFile = await _compressVideo(originalFile);
+      if (compressedFile == null) {
+        showSnackbar(context, "Falha ao comprimir vídeo");
+        return;
+      }
+
+      // Lê como bytes e converte em base64
+      final fileBytes = await compressedFile.readAsBytes();
       final base64Video = base64Encode(fileBytes);
 
       await SignalRManager().sendSignalRMessage(
@@ -361,6 +371,24 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     } catch (e) {
       showSnackbar(context, "Erro ao enviar vídeo: $e");
     }
+  }
+
+  Future<File?> _compressVideo(File file) async {
+    try {
+      final compressedVideo = await VideoCompress.compressVideo(
+        file.path,
+        quality: VideoQuality.LowQuality,
+        deleteOrigin: true,
+        includeAudio: true,
+      );
+
+      if (compressedVideo != null && compressedVideo.file != null) {
+        return compressedVideo.file;
+      }
+    } catch (e) {
+      debugPrint("Erro ao comprimir vídeo: $e");
+    }
+    return null;
   }
 
   /// --------------- ENVIO DE ÁUDIO ---------------
@@ -384,7 +412,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       _recordingSeconds++;
       if (_recordingSeconds >= 60) {
-        // Força parada
         await _stopRecording();
       }
       setState(() {});
@@ -407,7 +434,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     setState(() {});
 
     if (path != null) {
-      // Envia o áudio
       await _sendAudio(path);
     }
   }
@@ -463,7 +489,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       ),
       body: Column(
         children: [
-          // Lista de mensagens
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -631,7 +656,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             icon: const Icon(Icons.video_collection),
             onPressed: _pickVideo,
           ),
-
           IconButton(
             icon: Icon(
               _isRecording ? Icons.stop : Icons.mic,
@@ -639,7 +663,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             ),
             onPressed: _isRecording ? _stopRecording : _startRecording,
           ),
-
           Expanded(
             child: TextField(
               controller: _messageController,
@@ -649,7 +672,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               onSubmitted: (_) => _sendMessage(),
             ),
           ),
-
           IconButton(
             icon: const Icon(Icons.send),
             onPressed: _sendMessage,
@@ -715,7 +737,7 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
   }
 
   Future<void> _initializeVideo() async {
-    _videoController = VideoPlayerController.networkUrl(widget.url as Uri);
+    _videoController = VideoPlayerController.network(widget.url);
     await _videoController!.initialize();
     _chewieController = ChewieController(
       videoPlayerController: _videoController!,
@@ -764,13 +786,15 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
     } else if (isAudio) {
       return Scaffold(
         appBar: AppBar(title: const Text("Reproduzindo Áudio")),
-        body: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.audiotrack, size: 100),
-            const SizedBox(height: 20),
-            const Text("Tocando áudio..."),
-          ],
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.audiotrack, size: 100),
+              const SizedBox(height: 20),
+              const Text("Tocando áudio..."),
+            ],
+          ),
         ),
       );
     } else {
