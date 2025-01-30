@@ -26,8 +26,8 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
 
   final List<String> _titles = [
     'Recentes',
-    'Favoritos',
-    'Localizações',
+    'Fixados',
+    'Locais',
     'Festas',
   ];
 
@@ -35,6 +35,11 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: _pages.length, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -43,27 +48,80 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
     super.dispose();
   }
 
+  void showPrivacyPolicyDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Termo Fraude"),
+          content: const SingleChildScrollView(
+            child: Text(
+              "Texto Fraude",
+              textAlign: TextAlign.justify,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text("Fechar"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_tabController.index]),
-        actions: [
-          ThemeToggle(),
-        ],
+        actions: [],
         bottom: TabBar(
           controller: _tabController,
           tabs: [
-            Tab(icon: Icon(Icons.chat), text: 'Recentes'),
-            Tab(icon: Icon(Icons.star), text: 'Favoritos'),
-            Tab(icon: Icon(Icons.location_on), text: 'Localizações'),
-            Tab(icon: Icon(Icons.celebration), text: 'Festas'),
+            Tab(icon: Icon(Icons.chat)),
+            Tab(icon: Icon(Icons.push_pin)),
+            Tab(icon: Icon(Icons.location_on)),
+            Tab(icon: Icon(Icons.celebration)),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: _pages,
+      ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(),
+          Container(
+            padding: const EdgeInsets.fromLTRB(0, 6, 0, 25),
+            child: GestureDetector(
+              onTap: showPrivacyPolicyDialog,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.shield_outlined),
+                  const SizedBox(width: 4),
+                  const Text("Proteja-se"),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Segurança Online e Prevenção contra Fraude",
+                      style: TextStyle(
+                        color: Colors.blue,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

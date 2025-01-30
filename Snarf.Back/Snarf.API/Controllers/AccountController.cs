@@ -1,7 +1,7 @@
-using Snarf.DTO;
-using Snarf.Infrastructure.Service;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Snarf.DTO;
+using Snarf.Infrastructure.Service;
 using System.Security.Claims;
 
 namespace Snarf.API.Controllers
@@ -37,6 +37,13 @@ namespace Snarf.API.Controllers
         {
             var blockerUserId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
             var user = await accountService.UnblockUser(blockerUserId, blockedUserId);
+            return StatusCode(user.Code, user);
+        }
+
+        [HttpPost("ReportUserPublicMessage")]
+        public async Task<IActionResult> ReportUserPublicMessage([FromQuery] Guid messageId)
+        {
+            var user = await accountService.ReportUserPublicMessage(messageId);
             return StatusCode(user.Code, user);
         }
 

@@ -251,6 +251,34 @@ class ApiService {
     }
   }
 
+  static Future<String?> reportMessage(String messageId) async {
+    final token = await getToken();
+    if (token == null) return 'Token não encontrado';
+
+    final url = Uri.parse(
+      '${ApiConstants.baseUrl}/Account/ReportUserPublicMessage?messageId=$messageId',
+    );
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'accept': '*/*',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        return responseData['message'] ?? 'Erro ao denunciar mensagem';
+      }
+    } catch (e) {
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
   static Future<String?> getToken() async {
     return await _secureStorage.read(key: 'token');
   }

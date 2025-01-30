@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
-import 'package:snarf/services/signalr_service.dart';
-import 'package:snarf/utils/api_constants.dart';
+import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
+import 'package:snarf/utils/signalr_event_type.dart';
 
 class RecentPage extends StatefulWidget {
   const RecentPage({super.key});
@@ -16,10 +15,7 @@ class RecentPage extends StatefulWidget {
 }
 
 class _RecentChatPageState extends State<RecentPage> {
-  final SignalRService _signalRService = SignalRService();
   List<Map<String, dynamic>> _recentChats = [];
-  Set<String> _favoriteChatIds = {};
-  final FlutterSecureStorage _storage = FlutterSecureStorage();
   bool _isLoading = true;
 
   @override
@@ -28,171 +24,66 @@ class _RecentChatPageState extends State<RecentPage> {
     _initializeSignalRConnection();
   }
 
-  Future<String> getAccessToken() async {
-    try {
-      final token = await _storage.read(key: 'token') ?? '';
-      log('Token recuperado: $token');
-      return token;
-    } catch (e) {
-      log("Erro ao recuperar token: $e");
-      return '';
-    }
+  Future<void> _initializeSignalRConnection() async {
+    SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
+    await SignalRManager()
+        .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
+    setState(() => _isLoading = false);
   }
 
-  Future<void> _initializeSignalRConnection() async {
+  void _handleSignalRMessage(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+
     try {
-      log('Iniciando conexão com o chat privado...');
-      await _signalRService.setupConnection(
-        hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PrivateChatHub',
-        onMethods: [
-          'ReceiveRecentChats',
-          'ReceivePrivateMessage',
-          'ReceiveFavorites'
-        ],
-        eventHandlers: {
-          'ReceiveRecentChats': _handleRecentChats,
-          'ReceivePrivateMessage': _receiveNewMessages,
-          'ReceiveFavorites': _handleFavorites,
-        },
+      final Map<String, dynamic> message = jsonDecode(args[0] as String);
+      final SignalREventType type = SignalREventType.values.firstWhere(
+        (e) => e.toString().split('.').last == message['Type'],
       );
 
-      log('Conexão estabelecida, buscando dados...');
-      await _signalRService.invokeMethod("GetRecentChats", []);
-      await _signalRService.invokeMethod("GetFavorites", []);
+      final dynamic data = message['Data'];
 
-      setState(() {
-        _isLoading = false;
-      });
-    } catch (err) {
-      log("Erro ao conectar ao chat privado: $err");
-      setState(() {
-        _isLoading = false;
-      });
-      showSnackbar(context, "Erro ao conectar ao chat privado: $err");
+      switch (type) {
+        case SignalREventType.PrivateChatReceiveRecentChats:
+          _handleRecentChats(data);
+          break;
+        case SignalREventType.PrivateChatReceiveMessage:
+          _receiveNewMessages(data);
+          break;
+        default:
+          log("Evento não reconhecido: ${message['Type']}");
+      }
+    } catch (e) {
+      log("Erro ao processar mensagem SignalR: $e");
     }
   }
 
   void _handleRecentChats(List<Object?>? data) {
-    if (data != null && data.isNotEmpty) {
-      final jsonString = data.first as String;
-      try {
-        log('Processando chats recentes...');
-        final parsedData = jsonDecode(jsonString) as List<dynamic>;
-        setState(() {
-          _recentChats = parsedData.map((item) {
-            if (item is Map<String, dynamic>) {
-              return item;
-            } else if (item is Map) {
-              return Map<String, dynamic>.from(item);
-            } else {
-              throw Exception("Item inesperado no JSON: $item");
-            }
-          }).toList();
-        });
-        log('Chats recentes carregados: ${_recentChats.length} encontrados');
-      } catch (e) {
-        log('Erro ao processar JSON recebido: $e');
-        showSnackbar(context, "Erro ao processar chats recentes: $e");
-      }
-    } else {
-      log("Nenhum chat recente encontrado");
-    }
-  }
-
-  void _handleFavorites(List<Object?>? data) {
-    if (data != null && data.isNotEmpty) {
-      final jsonString = data.first as String;
-      try {
-        log('Processando favoritos...');
-        final favoriteIds = jsonDecode(jsonString) as List<dynamic>;
-        setState(() {
-          _favoriteChatIds = favoriteIds.map((id) => id.toString()).toSet();
-        });
-        log('Favoritos carregados: ${_favoriteChatIds.length}');
-      } catch (e) {
-        log('Erro ao processar JSON de favoritos: $e');
-        showSnackbar(context, "Erro ao carregar favoritos: $e");
-      }
-    } else {
-      log("Nenhum favorito encontrado.");
-    }
-  }
-
-  void _receiveNewMessages(List<Object?>? data) {
-    log('Sincronizando novas mensagens...');
-    _signalRService.invokeMethod("GetRecentChats", []);
-  }
-
-  Future<void> _deleteChat(String chatUserId) async {
     try {
-      bool confirmDelete = await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (BuildContext context) {
-              return AlertDialog(
-                title: Text('Confirmar Exclusão'),
-                content: Text('Você tem certeza que deseja deletar este chat?'),
-                actions: <Widget>[
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(false);
-                    },
-                    child: Text('Cancelar'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(true);
-                    },
-                    child: Text('Excluir'),
-                  ),
-                ],
-              );
-            },
-          ) ??
-          false;
-
-      if (confirmDelete) {
-        log('Deletando chat $chatUserId...');
-        await _signalRService.invokeMethod("DeleteChat", [chatUserId]);
-        setState(() {
-          _recentChats.removeWhere((chat) => chat['UserId'] == chatUserId);
-        });
-      } else {
-        log('Exclusão de chat cancelada.');
-      }
+      final parsedData = data as List<dynamic>;
+      setState(() {
+        _recentChats = parsedData.map((item) {
+          if (item is Map<String, dynamic>) {
+            return item;
+          } else if (item is Map) {
+            return Map<String, dynamic>.from(item);
+          } else {
+            throw Exception("Item inesperado no JSON: $item");
+          }
+        }).toList();
+      });
     } catch (e) {
-      log('Erro ao deletar chat: $e');
-      showSnackbar(context, "Erro ao deletar chat.");
+      showSnackbar(context, "Erro ao processar chats recentes: $e");
     }
   }
 
-  Future<void> _toggleFavorite(String chatUserId) async {
-    try {
-      if (_favoriteChatIds.contains(chatUserId)) {
-        log('Removendo chat $chatUserId dos favoritos...');
-        await _signalRService.invokeMethod("RemoveFavorite", [chatUserId]);
-        setState(() {
-          _favoriteChatIds.remove(chatUserId);
-        });
-        showSnackbar(context, "Chat removido dos favoritos.");
-      } else {
-        log('Adicionando chat $chatUserId aos favoritos...');
-        await _signalRService.invokeMethod("AddFavorite", [chatUserId]);
-        setState(() {
-          _favoriteChatIds.add(chatUserId);
-        });
-        showSnackbar(context, "Chat adicionado aos favoritos.");
-      }
-    } catch (e) {
-      log('Erro ao alterar favorito: $e');
-      showSnackbar(context, "Erro ao alterar favorito.");
-    }
+  Future<void> _receiveNewMessages(List<Object?>? data) async {
+    await SignalRManager()
+        .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
   }
 
   @override
   void dispose() {
     log('Fechando conexão SignalR...');
-    _signalRService.stopConnection();
     super.dispose();
   }
 
@@ -217,13 +108,18 @@ class _RecentChatPageState extends State<RecentPage> {
                   ),
                   itemBuilder: (context, index) {
                     final chat = _recentChats[index];
-                    final isFavorite =
-                        _favoriteChatIds.contains(chat['UserId']);
-
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundImage: NetworkImage(chat['UserImage']),
-                        radius: 24,
+                        radius: 30,
+                        backgroundColor: Colors.blueAccent.shade700,
+                        child: Padding(
+                          padding: EdgeInsets.all(4),
+                          child: ClipOval(
+                            child: Image.network(
+                              chat['UserImage'],
+                            ),
+                          ),
+                        ),
                       ),
                       title: Text(
                         chat['UserName'],
@@ -245,7 +141,11 @@ class _RecentChatPageState extends State<RecentPage> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                        ],
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
                           Text(
                             DateJSONUtils.formatRelativeTime(
                                 chat['LastMessageDate']),
@@ -255,49 +155,59 @@ class _RecentChatPageState extends State<RecentPage> {
                               fontStyle: FontStyle.italic,
                             ),
                           ),
-                        ],
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              isFavorite ? Icons.star : Icons.star_border,
-                              color: isFavorite ? Colors.yellow : Colors.grey,
-                            ),
-                            onPressed: () => _toggleFavorite(chat['UserId']),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.delete_forever,
-                              color: Colors.red,
-                            ),
-                            onPressed: () => _deleteChat(chat['UserId']),
-                          ),
-                          if (chat['UnreadCount'] > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8.0),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  '${chat['UnreadCount']}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (chat['UnreadCount'] > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8.0),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 4, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            'NOVO',
+                                            style: TextStyle(
+                                              color: Colors.orange,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '${chat['UnreadCount']}',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
+                            ],
+                          ),
                         ],
                       ),
                       onTap: () async {
-                        log('Abrindo chat com ${chat['UserName']}');
                         await Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -308,8 +218,6 @@ class _RecentChatPageState extends State<RecentPage> {
                             ),
                           ),
                         );
-                        await _signalRService
-                            .invokeMethod("GetRecentChats", []);
                       },
                     );
                   },

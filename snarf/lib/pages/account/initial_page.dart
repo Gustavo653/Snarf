@@ -12,6 +12,7 @@ import 'package:snarf/pages/account/forgot_password_page.dart';
 import 'package:snarf/pages/account/register_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/services/api_service.dart';
+import 'package:snarf/services/signalr_manager.dart';
 import 'package:uuid/uuid.dart';
 
 class InitialPage extends StatefulWidget {
@@ -41,6 +42,7 @@ class _InitialPageState extends State<InitialPage> {
 
   void _performLogout() async {
     await ApiService.logout();
+    await SignalRManager().stopConnection();
   }
 
   void _shuffleImages() {

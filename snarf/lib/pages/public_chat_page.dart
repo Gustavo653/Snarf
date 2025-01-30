@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
@@ -5,10 +6,11 @@ import 'package:location/location.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/services/api_service.dart';
-import 'package:snarf/services/signalr_service.dart';
-import 'package:snarf/utils/api_constants.dart';
+import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
+import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
+import 'package:snarf/utils/signalr_event_type.dart';
 
 class PublicChatPage extends StatefulWidget {
   const PublicChatPage({super.key});
@@ -20,7 +22,6 @@ class PublicChatPage extends StatefulWidget {
 class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final SignalRService _signalRService = SignalRService();
 
   List<Map<String, dynamic>> _messages = [];
 
@@ -52,131 +53,89 @@ class _PublicChatPageState extends State<PublicChatPage> {
   }
 
   Future<void> _setupSignalRConnection() async {
-    log("Setting up SignalR connection...", name: "PublicChatPage");
     await _loadUserId();
+    await _initLocation();
+    SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
+    await SignalRManager()
+        .sendSignalRMessage(SignalREventType.PublicChatGetPreviousMessages, {});
+    setState(() => _isLoading = false);
+  }
+
+  void _onReceiveMessage(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+
     try {
-      await _initLocation();
-      await _signalRService.setupConnection(
-        hubUrl: '${ApiConstants.baseUrl.replaceAll('/api', '')}/PublicChatHub',
-        onMethods: ['ReceiveMessage', 'ReceiveMessageDeleted'],
-        eventHandlers: {
-          'ReceiveMessage': (args) {
-            final messageId = args?[0] as String;
-            final dateUtc = DateTime.parse(args?[1] as String);
-            final dateLocal = dateUtc.toLocal();
-            final userId = args?[2] as String;
-            final userName = args?[3] as String;
-            final messageText = args?[4] as String;
-            final senderImage = args?[5] as String;
-            final senderLat = args?[6] as double?;
-            final senderLng = args?[7] as double?;
-
-            double? distance;
-            if (senderLat != null &&
-                senderLng != null &&
-                _myLatitude != null &&
-                _myLongitude != null) {
-              distance = _calculateDistance(
-                _myLatitude!,
-                _myLongitude!,
-                senderLat,
-                senderLng,
-              );
-            }
-
-            setState(() {
-              _messages.add({
-                'id': messageId,
-                'createdAt': dateLocal,
-                'senderName': userName,
-                'message': messageText,
-                'senderImage': senderImage,
-                'senderId': userId,
-                'isMine': userId == _userId,
-                'distance': distance,
-                'senderLat': senderLat,
-                'senderLng': senderLng,
-              });
-            });
-
-            if (!_isLoading) _scrollToBottom();
-          },
-          'ReceiveMessageDeleted': (args) {
-            final deletedMessageId = args?[0] as String;
-            final newText = args?[2] as String;
-
-            setState(() {
-              final index =
-                  _messages.indexWhere((m) => m['id'] == deletedMessageId);
-              if (index != -1) {
-                _messages[index]['message'] = newText;
-              }
-            });
-          },
-        },
+      final Map<String, dynamic> message = jsonDecode(args[0] as String);
+      final SignalREventType type = SignalREventType.values.firstWhere(
+        (e) => e.toString().split('.').last == message['Type'],
       );
 
-      log("SignalR connection established.", name: "PublicChatPage");
+      final dynamic data = message['Data'];
 
-      await _signalRService.invokeMethod("GetPreviousMessages", []);
-    } catch (e) {
-      log("Error setting up SignalR connection: $e",
-          name: "PublicChatPage", level: 1000);
-      if (mounted) {
-        showSnackbar(context, "Erro ao conectar com o servidor.");
+      switch (type) {
+        case SignalREventType.PublicChatReceiveMessage:
+          _handleReceiveMessage(data);
+          break;
+        case SignalREventType.PublicChatReceiveMessageDeleted:
+          _handleMessageDeleted(data);
+          break;
+        default:
+          log("Evento não reconhecido: ${message['Type']}");
       }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  double _calculateDistance(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    const R = 6371.0;
-    double dLat = _deg2rad(lat2 - lat1);
-    double dLon = _deg2rad(lon2 - lon1);
-
-    double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_deg2rad(lat1)) *
-            math.cos(_deg2rad(lat2)) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
-    double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    double distance = R * c;
-    return distance;
-  }
-
-  double _deg2rad(double deg) => deg * (math.pi / 180);
-
-  void _deleteMessage(String messageId) async {
-    try {
-      await _signalRService.invokeMethod("DeleteMessage", [messageId]);
     } catch (e) {
-      showSnackbar(context, "Erro ao excluir a mensagem: $e");
+      log("Erro ao processar mensagem SignalR: $e");
     }
+  }
+
+  void _handleReceiveMessage(Map<String, dynamic> data) {
+    setState(() {
+      _messages.add({
+        'id': data['Id'],
+        'createdAt': DateTime.parse(data['CreatedAt']).toLocal(),
+        'userName': data['UserName'],
+        'message': data['Message'],
+        'userImage': data['UserImage'],
+        'userId': data['UserId'],
+        'isMine': data['UserId'] == _userId,
+        'latitude': data['Latitude'],
+        'longitude': data['Longitude'],
+        'distance': DistanceUtils.calculateDistance(
+          _myLatitude!,
+          _myLongitude!,
+          data['Latitude'],
+          data['Longitude'],
+        ),
+      });
+    });
+
+    _scrollToBottom();
+  }
+
+  void _handleMessageDeleted(Map<String, dynamic> data) {
+    setState(() {
+      final index = _messages.indexWhere((m) => m['id'] == data['MessageId']);
+      if (index != -1) {
+        _messages[index]['message'] = data['Message'];
+      }
+    });
   }
 
   void _sendMessage() async {
-    final message = _messageController.text;
-    if (message.isNotEmpty) {
-      try {
-        await _signalRService.invokeMethod("SendMessage", [message]);
-        setState(() {
-          _messageController.clear();
-        });
-        _scrollToBottom();
-      } catch (e) {
-        log("Error sending message: $e", name: "PublicChatPage", level: 1000);
-        if (mounted) {
-          showSnackbar(context, "Erro ao enviar mensagem.");
-        }
-      }
+    final messageText = _messageController.text.trim();
+    if (messageText.isNotEmpty) {
+      await SignalRManager().sendSignalRMessage(
+          SignalREventType.PublicChatSendMessage, {"Message": messageText});
+      setState(() => _messageController.clear());
+      _scrollToBottom();
+    }
+  }
+
+  void _deleteMessage(String messageId) async {
+    try {
+      await SignalRManager().sendSignalRMessage(
+          SignalREventType.PublicChatDeleteMessage, {"MessageId": messageId});
+    } catch (e) {
+      showSnackbar(context, "Erro ao excluir a mensagem: $e");
     }
   }
 
@@ -194,7 +153,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
   @override
   void dispose() {
-    _signalRService.stopConnection();
     _scrollController.dispose();
     super.dispose();
   }
@@ -257,9 +215,9 @@ class _PublicChatPageState extends State<PublicChatPage> {
                     itemBuilder: (context, index) {
                       final msg = sortedMessages[index];
                       final isMine = msg['isMine'] as bool;
-                      final senderName = msg['senderName'] as String;
+                      final senderName = msg['userName'] as String;
                       final createdAt = msg['createdAt'] as DateTime;
-                      final distance = msg['distance'] as double?;
+                      final distance = msg['distance'] ?? 0.0;
                       final color = isMine ? myMessageColor : otherMessageColor;
 
                       return Column(
@@ -310,12 +268,12 @@ class _PublicChatPageState extends State<PublicChatPage> {
     required Color? messageColor,
     required double? distance,
   }) {
-    final msgText = message['message'] as String;
+    final msgText = message['message'] as String? ?? '';
     final msgId = message['id'] as String?;
-    final senderId = message['senderId'] as String?;
-    final senderLat = message['senderLat'] as double?;
-    final senderLng = message['senderLng'] as double?;
-    final senderImage = message['senderImage'] as String? ?? '';
+    final userId = message['userId'] as String?;
+    final userLatitude = message['latitude'] as double?;
+    final userLongitude = message['longitude'] as double?;
+    final senderImage = message['userImage'] as String? ?? '';
 
     return isMine
         ? Row(
@@ -360,16 +318,18 @@ class _PublicChatPageState extends State<PublicChatPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  GestureDetector(
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    GestureDetector(
                       onTap: () {
-                        if (senderId == null) return;
+                        if (userId == null) return;
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
-                                ViewUserPage(userId: senderId),
+                                ViewUserPage(userId: userId),
                           ),
                         );
                       },
@@ -388,89 +348,59 @@ class _PublicChatPageState extends State<PublicChatPage> {
                             bottomRight: Radius.circular(30),
                           ),
                         ),
-                      )),
-                  const SizedBox(width: 8),
-                  Container(
-                    margin:
-                        const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: messageColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(12),
-                        topRight: const Radius.circular(12),
-                        bottomLeft: Radius.zero,
-                        bottomRight: const Radius.circular(12),
                       ),
                     ),
-                    child: Text(
-                      msgText,
-                      style: const TextStyle(fontSize: 14),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(
+                            vertical: 4, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: messageColor,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(12),
+                            topRight: const Radius.circular(12),
+                            bottomLeft: Radius.zero,
+                            bottomRight: const Radius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          msgText,
+                          style: const TextStyle(fontSize: 14),
+                          softWrap: true,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 3,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (senderLat != null && senderLng != null)
+                  if (userLatitude != null && userLongitude != null)
                     IconButton(
                       icon: const Icon(Icons.my_location),
                       onPressed: () {
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute(
                             builder: (context) => HomePage(
-                              initialLatitude: senderLat,
-                              initialLongitude: senderLng,
+                              initialLatitude: userLatitude,
+                              initialLongitude: userLongitude,
                             ),
                           ),
                           (Route<dynamic> route) => false,
                         );
                       },
                     ),
-                  IconButton(
-                    icon: const Icon(Icons.block),
-                    onPressed: () async {
-                      if (senderId == null) return;
-
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            title: const Text('Confirmar Bloqueio'),
-                            content: const Text(
-                                'Tem certeza de que deseja bloquear este usuário?'),
-                            actions: <Widget>[
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop(false);
-                                },
-                                child: const Text('Cancelar'),
-                              ),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.of(context).pop(true);
-                                },
-                                child: const Text('Bloquear'),
-                              ),
-                            ],
-                          );
-                        },
-                      );
-
-                      if (confirm == true) {
-                        final response = await ApiService.blockUser(senderId);
-                        if (response == null) {
-                          showSnackbar(
-                              context, 'Usuário bloqueado com sucesso.');
-                        } else {
-                          showSnackbar(
-                              context, 'Erro ao bloquear usuário: $response');
-                        }
-                      }
-                    },
-                  ),
+                  ChatMessageOptions(
+                    senderId: userId!,
+                    messageId: msgId!,
+                    mainContext: context,
+                  )
                 ],
               ),
             ],
@@ -506,22 +436,178 @@ class _PublicChatPageState extends State<PublicChatPage> {
   }
 }
 
-class DropClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    Path path = Path();
-    path.moveTo(size.width * 0.5, 0); // Começa no topo (menor parte da gota)
-    path.quadraticBezierTo(size.width, 0, size.width, size.height * 0.5);
-    path.quadraticBezierTo(
-        size.width, size.height, size.width * 0.5, size.height);
-    path.quadraticBezierTo(0, size.height, 0, size.height * 0.5);
-    path.quadraticBezierTo(0, 0, size.width * 0.5, 0);
-    path.close();
-    return path;
-  }
+class ChatMessageOptions extends StatelessWidget {
+  final String senderId;
+  final String messageId;
+  final BuildContext mainContext;
+
+  const ChatMessageOptions({
+    required this.senderId,
+    required this.messageId,
+    required this.mainContext,
+    super.key,
+  });
 
   @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) {
-    return false;
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.more_horiz),
+      onPressed: () => _showBlockReportDialog(context),
+    );
+  }
+
+  void _showBlockReportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: const EdgeInsets.all(16),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        iconColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.block),
+                      label: const Text(
+                        "Bloquear Usuário",
+                        style: TextStyle(
+                          color: Colors.white,
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _blockUser(mainContext);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        iconColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: const Icon(Icons.flag),
+                      label: const Text(
+                        "Denunciar Publicação",
+                        style: TextStyle(
+                          color: Colors.white,
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _reportMessage(mainContext, messageId);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                child: const Text("Cancelar"),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _blockUser(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar Bloqueio'),
+          content:
+              const Text('Tem certeza de que deseja bloquear este usuário?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Bloquear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      final response = await ApiService.blockUser(senderId);
+      if (response == null) {
+        showSnackbar(
+          context,
+          'Usuário bloqueado com sucesso.',
+          color: Colors.green,
+        );
+      } else {
+        showSnackbar(context, 'Erro ao bloquear usuário: $response');
+      }
+    }
+  }
+
+  Future<void> _reportMessage(BuildContext context, String messageId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar denúncia'),
+          content:
+              const Text('Tem certeza de que deseja denunciar esta mensagem?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Denunciar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      final response = await ApiService.reportMessage(messageId);
+      if (response == null) {
+        showSnackbar(
+          context,
+          'Mensagem denunciada com sucesso.',
+          color: Colors.green,
+        );
+      } else {
+        showSnackbar(context, 'Erro ao denunciar mensagem: $response');
+      }
+    }
   }
 }
