@@ -29,7 +29,7 @@ class _ViewUserPageState extends State<ViewUserPage> {
   bool _isLoading = true;
   double? _myLatitude;
   double? _myLongitude;
-  double? _distance;
+  bool _isFavorite = false;
 
   @override
   void initState() {
@@ -44,21 +44,45 @@ class _ViewUserPageState extends State<ViewUserPage> {
     _myLongitude = position.longitude;
   }
 
+  Future<void> _checkIfFavorite() async {
+    await SignalRManager().sendSignalRMessage(
+      SignalREventType.PrivateChatGetFavorites,
+      {},
+    );
+    SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
+  }
+
+  Future<void> _toggleFavorite() async {
+    try {
+      if (_isFavorite) {
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PrivateChatRemoveFavorite,
+          {'ChatUserId': widget.userId},
+        );
+      } else {
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PrivateChatAddFavorite,
+          {'ChatUserId': widget.userId},
+        );
+      }
+      setState(() {
+        _isFavorite = !_isFavorite;
+      });
+    } catch (e) {
+      showSnackbar(context, "Erro ao alterar favorito: $e");
+    }
+  }
+
   bool get _isOnline {
     if (_lastActivity == null) return false;
     final difference = DateTime.now().difference(_lastActivity!);
     return difference.inMinutes < 1;
   }
 
-  Future<void> _loadUserInfo() async {
-    await _initLocation();
-    final userInfo = await ApiService.getUserInfoById(widget.userId);
-
-    SignalRManager().listenToEvent("ReceiveMessage", (arguments) {
-      if (arguments == null || arguments.isEmpty) return;
-
-      final Map<String, dynamic> data = jsonDecode(arguments[0] as String);
-
+  void _handleSignalRMessage(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+    try {
+      final Map<String, dynamic> data = jsonDecode(args[0] as String);
       final String? eventType = data['Type'];
       if (eventType == null) return;
 
@@ -81,9 +105,31 @@ class _ViewUserPageState extends State<ViewUserPage> {
           setState(() {
             _lastActivity = DateTime.now().add(Duration(days: -1));
           });
+        } else if (eventType ==
+            SignalREventType.PrivateChatReceiveFavorites.toString()
+                .split('.')
+                .last) {
+          final List<dynamic> favorites = data['Data'] as List<dynamic>;
+          for (var item in favorites) {
+            if (item is Map<String, dynamic> && item['Id'] == widget.userId) {
+              setState(() {
+                _isFavorite = true;
+              });
+              break;
+            }
+          }
         }
       }
-    });
+    } catch (e) {
+      showSnackbar(context, "Erro ao processar favoritos: $e");
+    }
+  }
+
+  Future<void> _loadUserInfo() async {
+    await _initLocation();
+    final userInfo = await ApiService.getUserInfoById(widget.userId);
+
+    SignalRManager().listenToEvent("ReceiveMessage", _handleSignalRMessage);
 
     if (userInfo != null) {
       setState(() {
@@ -125,6 +171,12 @@ class _ViewUserPageState extends State<ViewUserPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Perfil do Usuário'),
+        actions: [
+          IconButton(
+            icon: Icon(_isFavorite ? Icons.star : Icons.star_border),
+            onPressed: _toggleFavorite,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
