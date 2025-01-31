@@ -421,10 +421,7 @@ namespace Snarf.API.Controllers
                     var s3Service = new S3Service();
                     await s3Service.DeleteFileAsync(message.Message);
                 }
-                else
-                {
-                    _privateChatMessageRepository.Delete(message);
-                }
+                _privateChatMessageRepository.Delete(message);
             }
             await _privateChatMessageRepository.SaveChangesAsync();
             Log.Information($"Usuário {userId} excluiu o chat com {receiverUserId}");
@@ -593,8 +590,7 @@ namespace Snarf.API.Controllers
                 .Select(f => new { f.ChatUser.Id })
                 .ToListAsync();
             var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveFavorites, favorites);
-            var favoriteIdsJson = JsonSerializer.Serialize(favorites.Select(f => f.Id));
-            await Clients.Caller.SendAsync("ReceiveMessage", favoriteIdsJson);
+            await Clients.Caller.SendAsync("ReceiveMessage", jsonResponse);
         }
 
         private async Task HandlePrivateChatAddFavorite(JsonElement data)
