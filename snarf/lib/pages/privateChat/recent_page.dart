@@ -26,8 +26,10 @@ class _RecentChatPageState extends State<RecentPage> {
 
   Future<void> _initializeSignalRConnection() async {
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
+
     await SignalRManager()
         .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
+
     setState(() => _isLoading = false);
   }
 
@@ -49,6 +51,13 @@ class _RecentChatPageState extends State<RecentPage> {
         case SignalREventType.PrivateChatReceiveMessage:
           _receiveNewMessages(data);
           break;
+        case SignalREventType.MapReceiveLocation:
+          _handleMapReceiveLocation(data);
+          break;
+        case SignalREventType.UserDisconnected:
+          _handleUserDisconnected(data);
+          break;
+
         default:
           log("Evento não reconhecido: ${message['Type']}");
       }
@@ -62,13 +71,29 @@ class _RecentChatPageState extends State<RecentPage> {
       final parsedData = data as List<dynamic>;
       setState(() {
         _recentChats = parsedData.map((item) {
-          if (item is Map<String, dynamic>) {
-            return item;
-          } else if (item is Map) {
-            return Map<String, dynamic>.from(item);
-          } else {
-            throw Exception("Item inesperado no JSON: $item");
+          final mapItem = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item);
+
+          DateTime? lastActivity;
+          if (mapItem['LastActivity'] != null) {
+            try {
+              lastActivity =
+                  DateTime.parse(mapItem['LastActivity'].toString()).toLocal();
+            } catch (_) {
+              lastActivity = null;
+            }
           }
+
+          return {
+            'UserId': mapItem['UserId'],
+            'UserName': mapItem['UserName'],
+            'UserImage': mapItem['UserImage'],
+            'LastMessage': mapItem['LastMessage'],
+            'LastMessageDate': mapItem['LastMessageDate'],
+            'UnreadCount': mapItem['UnreadCount'],
+            'LastActivity': lastActivity,
+          };
         }).toList();
       });
     } catch (e) {
@@ -76,9 +101,34 @@ class _RecentChatPageState extends State<RecentPage> {
     }
   }
 
-  Future<void> _receiveNewMessages(List<Object?>? data) async {
+  Future<void> _receiveNewMessages(dynamic data) async {
     await SignalRManager()
         .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
+  }
+
+  void _handleMapReceiveLocation(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final String userId = data['userId'];
+      final index = _recentChats.indexWhere((chat) => chat['UserId'] == userId);
+      if (index != -1) {
+        setState(() {
+          _recentChats[index]['LastActivity'] = DateTime.now();
+        });
+      }
+    }
+  }
+
+  void _handleUserDisconnected(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final String userId = data['userId'];
+      final index = _recentChats.indexWhere((chat) => chat['UserId'] == userId);
+      if (index != -1) {
+        setState(() {
+          _recentChats[index]['LastActivity'] =
+              DateTime.now().subtract(const Duration(days: 1));
+        });
+      }
+    }
   }
 
   @override
@@ -108,15 +158,29 @@ class _RecentChatPageState extends State<RecentPage> {
                   ),
                   itemBuilder: (context, index) {
                     final chat = _recentChats[index];
+
+                    bool isOnline = false;
+                    final lastActivity = chat['LastActivity'] as DateTime?;
+                    if (lastActivity != null) {
+                      final diff = DateTime.now().difference(lastActivity);
+                      isOnline = diff.inMinutes < 1;
+                    }
+
                     return ListTile(
                       leading: CircleAvatar(
                         radius: 30,
                         backgroundColor: Colors.blueAccent.shade700,
                         child: Padding(
-                          padding: EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(4),
                           child: ClipOval(
                             child: Image.network(
                               chat['UserImage'],
+                              errorBuilder: (ctx, error, stack) {
+                                return Image.asset(
+                                  'assets/images/user_anonymous.png',
+                                  fit: BoxFit.cover,
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -140,6 +204,14 @@ class _RecentChatPageState extends State<RecentPage> {
                                 : chat['LastMessage'],
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            isOnline ? 'Online' : 'Offline',
+                            style: TextStyle(
+                              color: isOnline ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -175,7 +247,9 @@ class _RecentChatPageState extends State<RecentPage> {
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 4, vertical: 2),
+                                            horizontal: 4,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: Colors.black,
                                             borderRadius:

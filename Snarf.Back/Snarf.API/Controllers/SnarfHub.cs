@@ -296,9 +296,13 @@ namespace Snarf.API.Controllers
                     SenderId = m.Sender.Id,
                     SenderName = m.Sender.Name,
                     SenderImage = m.Sender.ImageUrl,
+                    SenderLastActivity = m.Sender.LastActivity,
+
                     ReceiverId = m.Receiver.Id,
                     ReceiverName = m.Receiver.Name,
                     ReceiverImage = m.Receiver.ImageUrl,
+                    ReceiverLastActivity = m.Receiver.LastActivity,
+
                     m.Message,
                     m.CreatedAt,
                     m.IsRead,
@@ -312,6 +316,7 @@ namespace Snarf.API.Controllers
                     UserId = group.Key,
                     UserName = group.First().ReceiverId == userId ? group.First().SenderName : group.First().ReceiverName,
                     UserImage = group.First().ReceiverId == userId ? group.First().SenderImage : group.First().ReceiverImage,
+                    LastActivity = group.First().ReceiverId == userId ? group.First().SenderLastActivity : group.First().ReceiverLastActivity,
                     LastMessage = group.OrderByDescending(m => m.CreatedAt).First().Message,
                     LastMessageDate = group.Max(m => m.CreatedAt),
                     UnreadCount = group.Count(m => m.ReceiverId == userId && !m.IsRead)
@@ -639,7 +644,7 @@ namespace Snarf.API.Controllers
                 .GetTrackedEntities()
                 .Include(m => m.Sender)
                 .Include(m => m.Receiver)
-                .FirstOrDefaultAsync(m => m.Id == guid) ?? 
+                .FirstOrDefaultAsync(m => m.Id == guid) ??
                 throw new Exception("Mensagem não encontrada para reagir.");
 
             if (messageObj.Reactions == null)
