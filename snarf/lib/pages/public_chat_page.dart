@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:snarf/pages/account/view_user_page.dart';

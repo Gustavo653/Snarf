@@ -20,7 +20,7 @@ namespace Snarf.API.Controllers
         public async Task<IActionResult> GetUser([FromRoute] Guid requestedUserId)
         {
             var userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
-            var user = await accountService.GetCurrent(requestedUserId, userId == requestedUserId);
+            var user = await accountService.GetUserInfo(requestedUserId, userId == requestedUserId);
             return StatusCode(user.Code, user);
         }
 

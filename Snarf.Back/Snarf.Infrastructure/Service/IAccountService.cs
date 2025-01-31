@@ -9,7 +9,7 @@ namespace Snarf.Infrastructure.Service
         Task<ResponseDTO> CreateUser(UserDTO userDTO);
         Task<ResponseDTO> ResetPassword(UserEmailDTO userEmailDTO);
         Task<ResponseDTO> RequestResetPassword(string email);
-        Task<ResponseDTO> GetCurrent(Guid id, bool showSensitiveInfo);
+        Task<ResponseDTO> GetUserInfo(Guid id, bool showSensitiveInfo);
         Task<ResponseDTO> UpdateUser(Guid id, UserDTO userDTO);
         Task<ResponseDTO> RemoveUser(Guid id);
         Task<ResponseDTO> BlockUser(Guid blockerUserId, Guid blockedUserId);

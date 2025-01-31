@@ -83,7 +83,7 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        public async Task<ResponseDTO> GetCurrent(Guid id, bool showSensitiveInfo)
+        public async Task<ResponseDTO> GetUserInfo(Guid id, bool showSensitiveInfo)
         {
             ResponseDTO responseDTO = new();
             try
