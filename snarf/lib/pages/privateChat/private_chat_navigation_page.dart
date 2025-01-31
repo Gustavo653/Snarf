@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:snarf/components/toggle_theme_component.dart';
-import 'package:snarf/pages/privateChat/favorites_page.dart';
 import 'package:snarf/pages/privateChat/locations_page.dart';
 import 'package:snarf/pages/privateChat/parties_page.dart';
 import 'package:snarf/pages/privateChat/recent_page.dart';
@@ -18,8 +16,8 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
   late TabController _tabController;
 
   final List<Widget> _pages = [
-    const RecentPage(),
-    const FavoritesPage(),
+    const RecentPage(showFavorites: false),
+    const RecentPage(showFavorites: true),
     const LocationsPage(),
     const PartiesPage(),
   ];

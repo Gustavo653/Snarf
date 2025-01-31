@@ -18,7 +18,7 @@ class DateJSONUtils {
   }
 
   static String formatRelativeTime(String dateString) {
-    final date = DateTime.parse(dateString);
+    final date = DateTime.parse(dateString).toLocal();
     final now = DateTime.now();
     final difference = now.difference(date);
 

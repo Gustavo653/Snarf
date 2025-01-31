@@ -118,7 +118,7 @@ namespace Snarf.API.Controllers
 
             if (user == null) return;
 
-            user.LastActivity = DateTime.UtcNow;
+            user.LastActivity = DateTime.Now;
             user.LastLatitude = location.Latitude;
             user.LastLongitude = location.Longitude;
             await _userRepository.SaveChangesAsync();
@@ -176,7 +176,7 @@ namespace Snarf.API.Controllers
             var jsonResponse = SignalRMessage.Serialize(SignalREventType.PublicChatReceiveMessage, new
             {
                 message.Id,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.Now,
                 UserId = userId,
                 UserName = user.Name,
                 UserImage = user.ImageUrl,
@@ -269,7 +269,7 @@ namespace Snarf.API.Controllers
                 Message = messageText,
                 IsRead = false
             };
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
@@ -459,7 +459,7 @@ namespace Snarf.API.Controllers
                 Message = imageUrl,
                 IsRead = false
             };
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
@@ -522,7 +522,7 @@ namespace Snarf.API.Controllers
                 Message = audioUrl,
                 IsRead = false
             };
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
@@ -568,7 +568,7 @@ namespace Snarf.API.Controllers
                 Message = videoUrl,
                 IsRead = false
             };
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
@@ -692,7 +692,7 @@ namespace Snarf.API.Controllers
                 IsRead = false,
                 ReplyToMessageId = Guid.Parse(originalMessageId)
             };
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();

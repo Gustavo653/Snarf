@@ -8,7 +8,9 @@ import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
 
 class RecentPage extends StatefulWidget {
-  const RecentPage({super.key});
+  final bool showFavorites;
+
+  const RecentPage({super.key, this.showFavorites = false});
 
   @override
   _RecentChatPageState createState() => _RecentChatPageState();
@@ -16,6 +18,7 @@ class RecentPage extends StatefulWidget {
 
 class _RecentChatPageState extends State<RecentPage> {
   List<Map<String, dynamic>> _recentChats = [];
+  List<String> _favoriteChatIds = [];
   bool _isLoading = true;
 
   @override
@@ -27,8 +30,12 @@ class _RecentChatPageState extends State<RecentPage> {
   Future<void> _initializeSignalRConnection() async {
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
 
-    await SignalRManager()
-        .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
+    await Future.wait([
+      SignalRManager()
+          .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {}),
+      SignalRManager()
+          .sendSignalRMessage(SignalREventType.PrivateChatGetFavorites, {}),
+    ]);
 
     setState(() => _isLoading = false);
   }
@@ -48,6 +55,9 @@ class _RecentChatPageState extends State<RecentPage> {
         case SignalREventType.PrivateChatReceiveRecentChats:
           _handleRecentChats(data);
           break;
+        case SignalREventType.PrivateChatReceiveFavorites:
+          _handleFavoriteChats(data);
+          break;
         case SignalREventType.PrivateChatReceiveMessage:
           _receiveNewMessages(data);
           break;
@@ -57,7 +67,6 @@ class _RecentChatPageState extends State<RecentPage> {
         case SignalREventType.UserDisconnected:
           _handleUserDisconnected(data);
           break;
-
         default:
           log("Evento não reconhecido: ${message['Type']}");
       }
@@ -101,6 +110,19 @@ class _RecentChatPageState extends State<RecentPage> {
     }
   }
 
+  void _handleFavoriteChats(List<Object?>? data) {
+    try {
+      if (data == null) return;
+      final parsedData = data as List<dynamic>;
+      setState(() {
+        _favoriteChatIds =
+            parsedData.map((item) => item['Id'].toString()).toList();
+      });
+    } catch (e) {
+      showSnackbar(context, "Erro ao processar favoritos: $e");
+    }
+  }
+
   Future<void> _receiveNewMessages(dynamic data) async {
     await SignalRManager()
         .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
@@ -131,6 +153,15 @@ class _RecentChatPageState extends State<RecentPage> {
     }
   }
 
+  List<Map<String, dynamic>> get _filteredChats {
+    if (widget.showFavorites) {
+      return _recentChats
+          .where((chat) => _favoriteChatIds.contains(chat['UserId']))
+          .toList();
+    }
+    return _recentChats;
+  }
+
   @override
   void dispose() {
     log('Fechando conexão SignalR...');
@@ -142,7 +173,7 @@ class _RecentChatPageState extends State<RecentPage> {
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _recentChats.isEmpty
+          : _filteredChats.isEmpty
               ? const Center(
                   child: Text(
                     'Nenhuma conversa encontrada.',
@@ -150,14 +181,14 @@ class _RecentChatPageState extends State<RecentPage> {
                   ),
                 )
               : ListView.separated(
-                  itemCount: _recentChats.length,
+                  itemCount: _filteredChats.length,
                   separatorBuilder: (context, index) => const Divider(
                     height: 1,
                     thickness: 1,
                     color: Colors.grey,
                   ),
                   itemBuilder: (context, index) {
-                    final chat = _recentChats[index];
+                    final chat = _filteredChats[index];
 
                     bool isOnline = false;
                     final lastActivity = chat['LastActivity'] as DateTime?;
@@ -220,7 +251,8 @@ class _RecentChatPageState extends State<RecentPage> {
                         children: [
                           Text(
                             DateJSONUtils.formatRelativeTime(
-                                chat['LastMessageDate']),
+                              chat['LastMessageDate'].toString(),
+                            ),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
