@@ -503,6 +503,7 @@ class _LoginModalState extends State<LoginModal> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final ValueNotifier<bool> isPasswordVisible = ValueNotifier(false);
+  static const _secureStorage = FlutterSecureStorage();
   bool isLoading = false;
   String? errorMessage;
 
@@ -524,7 +525,8 @@ class _LoginModalState extends State<LoginModal> {
 
     try {
       final loginResponse = await ApiService.login(email, password);
-
+      await _secureStorage.write(key: 'email', value: email);
+      await _secureStorage.write(key: 'password', value: password);
       if (loginResponse == null) {
         widget.onLoginSuccess();
       } else {

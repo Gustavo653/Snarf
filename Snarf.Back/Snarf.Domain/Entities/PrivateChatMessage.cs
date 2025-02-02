@@ -8,5 +8,8 @@ namespace Snarf.Domain.Entities
         public required User Receiver { get; set; }
         public required string Message { get; set; }
         public required bool IsRead { get; set; }
+
+        public Dictionary<string, string>? Reactions { get; set; } = new();
+        public Guid? ReplyToMessageId { get; set; }
     }
 }

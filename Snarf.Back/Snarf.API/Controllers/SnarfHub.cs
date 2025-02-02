@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Snarf.DataAccess;
 using Snarf.Domain.Entities;
 using Snarf.DTO;
 using Snarf.Infrastructure.Repository;
@@ -15,7 +16,8 @@ namespace Snarf.API.Controllers
         IUserRepository _userRepository,
         IPublicChatMessageRepository _publicChatMessageRepository,
         IPrivateChatMessageRepository _privateChatMessageRepository,
-        IBlockedUserRepository _blockedUserRepository) : Hub
+        IBlockedUserRepository _blockedUserRepository,
+        IFavoriteChatRepository _favoriteChatRepository) : Hub
     {
         private static ConcurrentDictionary<string, List<string>> _userConnections = new();
 
@@ -28,41 +30,73 @@ namespace Snarf.API.Controllers
                 case nameof(SignalREventType.MapUpdateLocation):
                     await HandleMapUpdateLocation(message.Data);
                     break;
+
                 case nameof(SignalREventType.PublicChatSendMessage):
                     await HandlePublicChatSendMessage(message.Data);
                     break;
+
                 case nameof(SignalREventType.PublicChatDeleteMessage):
                     await HandlePublicChatDeleteMessage(message.Data);
                     break;
+
                 case nameof(SignalREventType.PublicChatGetPreviousMessages):
                     await HandlePublicChatGetPreviousMessages();
                     break;
+
                 case nameof(SignalREventType.PrivateChatSendMessage):
                     await HandlePrivateChatSendMessage(message.Data);
                     break;
+
                 case nameof(SignalREventType.PrivateChatGetRecentChats):
                     await HandlePrivateChatGetRecentChats();
                     break;
+
                 case nameof(SignalREventType.PrivateChatGetPreviousMessages):
                     await HandlePrivateChatGetPreviousMessages(message.Data);
                     break;
+
                 case nameof(SignalREventType.PrivateChatMarkMessagesAsRead):
                     await HandlePrivateChatMarkMessagesAsRead(message.Data);
                     break;
+
                 case nameof(SignalREventType.PrivateChatDeleteMessage):
                     await HandlePrivateChatDeleteMessage(message.Data);
                     break;
+
                 case nameof(SignalREventType.PrivateChatDeleteChat):
                     await HandlePrivateChatDeleteChat(message.Data);
                     break;
+
                 case nameof(SignalREventType.PrivateChatSendImage):
                     await HandlePrivateChatSendImage(message.Data);
                     break;
+
                 case nameof(SignalREventType.PrivateChatSendAudio):
                     await HandlePrivateChatSendAudio(message.Data);
                     break;
+
                 case nameof(SignalREventType.PrivateChatSendVideo):
                     await HandlePrivateChatSendVideo(message.Data);
+                    break;
+
+                case nameof(SignalREventType.PrivateChatGetFavorites):
+                    await HandlePrivateChatGetFavorites();
+                    break;
+
+                case nameof(SignalREventType.PrivateChatAddFavorite):
+                    await HandlePrivateChatAddFavorite(message.Data);
+                    break;
+
+                case nameof(SignalREventType.PrivateChatRemoveFavorite):
+                    await HandlePrivateChatRemoveFavorite(message.Data);
+                    break;
+
+                case nameof(SignalREventType.PrivateChatReactToMessage):
+                    await HandlePrivateChatReactToMessage(message.Data);
+                    break;
+
+                case nameof(SignalREventType.PrivateChatReplyToMessage):
+                    await HandlePrivateChatReplyToMessage(message.Data);
                     break;
 
                 default:
@@ -70,6 +104,8 @@ namespace Snarf.API.Controllers
                     break;
             }
         }
+
+        #region Métodos Principais
 
         private async Task HandleMapUpdateLocation(JsonElement data)
         {
@@ -82,7 +118,7 @@ namespace Snarf.API.Controllers
 
             if (user == null) return;
 
-            user.LastActivity = DateTime.UtcNow;
+            user.LastActivity = DateTime.Now;
             user.LastLatitude = location.Latitude;
             user.LastLongitude = location.Longitude;
             await _userRepository.SaveChangesAsync();
@@ -140,7 +176,7 @@ namespace Snarf.API.Controllers
             var jsonResponse = SignalRMessage.Serialize(SignalREventType.PublicChatReceiveMessage, new
             {
                 message.Id,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.Now,
                 UserId = userId,
                 UserName = user.Name,
                 UserImage = user.ImageUrl,
@@ -216,14 +252,10 @@ namespace Snarf.API.Controllers
 
             if (string.IsNullOrWhiteSpace(messageText)) return;
 
-            var senderUser = await _userRepository
-                .GetTrackedEntities()
+            var sender = await _userRepository.GetTrackedEntities()
                 .FirstOrDefaultAsync(x => x.Id == senderUserId);
-
-            if (senderUser == null) return;
-
-            var sender = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == senderUserId);
-            var receiver = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == receiverUserId);
+            var receiver = await _userRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(x => x.Id == receiverUserId);
 
             if (sender == null || receiver == null)
             {
@@ -237,8 +269,7 @@ namespace Snarf.API.Controllers
                 Message = messageText,
                 IsRead = false
             };
-
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
@@ -265,9 +296,13 @@ namespace Snarf.API.Controllers
                     SenderId = m.Sender.Id,
                     SenderName = m.Sender.Name,
                     SenderImage = m.Sender.ImageUrl,
+                    SenderLastActivity = m.Sender.LastActivity,
+
                     ReceiverId = m.Receiver.Id,
                     ReceiverName = m.Receiver.Name,
                     ReceiverImage = m.Receiver.ImageUrl,
+                    ReceiverLastActivity = m.Receiver.LastActivity,
+
                     m.Message,
                     m.CreatedAt,
                     m.IsRead,
@@ -281,6 +316,7 @@ namespace Snarf.API.Controllers
                     UserId = group.Key,
                     UserName = group.First().ReceiverId == userId ? group.First().SenderName : group.First().ReceiverName,
                     UserImage = group.First().ReceiverId == userId ? group.First().SenderImage : group.First().ReceiverImage,
+                    LastActivity = group.First().ReceiverId == userId ? group.First().SenderLastActivity : group.First().ReceiverLastActivity,
                     LastMessage = group.OrderByDescending(m => m.CreatedAt).First().Message,
                     LastMessageDate = group.Max(m => m.CreatedAt),
                     UnreadCount = group.Count(m => m.ReceiverId == userId && !m.IsRead)
@@ -306,7 +342,9 @@ namespace Snarf.API.Controllers
                     CreatedAt = x.CreatedAt.ToUniversalTime(),
                     SenderId = x.Sender.Id,
                     ReceiverId = x.Receiver.Id,
-                    x.Message
+                    x.Message,
+                    x.Reactions,
+                    x.ReplyToMessageId
                 })
                 .OrderByDescending(m => m.CreatedAt)
                 .Take(1000)
@@ -368,6 +406,7 @@ namespace Snarf.API.Controllers
                 .Where(m => (m.Sender.Id == userId && m.Receiver.Id == receiverUserId) ||
                             (m.Sender.Id == receiverUserId && m.Receiver.Id == userId))
                 .ToListAsync();
+
             foreach (var message in messages)
             {
                 var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveMessageDeleted, new
@@ -376,15 +415,13 @@ namespace Snarf.API.Controllers
                 });
                 await Clients.User(message.Sender.Id).SendAsync("ReceiveMessage", jsonResponse);
                 await Clients.User(message.Receiver.Id).SendAsync("ReceiveMessage", jsonResponse);
+
                 if (message.Message.StartsWith("https://"))
                 {
                     var s3Service = new S3Service();
                     await s3Service.DeleteFileAsync(message.Message);
                 }
-                else
-                {
-                    _privateChatMessageRepository.Delete(message);
-                }
+                _privateChatMessageRepository.Delete(message);
             }
             await _privateChatMessageRepository.SaveChangesAsync();
             Log.Information($"Usuário {userId} excluiu o chat com {receiverUserId}");
@@ -396,12 +433,11 @@ namespace Snarf.API.Controllers
             var imageBase64 = data.GetProperty("Image").GetString();
             var fileName = data.GetProperty("FileName").GetString();
             var senderUserId = GetUserId();
-            var senderUserName = Context.User?.Identity?.Name ?? "Desconhecido";
 
             Log.Information($"Usuário {senderUserId} enviou uma imagem para {receiverUserId}.");
 
             var imageBytes = Convert.FromBase64String(imageBase64);
-            var imageStream = new MemoryStream(imageBytes);
+            using var imageStream = new MemoryStream(imageBytes);
             var s3Service = new S3Service();
             var imageUrl = await s3Service.UploadFileAsync($"images/{fileName}{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
 
@@ -420,8 +456,7 @@ namespace Snarf.API.Controllers
                 Message = imageUrl,
                 IsRead = false
             };
-
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
@@ -458,7 +493,7 @@ namespace Snarf.API.Controllers
         private async Task HandlePrivateChatSendAudio(JsonElement data)
         {
             var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
-            var audioBase64 = data.GetProperty("Audio").GetString();   // Chave "Audio" ao invés de "Image"
+            var audioBase64 = data.GetProperty("Audio").GetString();
             var fileName = data.GetProperty("FileName").GetString();
             var senderUserId = GetUserId();
 
@@ -468,24 +503,23 @@ namespace Snarf.API.Controllers
             if (sender == null || receiver == null)
                 throw new Exception("Usuário não encontrado");
 
-            // Decodificando e enviando para o S3
             var audioBytes = Convert.FromBase64String(audioBase64);
-            var audioStream = new MemoryStream(audioBytes);
+            using var audioStream = new MemoryStream(audioBytes);
             var s3Service = new S3Service();
             var audioUrl = await s3Service.UploadFileAsync(
                 $"audios/{fileName}{Guid.NewGuid()}",
                 audioStream,
-                "audio/mpeg"  // MimeType para áudio
+                "audio/mpeg"
             );
 
             var chatMessage = new PrivateChatMessage
             {
                 Sender = sender,
                 Receiver = receiver,
-                Message = audioUrl,   // O Message vai receber o URL do áudio
+                Message = audioUrl,
                 IsRead = false
             };
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
@@ -505,7 +539,7 @@ namespace Snarf.API.Controllers
         private async Task HandlePrivateChatSendVideo(JsonElement data)
         {
             var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
-            var videoBase64 = data.GetProperty("Video").GetString();   // Chave "Video"
+            var videoBase64 = data.GetProperty("Video").GetString();
             var fileName = data.GetProperty("FileName").GetString();
             var senderUserId = GetUserId();
 
@@ -515,24 +549,23 @@ namespace Snarf.API.Controllers
             if (sender == null || receiver == null)
                 throw new Exception("Usuário não encontrado");
 
-            // Decodificando e enviando para o S3
             var videoBytes = Convert.FromBase64String(videoBase64);
-            var videoStream = new MemoryStream(videoBytes);
+            using var videoStream = new MemoryStream(videoBytes);
             var s3Service = new S3Service();
             var videoUrl = await s3Service.UploadFileAsync(
                 $"videos/{fileName}{Guid.NewGuid()}",
                 videoStream,
-                "video/mp4"   // MimeType para vídeo
+                "video/mp4"
             );
 
             var chatMessage = new PrivateChatMessage
             {
                 Sender = sender,
                 Receiver = receiver,
-                Message = videoUrl,  // O Message vai receber o URL do vídeo
+                Message = videoUrl,
                 IsRead = false
             };
-            chatMessage.SetCreatedAt(DateTime.UtcNow);
+            chatMessage.SetCreatedAt(DateTime.Now);
 
             await _privateChatMessageRepository.InsertAsync(chatMessage);
             await _privateChatMessageRepository.SaveChangesAsync();
@@ -548,6 +581,138 @@ namespace Snarf.API.Controllers
             await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
             await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
         }
+
+        private async Task HandlePrivateChatGetFavorites()
+        {
+            var userId = GetUserId();
+            var favorites = await _favoriteChatRepository.GetEntities()
+                .Where(f => f.User.Id == userId)
+                .Select(f => new { f.ChatUser.Id })
+                .ToListAsync();
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PrivateChatReceiveFavorites, favorites);
+            await Clients.Caller.SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePrivateChatAddFavorite(JsonElement data)
+        {
+            var userId = GetUserId();
+            var chatUserId = data.GetProperty("ChatUserId").GetString();
+
+            var user = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId);
+            var chatUser = await _userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == chatUserId);
+
+            var favorite = new FavoriteChat
+            {
+                User = user!,
+                ChatUser = chatUser!,
+            };
+
+            await _favoriteChatRepository.InsertAsync(favorite);
+            await _favoriteChatRepository.SaveChangesAsync();
+
+            Log.Information($"Usuário {userId} favoritou o chat com {chatUserId}");
+        }
+
+        private async Task HandlePrivateChatRemoveFavorite(JsonElement data)
+        {
+            var userId = GetUserId();
+            var chatUserId = data.GetProperty("ChatUserId").GetString();
+
+            var favorite = await _favoriteChatRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(f => f.User.Id == userId && f.ChatUser.Id == chatUserId);
+
+            if (favorite != null)
+            {
+                _favoriteChatRepository.Delete(favorite);
+                await _favoriteChatRepository.SaveChangesAsync();
+                Log.Information($"Usuário {userId} removeu o favorito do chat com {chatUserId}");
+            }
+        }
+
+        private async Task HandlePrivateChatReactToMessage(JsonElement data)
+        {
+            var userId = GetUserId();
+            var messageId = data.GetProperty("MessageId").GetString();
+            var reaction = data.GetProperty("Reaction").GetString();
+
+            var guid = Guid.Parse(messageId);
+            var messageObj = await _privateChatMessageRepository
+                .GetTrackedEntities()
+                .Include(m => m.Sender)
+                .Include(m => m.Receiver)
+                .FirstOrDefaultAsync(m => m.Id == guid) ??
+                throw new Exception("Mensagem não encontrada para reagir.");
+
+            if (messageObj.Reactions == null)
+                messageObj.Reactions = new Dictionary<string, string>();
+
+            if (!messageObj.Reactions.TryAdd(userId, reaction))
+                messageObj.Reactions[userId] = reaction;
+
+            await _privateChatMessageRepository.SaveChangesAsync();
+
+            var jsonResponse = SignalRMessage.Serialize(
+                SignalREventType.PrivateChatReceiveReaction,
+                new
+                {
+                    MessageId = messageObj.Id,
+                    Reaction = reaction,
+                    ReactorUserId = userId
+                }
+            );
+
+            await Clients.User(messageObj.Sender.Id).SendAsync("ReceiveMessage", jsonResponse);
+            await Clients.User(messageObj.Receiver.Id).SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePrivateChatReplyToMessage(JsonElement data)
+        {
+            var senderUserId = GetUserId();
+            var receiverUserId = data.GetProperty("ReceiverUserId").GetString();
+            var originalMessageId = data.GetProperty("OriginalMessageId").GetString();
+            var newMessageText = data.GetProperty("Message").GetString();
+
+            var sender = await _userRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(x => x.Id == senderUserId);
+            var receiver = await _userRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(x => x.Id == receiverUserId);
+
+            if (sender == null || receiver == null)
+                throw new Exception("Usuário não encontrado.");
+
+            var chatMessage = new PrivateChatMessage
+            {
+                Sender = sender,
+                Receiver = receiver,
+                Message = newMessageText,
+                IsRead = false,
+                ReplyToMessageId = Guid.Parse(originalMessageId)
+            };
+            chatMessage.SetCreatedAt(DateTime.Now);
+
+            await _privateChatMessageRepository.InsertAsync(chatMessage);
+            await _privateChatMessageRepository.SaveChangesAsync();
+
+            var jsonResponse = SignalRMessage.Serialize(
+                SignalREventType.PrivateChatReceiveReply,
+                new
+                {
+                    CreatedAt = chatMessage.CreatedAt,
+                    MessageId = chatMessage.Id,
+                    UserId = senderUserId,
+                    UserName = sender.Name,
+                    Message = newMessageText,
+                    OriginalMessageId = originalMessageId
+                }
+            );
+
+            await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
+            await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        #endregion
+
+        #region Conexões e Helpers
 
         public override async Task OnConnectedAsync()
         {
@@ -596,5 +761,7 @@ namespace Snarf.API.Controllers
             public double Latitude { get; set; }
             public double Longitude { get; set; }
         }
+
+        #endregion
     }
 }

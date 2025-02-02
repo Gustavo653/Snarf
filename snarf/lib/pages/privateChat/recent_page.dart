@@ -8,7 +8,9 @@ import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
 
 class RecentPage extends StatefulWidget {
-  const RecentPage({super.key});
+  final bool showFavorites;
+
+  const RecentPage({super.key, this.showFavorites = false});
 
   @override
   _RecentChatPageState createState() => _RecentChatPageState();
@@ -16,6 +18,7 @@ class RecentPage extends StatefulWidget {
 
 class _RecentChatPageState extends State<RecentPage> {
   List<Map<String, dynamic>> _recentChats = [];
+  List<String> _favoriteChatIds = [];
   bool _isLoading = true;
 
   @override
@@ -26,8 +29,14 @@ class _RecentChatPageState extends State<RecentPage> {
 
   Future<void> _initializeSignalRConnection() async {
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
-    await SignalRManager()
-        .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
+
+    await Future.wait([
+      SignalRManager()
+          .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {}),
+      SignalRManager()
+          .sendSignalRMessage(SignalREventType.PrivateChatGetFavorites, {}),
+    ]);
+
     setState(() => _isLoading = false);
   }
 
@@ -46,8 +55,17 @@ class _RecentChatPageState extends State<RecentPage> {
         case SignalREventType.PrivateChatReceiveRecentChats:
           _handleRecentChats(data);
           break;
+        case SignalREventType.PrivateChatReceiveFavorites:
+          _handleFavoriteChats(data);
+          break;
         case SignalREventType.PrivateChatReceiveMessage:
           _receiveNewMessages(data);
+          break;
+        case SignalREventType.MapReceiveLocation:
+          _handleMapReceiveLocation(data);
+          break;
+        case SignalREventType.UserDisconnected:
+          _handleUserDisconnected(data);
           break;
         default:
           log("Evento não reconhecido: ${message['Type']}");
@@ -62,13 +80,29 @@ class _RecentChatPageState extends State<RecentPage> {
       final parsedData = data as List<dynamic>;
       setState(() {
         _recentChats = parsedData.map((item) {
-          if (item is Map<String, dynamic>) {
-            return item;
-          } else if (item is Map) {
-            return Map<String, dynamic>.from(item);
-          } else {
-            throw Exception("Item inesperado no JSON: $item");
+          final mapItem = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item);
+
+          DateTime? lastActivity;
+          if (mapItem['LastActivity'] != null) {
+            try {
+              lastActivity =
+                  DateTime.parse(mapItem['LastActivity'].toString()).toLocal();
+            } catch (_) {
+              lastActivity = null;
+            }
           }
+
+          return {
+            'UserId': mapItem['UserId'],
+            'UserName': mapItem['UserName'],
+            'UserImage': mapItem['UserImage'],
+            'LastMessage': mapItem['LastMessage'],
+            'LastMessageDate': mapItem['LastMessageDate'],
+            'UnreadCount': mapItem['UnreadCount'],
+            'LastActivity': lastActivity,
+          };
         }).toList();
       });
     } catch (e) {
@@ -76,9 +110,56 @@ class _RecentChatPageState extends State<RecentPage> {
     }
   }
 
-  Future<void> _receiveNewMessages(List<Object?>? data) async {
+  void _handleFavoriteChats(List<Object?>? data) {
+    try {
+      if (data == null) return;
+      final parsedData = data as List<dynamic>;
+      setState(() {
+        _favoriteChatIds =
+            parsedData.map((item) => item['Id'].toString()).toList();
+      });
+    } catch (e) {
+      showSnackbar(context, "Erro ao processar favoritos: $e");
+    }
+  }
+
+  Future<void> _receiveNewMessages(dynamic data) async {
     await SignalRManager()
         .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
+  }
+
+  void _handleMapReceiveLocation(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final String userId = data['userId'];
+      final index = _recentChats.indexWhere((chat) => chat['UserId'] == userId);
+      if (index != -1) {
+        setState(() {
+          _recentChats[index]['LastActivity'] = DateTime.now();
+        });
+      }
+    }
+  }
+
+  void _handleUserDisconnected(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final String userId = data['userId'];
+      final index = _recentChats.indexWhere((chat) => chat['UserId'] == userId);
+      if (index != -1) {
+        setState(() {
+          _recentChats[index]['LastActivity'] =
+              DateTime.now().subtract(const Duration(days: 1));
+        });
+      }
+    }
+  }
+
+  List<Map<String, dynamic>> get _filteredChats {
+    if (widget.showFavorites) {
+      return _recentChats
+          .where((chat) => _favoriteChatIds.contains(chat['UserId']))
+          .toList();
+    }
+    return _recentChats;
   }
 
   @override
@@ -92,7 +173,7 @@ class _RecentChatPageState extends State<RecentPage> {
     return Scaffold(
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _recentChats.isEmpty
+          : _filteredChats.isEmpty
               ? const Center(
                   child: Text(
                     'Nenhuma conversa encontrada.',
@@ -100,23 +181,37 @@ class _RecentChatPageState extends State<RecentPage> {
                   ),
                 )
               : ListView.separated(
-                  itemCount: _recentChats.length,
+                  itemCount: _filteredChats.length,
                   separatorBuilder: (context, index) => const Divider(
                     height: 1,
                     thickness: 1,
                     color: Colors.grey,
                   ),
                   itemBuilder: (context, index) {
-                    final chat = _recentChats[index];
+                    final chat = _filteredChats[index];
+
+                    bool isOnline = false;
+                    final lastActivity = chat['LastActivity'] as DateTime?;
+                    if (lastActivity != null) {
+                      final diff = DateTime.now().difference(lastActivity);
+                      isOnline = diff.inMinutes < 1;
+                    }
+
                     return ListTile(
                       leading: CircleAvatar(
                         radius: 30,
                         backgroundColor: Colors.blueAccent.shade700,
                         child: Padding(
-                          padding: EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(4),
                           child: ClipOval(
                             child: Image.network(
                               chat['UserImage'],
+                              errorBuilder: (ctx, error, stack) {
+                                return Image.asset(
+                                  'assets/images/user_anonymous.png',
+                                  fit: BoxFit.cover,
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -141,6 +236,14 @@ class _RecentChatPageState extends State<RecentPage> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
+                          Text(
+                            isOnline ? 'Online' : 'Offline',
+                            style: TextStyle(
+                              color: isOnline ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                       trailing: Column(
@@ -148,7 +251,8 @@ class _RecentChatPageState extends State<RecentPage> {
                         children: [
                           Text(
                             DateJSONUtils.formatRelativeTime(
-                                chat['LastMessageDate']),
+                              chat['LastMessageDate'].toString(),
+                            ),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
@@ -175,7 +279,9 @@ class _RecentChatPageState extends State<RecentPage> {
                                       children: [
                                         Container(
                                           padding: const EdgeInsets.symmetric(
-                                              horizontal: 4, vertical: 2),
+                                            horizontal: 4,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: Colors.black,
                                             borderRadius:
