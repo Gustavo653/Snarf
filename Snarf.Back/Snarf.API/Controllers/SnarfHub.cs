@@ -99,6 +99,22 @@ namespace Snarf.API.Controllers
                     await HandlePrivateChatReplyToMessage(message.Data);
                     break;
 
+                case nameof(SignalREventType.VideoCallInitiate):
+                    await HandleVideoCallInitiate(message.Data);
+                    break;
+
+                case nameof(SignalREventType.VideoCallAccept):
+                    await HandleVideoCallAccept(message.Data);
+                    break;
+
+                case nameof(SignalREventType.VideoCallReject):
+                    await HandleVideoCallReject(message.Data);
+                    break;
+
+                case nameof(SignalREventType.VideoCallEnd):
+                    await HandleVideoCallEnd(message.Data);
+                    break;
+
                 default:
                     Log.Warning($"Evento desconhecido recebido: {message.Type}");
                     break;
@@ -708,6 +724,92 @@ namespace Snarf.API.Controllers
 
             await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
             await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandleVideoCallInitiate(JsonElement data)
+        {
+            var callerUserId = GetUserId();
+            var targetUserId = data.GetProperty("TargetUserId").GetString();
+
+            if (!_userConnections.ContainsKey(targetUserId))
+            {
+                var response = SignalRMessage.Serialize(
+                    SignalREventType.VideoCallReject,
+                    new { reason = "User offline" }
+                );
+                await Clients.User(callerUserId).SendAsync("ReceiveMessage", response);
+                return;
+            }
+
+            var roomId = Guid.NewGuid().ToString("N");
+
+            var callerName = await _userRepository.GetEntities().Where(x => x.Id == callerUserId).Select(x => x.Name).FirstOrDefaultAsync();
+
+            var incomingCallMessage = SignalRMessage.Serialize(
+                SignalREventType.VideoCallIncoming,
+                new
+                {
+                    roomId,
+                    callerUserId,
+                    callerName
+                }
+            );
+            await Clients.User(targetUserId).SendAsync("ReceiveMessage", incomingCallMessage);
+
+            var callInitiatedMessage = SignalRMessage.Serialize(
+                SignalREventType.VideoCallInitiate,
+                new { roomId, targetUserId }
+            );
+            await Clients.User(callerUserId).SendAsync("ReceiveMessage", callInitiatedMessage);
+        }
+
+        private async Task HandleVideoCallAccept(JsonElement data)
+        {
+            var targetUserId = GetUserId();
+            var callerUserId = data.GetProperty("CallerUserId").GetString();
+            var roomId = data.GetProperty("RoomId").GetString();
+
+            var acceptedMessage = SignalRMessage.Serialize(
+                SignalREventType.VideoCallAccept,
+                new
+                {
+                    roomId,
+                    targetUserId
+                }
+            );
+            await Clients.User(callerUserId).SendAsync("ReceiveMessage", acceptedMessage);
+        }
+
+        private async Task HandleVideoCallReject(JsonElement data)
+        {
+            var targetUserId = GetUserId();
+            var callerUserId = data.GetProperty("CallerUserId").GetString();
+            var roomId = data.GetProperty("RoomId").GetString();
+
+            var rejectedMessage = SignalRMessage.Serialize(
+                SignalREventType.VideoCallReject,
+                new
+                {
+                    roomId,
+                    targetUserId
+                }
+            );
+            await Clients.User(callerUserId).SendAsync("ReceiveMessage", rejectedMessage);
+        }
+
+        private async Task HandleVideoCallEnd(JsonElement data)
+        {
+            var userId = GetUserId();
+
+            var roomId = data.GetProperty("RoomId").GetString();
+            var endMessage = SignalRMessage.Serialize(SignalREventType.VideoCallEnd, new
+            {
+                RoomId = roomId,
+                EndedByUserId = userId
+            });
+
+            await Clients.All.SendAsync("ReceiveMessage", endMessage);
+            Log.Information($"Usuário {userId} encerrou a chamada {roomId}");
         }
 
         #endregion

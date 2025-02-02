@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:location/location.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:location/location.dart';
 import 'package:provider/provider.dart';
+
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
@@ -13,8 +16,6 @@ import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
-import 'dart:developer';
-
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
 
@@ -29,7 +30,7 @@ class HomePage extends StatefulWidget {
   });
 
   @override
-  _HomePageState createState() => _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
@@ -49,20 +50,25 @@ class _HomePageState extends State<HomePage> {
     _initializeApp();
   }
 
+  Future<void> _initializeApp() async {
+    await _loadUserInfo();
+    await _initializeLocation();
+    await _setupSignalRConnection();
+  }
+
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
-    final userInfo = await ApiService.getUserInfoById(userId!);
+    if (userId == null) {
+      showSnackbar(context, 'Não foi possível obter ID do token');
+      return;
+    }
+
+    final userInfo = await ApiService.getUserInfoById(userId);
     if (userInfo != null) {
       userImage = userInfo['imageUrl'];
     } else {
       showSnackbar(context, 'Erro ao carregar informações do usuário');
     }
-  }
-
-  Future<void> _initializeApp() async {
-    await _loadUserInfo();
-    await _initializeLocation();
-    await _setupSignalRConnection();
   }
 
   Future<void> _initializeLocation() async {
@@ -93,13 +99,31 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _isLocationLoaded = true;
         _updateUserMarker(
-            _currentLocation.latitude!, _currentLocation.longitude!);
+          _currentLocation.latitude!,
+          _currentLocation.longitude!,
+        );
       });
       log('Localização atual recuperada: $_currentLocation');
     } catch (err) {
       log('Erro ao recuperar localização: $err');
       showSnackbar(context, "Erro ao recuperar localização: $err");
     }
+  }
+
+  void _startLocationUpdates() {
+    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
+
+    _locationSubscription =
+        _location.onLocationChanged.listen((LocationData newLocation) {
+      setState(() {
+        _currentLocation = newLocation;
+        _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
+      });
+      if (_currentLocation.longitude != null &&
+          _currentLocation.latitude != null) {
+        _sendLocationUpdate();
+      }
+    });
   }
 
   void _updateUserMarker(double latitude, double longitude) {
@@ -123,36 +147,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
-
-    _locationSubscription =
-        _location.onLocationChanged.listen((LocationData newLocation) {
-      setState(() {
-        _currentLocation = newLocation;
-        _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
-      });
-      if (_currentLocation.longitude != null &&
-          _currentLocation.latitude != null) {
-        _sendLocationUpdate();
-      }
-    });
-  }
-
   Future<void> _setupSignalRConnection() async {
-    await SignalRManager().initializeConnection();
     SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
-  }
-
-  void _openProfile(String userId) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ViewUserPage(
-          userId: userId,
-        ),
-      ),
-    );
   }
 
   void _onReceiveMessage(List<Object?>? args) {
@@ -160,8 +156,11 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
-      final SignalREventType type = SignalREventType.values
-          .firstWhere((e) => e.toString().split('.').last == message['Type']);
+
+      final SignalREventType type = SignalREventType.values.firstWhere(
+        (e) => e.toString().split('.').last == message['Type'],
+        orElse: () => SignalREventType.MapReceiveLocation,
+      );
 
       final dynamic data = message['Data'];
 
@@ -172,6 +171,7 @@ class _HomePageState extends State<HomePage> {
         case SignalREventType.UserDisconnected:
           _handleUserDisconnected(data);
           break;
+
         default:
           log("Evento não reconhecido: ${message['Type']}");
       }
@@ -243,6 +243,15 @@ class _HomePageState extends State<HomePage> {
         : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
   }
 
+  void _openProfile(String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ViewUserPage(userId: userId),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _locationSubscription?.cancel();
@@ -276,8 +285,10 @@ class _HomePageState extends State<HomePage> {
                       if (widget.initialLatitude != null &&
                           widget.initialLongitude != null) {
                         _mapController.move(
-                          LatLng(widget.initialLatitude!,
-                              widget.initialLongitude!),
+                          LatLng(
+                            widget.initialLatitude!,
+                            widget.initialLongitude!,
+                          ),
                           15.0,
                         );
                       }
@@ -311,7 +322,7 @@ class _HomePageState extends State<HomePage> {
         child: const Icon(Icons.my_location),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        onTap: (index) {
+        onTap: (index) async {
           if (index == 0) {
             Navigator.push(
               context,
@@ -327,12 +338,13 @@ class _HomePageState extends State<HomePage> {
               ),
             );
           } else if (index == 2) {
-            Navigator.push(
+            await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => const EditUserPage(),
               ),
-            ).whenComplete(_loadUserInfo);
+            );
+            _loadUserInfo();
           }
         },
         items: const [
