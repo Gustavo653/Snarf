@@ -8,7 +8,9 @@ import 'package:flutter/services.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
+import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
+import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/services/signalr_manager.dart';
@@ -33,10 +35,8 @@ class PrivateChatMessageModel {
   final String senderId;
   final String message;
 
-  // Armazenar reações (userId -> emoji)
   final Map<String, String> reactions;
 
-  // ID da mensagem original (se for uma resposta)
   final String? replyToMessageId;
 
   PrivateChatMessageModel({
@@ -49,7 +49,6 @@ class PrivateChatMessageModel {
   });
 
   factory PrivateChatMessageModel.fromJson(Map<String, dynamic> json) {
-    // Caso seus campos venham com nome diferente, ajuste aqui
     return PrivateChatMessageModel(
       id: json['Id'] as String? ?? json['MessageId'] as String,
       createdAt: DateTime.parse(
@@ -57,13 +56,10 @@ class PrivateChatMessageModel {
       ).toLocal(),
       senderId: json['SenderId'] as String? ?? json['UserId'] as String? ?? '',
       message: json['Message'] as String? ?? '',
-
-      // Se o back-end enviar reações como "Reactions": { "userId": "emoji" }
       reactions: (json['Reactions'] is Map)
           ? (json['Reactions'] as Map<dynamic, dynamic>).map<String, String>(
               (key, val) => MapEntry(key as String, val as String))
           : {},
-      // Se o back-end enviar "ReplyToMessageId" como GUID
       replyToMessageId: json['ReplyToMessageId'] as String? ??
           json['OriginalMessageId'] as String?,
     );
@@ -85,7 +81,6 @@ class PrivateChatMessageModel {
   }
 }
 
-/// PÁGINA DO CHAT PRIVADO
 class PrivateChatPage extends StatefulWidget {
   final String userId;
   final String userName;
@@ -123,22 +118,18 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _initializeChat() async {
-    // Ouça todos os eventos do SignalR
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
 
-    // Busque mensagens anteriores
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatGetPreviousMessages,
       {'ReceiverUserId': widget.userId},
     );
 
-    // Marcar mensagens como lidas
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatMarkMessagesAsRead,
       {'SenderUserId': widget.userId},
     );
 
-    // Buscar lista de favoritos
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatGetFavorites,
       {},
@@ -147,7 +138,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     await _initAudioRecorder();
   }
 
-  /// Trata as mensagens recebidas via SignalR
   void _handleSignalRMessage(List<Object?>? args) {
     if (args == null || args.isEmpty) return;
 
@@ -254,7 +244,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   void _handleFavoritesData(dynamic data) {
     try {
       final List<dynamic> rawList = data as List<dynamic>;
-      // Verifique se esse data é uma lista de IDs ou lista de objetos { Id = ... }
       for (var item in rawList) {
         if (item is Map<String, dynamic>) {
           final chatUserId = item['Id'];
@@ -271,7 +260,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  // Reação recebida
   void _handleReaction(dynamic data) {
     if (data == null) return;
     try {
@@ -294,7 +282,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  // Resposta recebida
   void _handleReply(dynamic data) {
     if (data == null) return;
     try {
@@ -309,8 +296,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       showSnackbar(context, "Erro ao processar resposta: $e");
     }
   }
-
-  /// --------------- AÇÕES: EXCLUIR, ENVIAR, etc. ---------------
 
   Future<void> _deleteMessage(String messageId) async {
     try {
@@ -390,8 +375,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     });
   }
 
-  /// --------------- REAGIR E RESPONDER ---------------
-
   Future<void> _sendReaction(String messageId, String emoji) async {
     try {
       await SignalRManager().sendSignalRMessage(
@@ -422,7 +405,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// --------------- PICKERS DE MÍDIA / ÁUDIO ---------------
   Future<void> _initAudioRecorder() async {
     final status = await Permission.microphone.request();
     if (status != PermissionStatus.granted) {
@@ -496,7 +478,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// --------------- ENVIO DE IMAGEM ---------------
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -564,7 +545,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  /// --------------- ENVIO DE VÍDEO ---------------
   Future<void> _pickVideo() async {
     final ImagePicker picker = ImagePicker();
     final XFile? video = await picker.pickVideo(
@@ -632,7 +612,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     return null;
   }
 
-  /// --------------- FAVORITOS / BLOQUEAR / DENUNCIAR ---------------
   Future<void> _toggleFavorite() async {
     try {
       if (_isFavorite) {
@@ -676,6 +655,15 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           color: Colors.green);
     } else {
       showSnackbar(context, 'Erro ao denunciar usuário: $result');
+    }
+  }
+
+  Future<void> _initiateCall(String targetUserId) async {
+    try {
+      final callManager = Provider.of<CallManager>(context, listen: false);
+      callManager.startCall(targetUserId);
+    } catch (e) {
+      showSnackbar(context, "Erro ao iniciar chamada: $e");
     }
   }
 
@@ -732,6 +720,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           IconButton(
             icon: const Icon(Icons.delete_forever),
             onPressed: _deleteEntireChat,
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam),
+            onPressed: () => _initiateCall(widget.userId),
           ),
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -803,17 +795,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     required Color otherMessageColor,
   }) {
     final isDeleted = (message.message == 'Mensagem excluída');
-    final showTrash = !isDeleted &&
-        isMine; // Exibir ícone de lixo apenas se for minha msg e não estiver excluída
+    final showTrash = !isDeleted && isMine;
 
     return Row(
       mainAxisAlignment:
           isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        // Bolha
         Flexible(
-          // Permitir que as mensagens longas quebrem linha
           child: _buildMessageBubble(
             message: message,
             isMine: isMine,
@@ -822,7 +811,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             otherMessageColor: otherMessageColor,
           ),
         ),
-        // Lixeira à direita (se for minha mensagem)
         if (showTrash) _buildTrashIcon(message.id),
       ],
     );
@@ -852,7 +840,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final bool isAudio = lower.startsWith('https://') && _isAudioUrl(content);
     final bool isDeleted = content == 'Mensagem excluída';
 
-    // Se for resposta, recuperar msg original
     final replyToMsg = (message.replyToMessageId != null)
         ? _messages.firstWhere(
             (m) => m.id == message.replyToMessageId,
@@ -882,7 +869,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Se houver resposta, exiba uma "caixa" indicando a msg original
             if (replyToMsg != null) ...[
               Container(
                 padding: const EdgeInsets.all(8),
@@ -892,12 +878,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  "Em resposta a: ${replyToMsg.message}",
+                  "Em resposta a: ${replyToMsg.message.startsWith('https://') ? 'Arquivo' : replyToMsg.message}",
                   style: const TextStyle(fontStyle: FontStyle.italic),
                 ),
               ),
             ],
-            // Conteúdo principal
             if (isDeleted)
               const Text(
                 "Mensagem excluída",
@@ -935,12 +920,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 content,
                 style: const TextStyle(fontSize: 16),
               ),
-
             const SizedBox(height: 4),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Exibir reações
                 if (message.reactions.isNotEmpty)
                   Wrap(
                     spacing: 6,
@@ -948,11 +931,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                       return Text(emoji, style: const TextStyle(fontSize: 18));
                     }).toList(),
                   ),
-                // Exibir horário no canto
                 const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () {
-                    // Se for mídia, abrir preview
                     if (!isDeleted && (isImage || isVideo || isAudio)) {
                       _openMediaPreview(content);
                     }
@@ -982,7 +963,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  // Mostra um menu de ações ao pressionar a bolha
   void _showMessageActionsDialog(PrivateChatMessageModel message) async {
     final result = await showDialog<String>(
       context: context,
@@ -990,19 +970,15 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         return SimpleDialog(
           title: const Text("Ações"),
           children: [
-            // Opção Responder
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, 'reply'),
               child: const Text("Responder"),
             ),
-            // Opção Reagir
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, 'react'),
               child: const Text("Reagir"),
             ),
-            // Opção Excluir (se a mensagem for do usuário local)
-            if (message.senderId !=
-                widget.userId) // isMine => message.senderId != widget.userId
+            if (message.senderId != widget.userId)
               SimpleDialogOption(
                 onPressed: () => Navigator.pop(ctx, 'delete'),
                 child: const Text("Excluir mensagem"),
@@ -1021,9 +997,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  // Mostra emojis
   void _showReactionPicker(String messageId) async {
-    // Exemplos de emojis:
     final emojis = ['👍', '❤️', '😂', '😮', '😢', '😡'];
     final selectedEmoji = await showDialog<String>(
       context: context,
@@ -1044,7 +1018,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
-  // Mostra input para responder
   void _promptReply(String originalMessageId) {
     final replyController = TextEditingController();
     showDialog<void>(
@@ -1080,7 +1053,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  /// BARRA INFERIOR
   Widget _buildBottomBar() {
     return Container(
       color: Colors.grey[200],
@@ -1110,7 +1082,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             ),
             onPressed: _isRecording ? _stopRecording : _startRecording,
           ),
-          // CAMPO DE TEXTO MULTILINE
           Expanded(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 120),
@@ -1120,7 +1091,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                   hintText: "Digite sua mensagem...",
                   border: InputBorder.none,
                 ),
-                maxLines: null, // permitir multiline
+                maxLines: null,
               ),
             ),
           ),
@@ -1156,7 +1127,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 }
 
-/// PÁGINA DE VISUALIZAÇÃO DE MÍDIA
 class MediaPreviewPage extends StatefulWidget {
   final String url;
 

@@ -4,7 +4,6 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:jitsi_meet_flutter_sdk/jitsi_meet_flutter_sdk.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
@@ -43,13 +42,6 @@ class _HomePageState extends State<HomePage> {
   Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   late String userImage = '';
-
-  var jitsiMeet = JitsiMeet();
-  bool _isCallOverlayVisible = false;
-  String? _incomingRoomId;
-  String? _incomingCallerUserId;
-  String? _incomingCallerUserName;
-  bool _isInCall = false;
 
   @override
   void initState() {
@@ -156,7 +148,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _setupSignalRConnection() async {
-    await SignalRManager().initializeConnection();
     SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
   }
 
@@ -180,18 +171,6 @@ class _HomePageState extends State<HomePage> {
         case SignalREventType.UserDisconnected:
           _handleUserDisconnected(data);
           break;
-        case SignalREventType.VideoCallIncoming:
-          _handleVideoCallIncoming(data);
-          break;
-        case SignalREventType.VideoCallAccept:
-          _handleVideoCallAccept(data);
-          break;
-        case SignalREventType.VideoCallReject:
-          _handleVideoCallReject(data);
-          break;
-        case SignalREventType.VideoCallEnd:
-          _handleVideoCallEnd(data);
-          break;
 
         default:
           log("Evento não reconhecido: ${message['Type']}");
@@ -199,109 +178,6 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       log("Erro ao processar mensagem SignalR: $e");
     }
-  }
-
-  void _handleVideoCallIncoming(Map<String, dynamic> data) {
-    setState(() {
-      _incomingRoomId = data['roomId'] as String?;
-      _incomingCallerUserId = data['callerUserId'] as String?;
-      _incomingCallerUserName = data['callerName'] as String?;
-      _isCallOverlayVisible = true;
-    });
-    log("Recebemos uma chamada de $_incomingCallerUserId, sala $_incomingRoomId");
-  }
-
-  void _handleVideoCallAccept(Map<String, dynamic> data) {
-    final acceptedRoomId = data['roomId'];
-    final targetUserId = data['targetUserId'];
-    if (acceptedRoomId == _incomingRoomId) {
-      log("O outro usuário aceitou a call! Abrir Jitsi...");
-    }
-    _joinJitsiRoom(acceptedRoomId);
-  }
-
-  void _handleVideoCallReject(Map<String, dynamic> data) {
-    final rejectedRoomId = data['roomId'];
-    final targetUserId = data['targetUserId'];
-    log("Usuário $targetUserId rejeitou chamada de sala $rejectedRoomId");
-
-    showSnackbar(context, "Sua chamada foi rejeitada");
-    setState(() {
-      _isCallOverlayVisible = false;
-      _incomingRoomId = null;
-      _incomingCallerUserId = null;
-      _incomingCallerUserName = null;
-    });
-  }
-
-  void _handleVideoCallEnd(Map<String, dynamic> data) {
-    log("Chamada finalizada. Data: $data");
-    jitsiMeet.hangUp();
-    setState(() {
-      _isInCall = false;
-      _isCallOverlayVisible = false;
-      _incomingRoomId = null;
-      _incomingCallerUserId = null;
-      _incomingCallerUserName = null;
-    });
-  }
-
-  Future<void> _acceptCall() async {
-    if (_incomingRoomId == null || _incomingCallerUserId == null) return;
-
-    await SignalRManager()
-        .sendSignalRMessage(SignalREventType.VideoCallAccept, {
-      "CallerUserId": _incomingCallerUserId,
-      "RoomId": _incomingRoomId,
-    });
-
-    setState(() {
-      _isCallOverlayVisible = false;
-    });
-
-    _joinJitsiRoom(_incomingRoomId!);
-  }
-
-  Future<void> _rejectCall() async {
-    if (_incomingRoomId == null || _incomingCallerUserId == null) return;
-
-    await SignalRManager()
-        .sendSignalRMessage(SignalREventType.VideoCallReject, {
-      "CallerUserId": _incomingCallerUserId,
-      "RoomId": _incomingRoomId,
-    });
-
-    setState(() {
-      _isCallOverlayVisible = false;
-      _incomingRoomId = null;
-      _incomingCallerUserId = null;
-      _incomingCallerUserName = null;
-    });
-  }
-
-  Future<void> _joinJitsiRoom(String roomId) async {
-    setState(() {
-      _isInCall = true;
-    });
-    final options = JitsiMeetConferenceOptions(
-      room: roomId,
-      userInfo: JitsiMeetUserInfo(displayName: _incomingCallerUserName),
-      serverURL: 'https://snarf-meet.inovitech.inf.br',
-    );
-
-    jitsiMeet.join(
-      options,
-      JitsiMeetEventListener(
-        conferenceTerminated: (a, a2) {
-          setState(() {
-            _isInCall = false;
-          });
-          SignalRManager().sendSignalRMessage(SignalREventType.VideoCallEnd, {
-            "RoomId": roomId,
-          });
-        },
-      ),
-    );
   }
 
   void _handleReceiveLocation(Map<String, dynamic> data) {
@@ -436,47 +312,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-                if (_isCallOverlayVisible && !_isInCall)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      color: Colors.blueGrey.withOpacity(0.95),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 24,
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            "Chamada recebida de $_incomingCallerUserName",
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              ElevatedButton(
-                                onPressed: _acceptCall,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                ),
-                                child: const Text("Aceitar"),
-                              ),
-                              ElevatedButton(
-                                onPressed: _rejectCall,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                ),
-                                child: const Text("Recusar"),
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             )
           : const Center(

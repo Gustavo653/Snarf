@@ -76,7 +76,6 @@ namespace Snarf.API
                             .AddJsonOptions(options =>
                             {
                                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                                options.JsonSerializerOptions.Converters.Add(new DateTimeConverterToTimeZone("E. South America Standard Time"));
                             });
 
             builder.Services.AddOutputCache(x =>

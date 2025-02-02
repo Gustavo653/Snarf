@@ -3,7 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
+import 'package:provider/provider.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
+import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/distance_utils.dart';
@@ -42,14 +44,6 @@ class _ViewUserPageState extends State<ViewUserPage> {
     var position = await location.getLocation();
     _myLatitude = position.latitude;
     _myLongitude = position.longitude;
-  }
-
-  Future<void> _checkIfFavorite() async {
-    await SignalRManager().sendSignalRMessage(
-      SignalREventType.PrivateChatGetFavorites,
-      {},
-    );
-    SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
   }
 
   Future<void> _toggleFavorite() async {
@@ -127,12 +121,8 @@ class _ViewUserPageState extends State<ViewUserPage> {
 
   Future<void> _initiateCall(String targetUserId) async {
     try {
-      await SignalRManager().sendSignalRMessage(
-        SignalREventType.VideoCallInitiate,
-        {
-          "TargetUserId": targetUserId,
-        },
-      );
+      final callManager = Provider.of<CallManager>(context, listen: false);
+      callManager.startCall(targetUserId);
     } catch (e) {
       showSnackbar(context, "Erro ao iniciar chamada: $e");
     }
@@ -191,12 +181,7 @@ class _ViewUserPageState extends State<ViewUserPage> {
           ),
           IconButton(
             icon: const Icon(Icons.videocam),
-            onPressed: _isOnline
-                ? () => _initiateCall(widget.userId)
-                : () => showSnackbar(
-                      context,
-                      "Usuário está offline",
-                    ),
+            onPressed: () => _initiateCall(widget.userId),
           )
         ],
       ),

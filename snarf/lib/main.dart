@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/providers/call_manager.dart';
+import 'package:snarf/services/signalr_manager.dart';
 
 import 'pages/account/initial_page.dart';
 import 'pages/home_page.dart';
@@ -11,12 +13,17 @@ import 'utils/app_themes.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   configureApiConstants();
+  await SignalRManager().initializeConnection();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
-      child: const SnarfApp(),
-    ),
+    MultiProvider(providers: [
+      ChangeNotifierProvider<CallManager>(
+        create: (_) => CallManager(),
+      ),
+      ChangeNotifierProvider<ThemeProvider>(
+        create: (_) => ThemeProvider(),
+      ),
+    ], child: const SnarfApp()),
   );
 }
 
@@ -38,7 +45,89 @@ class SnarfApp extends StatelessWidget {
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: AppThemes.lightTheme,
       darkTheme: AppThemes.darkTheme,
-      home: const AuthChecker(),
+      home: Stack(children: [
+        const AuthChecker(),
+        _CallOverlay(),
+      ]),
+    );
+  }
+}
+
+class _CallOverlay extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CallManager>(
+      builder: (context, callManager, child) {
+        if (callManager.isCallOverlayVisible && !callManager.isInCall) {
+          return Positioned(
+            top: kToolbarHeight + 16,
+            left: 16,
+            right: 16,
+            child: SafeArea(
+              child: Container(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.blueGrey[800],
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Chamada recebida de ${callManager.incomingCallerName}",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: callManager.acceptCall,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.call),
+                          label: const Text("Atender"),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: callManager.rejectCall,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.call_end),
+                          label: const Text("Recusar"),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Caso não haja chamada para exibir, retorna um widget vazio
+        return const SizedBox.shrink();
+      },
     );
   }
 }

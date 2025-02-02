@@ -9,6 +9,7 @@ using Snarf.DTO;
 using Snarf.DTO.Base;
 using Snarf.Infrastructure.Repository;
 using Snarf.Infrastructure.Service;
+using System.Text.Json;
 
 namespace Snarf.Service
 {
@@ -90,22 +91,27 @@ namespace Snarf.Service
             {
                 Log.Information("Obtendo o usuário atual: {email}", id);
 
-                responseDTO.Object = await userRepository.GetEntities()
-                                                         .Select(x => new
-                                                         {
-                                                             x.Id,
-                                                             x.Email,
-                                                             x.Name,
-                                                             x.LastActivity,
-                                                             x.LastLatitude,
-                                                             x.LastLongitude,
-                                                             x.ImageUrl,
-                                                             BlockedUsers = showSensitiveInfo ? x.BlockedUsers.Select(x => new { x.Blocked.Id, x.Blocked.Name, x.Blocked.ImageUrl }) : null,
-                                                             BlockedBy = showSensitiveInfo ? x.BlockedBy.Count : 0,
-                                                             FavoriteChats = showSensitiveInfo ? x.FavoriteChats.Select(x => new { x.ChatUser.Name, x.ChatUser.ImageUrl }) : null,
-                                                             FavoritedBy = showSensitiveInfo ? x.FavoritedBy.Count : 0,
-                                                         })
-                                                         .FirstOrDefaultAsync(x => x.Id == id.ToString());
+
+                var data = await userRepository.GetEntities()
+                                                          .Select(x => new
+                                                          {
+                                                              x.Id,
+                                                              x.Email,
+                                                              x.Name,
+                                                              LastActivity = x.LastActivity.GetValueOrDefault().ToUniversalTime(),
+                                                              x.LastLatitude,
+                                                              x.LastLongitude,
+                                                              x.ImageUrl,
+                                                              BlockedUsers = showSensitiveInfo ? x.BlockedUsers.Select(x => new { x.Blocked.Id, x.Blocked.Name, x.Blocked.ImageUrl }) : null,
+                                                              BlockedBy = showSensitiveInfo ? x.BlockedBy.Count : 0,
+                                                              FavoriteChats = showSensitiveInfo ? x.FavoriteChats.Select(x => new { x.ChatUser.Name, x.ChatUser.ImageUrl }) : null,
+                                                              FavoritedBy = showSensitiveInfo ? x.FavoritedBy.Count : 0,
+                                                          })
+                                                          .FirstOrDefaultAsync(x => x.Id == id.ToString());
+                var a = JsonSerializer.Serialize(data);
+                Log.Information(a);
+
+                responseDTO.Object = data;
             }
             catch (Exception ex)
             {
