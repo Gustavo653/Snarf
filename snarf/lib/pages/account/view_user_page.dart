@@ -125,6 +125,19 @@ class _ViewUserPageState extends State<ViewUserPage> {
     }
   }
 
+  Future<void> _initiateCall(String targetUserId) async {
+    try {
+      await SignalRManager().sendSignalRMessage(
+        SignalREventType.VideoCallInitiate,
+        {
+          "TargetUserId": targetUserId,
+        },
+      );
+    } catch (e) {
+      showSnackbar(context, "Erro ao iniciar chamada: $e");
+    }
+  }
+
   Future<void> _loadUserInfo() async {
     await _initLocation();
     final userInfo = await ApiService.getUserInfoById(widget.userId);
@@ -176,6 +189,15 @@ class _ViewUserPageState extends State<ViewUserPage> {
             icon: Icon(_isFavorite ? Icons.star : Icons.star_border),
             onPressed: _toggleFavorite,
           ),
+          IconButton(
+            icon: const Icon(Icons.videocam),
+            onPressed: _isOnline
+                ? () => _initiateCall(widget.userId)
+                : () => showSnackbar(
+                      context,
+                      "Usuário está offline",
+                    ),
+          )
         ],
       ),
       body: _isLoading

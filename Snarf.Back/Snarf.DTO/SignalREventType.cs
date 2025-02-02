@@ -36,6 +36,13 @@
         PrivateChatReactToMessage,
         PrivateChatReceiveReaction,
         PrivateChatReplyToMessage,
-        PrivateChatReceiveReply
+        PrivateChatReceiveReply,
+
+        VideoCallInitiate,
+        VideoCallIncoming,
+        VideoCallAccept,
+        VideoCallReject,
+        VideoCallCanceled,
+        VideoCallEnd,
     }
 }

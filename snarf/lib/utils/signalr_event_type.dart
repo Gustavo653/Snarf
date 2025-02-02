@@ -34,4 +34,11 @@ enum SignalREventType {
   PrivateChatReceiveReaction,
   PrivateChatReplyToMessage,
   PrivateChatReceiveReply,
+
+  VideoCallInitiate,
+  VideoCallIncoming,
+  VideoCallAccept,
+  VideoCallReject,
+  VideoCallCanceled,
+  VideoCallEnd
 }
