@@ -141,6 +141,8 @@ class CallManager extends ChangeNotifier {
       "RoomId": _incomingRoomId,
     });
 
+    _joinJitsiRoom(_incomingRoomId!);
+
     _activeRoomId = _incomingRoomId;
     _activeCallerUserId = _incomingCallerUserId;
     _activeCallerName = _incomingCallerName;
