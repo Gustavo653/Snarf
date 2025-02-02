@@ -743,12 +743,15 @@ namespace Snarf.API.Controllers
 
             var roomId = Guid.NewGuid().ToString("N");
 
+            var callerName = await _userRepository.GetEntities().Where(x => x.Id == callerUserId).Select(x => x.Name).FirstOrDefaultAsync();
+
             var incomingCallMessage = SignalRMessage.Serialize(
                 SignalREventType.VideoCallIncoming,
                 new
                 {
                     roomId,
                     callerUserId,
+                    callerName
                 }
             );
             await Clients.User(targetUserId).SendAsync("ReceiveMessage", incomingCallMessage);

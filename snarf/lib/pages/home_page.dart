@@ -48,6 +48,7 @@ class _HomePageState extends State<HomePage> {
   bool _isCallOverlayVisible = false;
   String? _incomingRoomId;
   String? _incomingCallerUserId;
+  String? _incomingCallerUserName;
   bool _isInCall = false;
 
   @override
@@ -118,7 +119,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 30000);
+    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
 
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) {
@@ -204,6 +205,7 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _incomingRoomId = data['roomId'] as String?;
       _incomingCallerUserId = data['callerUserId'] as String?;
+      _incomingCallerUserName = data['callerName'] as String?;
       _isCallOverlayVisible = true;
     });
     log("Recebemos uma chamada de $_incomingCallerUserId, sala $_incomingRoomId");
@@ -228,6 +230,7 @@ class _HomePageState extends State<HomePage> {
       _isCallOverlayVisible = false;
       _incomingRoomId = null;
       _incomingCallerUserId = null;
+      _incomingCallerUserName = null;
     });
   }
 
@@ -239,6 +242,7 @@ class _HomePageState extends State<HomePage> {
       _isCallOverlayVisible = false;
       _incomingRoomId = null;
       _incomingCallerUserId = null;
+      _incomingCallerUserName = null;
     });
   }
 
@@ -271,6 +275,7 @@ class _HomePageState extends State<HomePage> {
       _isCallOverlayVisible = false;
       _incomingRoomId = null;
       _incomingCallerUserId = null;
+      _incomingCallerUserName = null;
     });
   }
 
@@ -278,7 +283,11 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _isInCall = true;
     });
-    final options = JitsiMeetConferenceOptions(room: roomId, serverURL: 'https://snarf-meet.inovitech.inf.br');
+    final options = JitsiMeetConferenceOptions(
+      room: roomId,
+      userInfo: JitsiMeetUserInfo(displayName: _incomingCallerUserName),
+      serverURL: 'https://snarf-meet.inovitech.inf.br',
+    );
 
     jitsiMeet.join(
       options,
@@ -441,7 +450,7 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         children: [
                           Text(
-                            "Chamada recebida de $_incomingCallerUserId",
+                            "Chamada recebida de $_incomingCallerUserName",
                             style: const TextStyle(color: Colors.white),
                           ),
                           const SizedBox(height: 8),
