@@ -45,10 +45,15 @@ class SnarfApp extends StatelessWidget {
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: AppThemes.lightTheme,
       darkTheme: AppThemes.darkTheme,
-      home: Stack(children: [
-        const AuthChecker(),
-        _CallOverlay(),
-      ]),
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child!,
+            _CallOverlay(),
+          ],
+        );
+      },
+      home: const AuthChecker(),
     );
   }
 }
@@ -59,14 +64,15 @@ class _CallOverlay extends StatelessWidget {
     return Consumer<CallManager>(
       builder: (context, callManager, child) {
         if (callManager.isCallOverlayVisible && !callManager.isInCall) {
-          return Positioned(
+          return AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
             top: kToolbarHeight + 16,
             left: 16,
             right: 16,
             child: SafeArea(
               child: Container(
                 padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.blueGrey[800],
                   borderRadius: BorderRadius.circular(12),
@@ -102,8 +108,16 @@ class _CallOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          icon: const Icon(Icons.call),
-                          label: const Text("Atender"),
+                          icon: const Icon(
+                            Icons.call,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            "Atender",
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                         ElevatedButton.icon(
                           onPressed: callManager.rejectCall,
@@ -113,8 +127,16 @@ class _CallOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          icon: const Icon(Icons.call_end),
-                          label: const Text("Recusar"),
+                          icon: const Icon(
+                            Icons.call_end,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            "Recusar",
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ],
                     ),
