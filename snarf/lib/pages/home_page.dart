@@ -252,6 +252,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: RawMaterialButton(
+        onPressed: onPressed,
+        shape: const CircleBorder(),
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        padding: const EdgeInsets.all(8),
+        fillColor: Colors.transparent,
+        child: Icon(icon, color: Colors.white, size: 24),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _locationSubscription?.cancel();
@@ -262,7 +276,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
+        backgroundColor: const Color(0xFF4c2a85),
+        title: const Text('Snarf'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -317,11 +332,28 @@ class _HomePageState extends State<HomePage> {
           : const Center(
               child: CircularProgressIndicator(),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _recenterMap,
-        child: const Icon(Icons.my_location),
+      floatingActionButton: Positioned(
+        bottom: 20,
+        right: 10,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFloatingButton(Icons.flight, () {
+              log("Botão avião pressionado");
+            }),
+            _buildFloatingButton(Icons.remove_red_eye, () {
+              log("Botão olho pressionado");
+            }),
+            _buildFloatingButton(Icons.crop_free, () {
+              log("Botão moldura pressionada");
+            }),
+            _buildFloatingButton(Icons.my_location, _recenterMap),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
         onTap: (index) async {
           if (index == 0) {
             Navigator.push(
@@ -350,15 +382,15 @@ class _HomePageState extends State<HomePage> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.chat),
-            label: 'Privado',
+            label: '',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.group),
-            label: 'Público',
+            label: '',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Meu Perfil',
+            label: '',
           ),
         ],
       ),

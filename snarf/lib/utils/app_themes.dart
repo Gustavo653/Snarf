@@ -61,10 +61,9 @@ class AppThemes {
       bodyLarge: TextStyle(color: Colors.white),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Colors.black,
-      selectedItemColor: Colors.blue,
-      unselectedItemColor: Colors.grey,
-      showUnselectedLabels: true,
+      backgroundColor: Color(0xFF4c2a85),
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.white,
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
