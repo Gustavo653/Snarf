@@ -276,12 +276,12 @@ class _HomePageState extends State<HomePage> {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.green,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.person,
-                    color: Colors.green,
+                    color: Colors.white,
                     size: 14,
                   ),
                 ),
