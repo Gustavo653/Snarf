@@ -38,8 +38,8 @@ class _HomePageState extends State<HomePage> {
   bool _isLocationLoaded = false;
   late MapController _mapController;
   late Marker _userLocationMarker;
-  Map<String, Marker> _userMarkers = {};
-  Location _location = Location();
+  final Map<String, Marker> _userMarkers = {};
+  final Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   late String userImage = '';
 
@@ -129,20 +129,61 @@ class _HomePageState extends State<HomePage> {
   void _updateUserMarker(double latitude, double longitude) {
     _userLocationMarker = Marker(
       point: LatLng(latitude, longitude),
-      width: 50,
-      height: 50,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.red,
-            width: 3.0,
+      width: 60,
+      height: 60,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 55,
+            height: 55,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.blue,
+                width: 4.0,
+              ),
+            ),
+            child: CircleAvatar(
+              backgroundImage: NetworkImage(userImage),
+              radius: 25,
+            ),
           ),
-        ),
-        child: CircleAvatar(
-          backgroundImage: NetworkImage(userImage),
-          radius: 25,
-        ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.orange,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.videocam,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.person,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -189,12 +230,63 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _userMarkers[userId] = Marker(
         point: LatLng(latitude, longitude),
-        width: 50,
-        height: 50,
+        width: 60,
+        height: 60,
         child: GestureDetector(
           onTap: () => _openProfile(userId),
-          child: CircleAvatar(
-            backgroundImage: NetworkImage(userImage),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 55,
+                height: 55,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.green,
+                    width: 4.0,
+                  ),
+                ),
+                child: CircleAvatar(
+                  backgroundImage: NetworkImage(userImage),
+                  radius: 25,
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.videocam,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -252,6 +344,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: RawMaterialButton(
+        onPressed: onPressed,
+        shape: const CircleBorder(),
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        padding: const EdgeInsets.all(8),
+        fillColor: Colors.transparent,
+        child: Icon(icon, color: Colors.white, size: 24),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _locationSubscription?.cancel();
@@ -262,8 +368,34 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home'),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/logo-white.png',
+              height: 40,
+            ),
+          ],
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () {
+            log("Botão de menu pressionado");
+          },
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const EditUserPage(),
+                ),
+              );
+              _loadUserInfo();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => Navigator.pushReplacement(
@@ -317,11 +449,27 @@ class _HomePageState extends State<HomePage> {
           : const Center(
               child: CircularProgressIndicator(),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _recenterMap,
-        child: const Icon(Icons.my_location),
+      floatingActionButton: Align(
+        alignment: Alignment.bottomRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFloatingButton(Icons.flight, () {
+              log("Botão avião pressionado");
+            }),
+            _buildFloatingButton(Icons.remove_red_eye, () {
+              log("Botão olho pressionado");
+            }),
+            _buildFloatingButton(Icons.crop_free, () {
+              log("Botão moldura pressionada");
+            }),
+            _buildFloatingButton(Icons.my_location, _recenterMap),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
         onTap: (index) async {
           if (index == 0) {
             Navigator.push(
@@ -337,28 +485,16 @@ class _HomePageState extends State<HomePage> {
                 builder: (context) => const PublicChatPage(),
               ),
             );
-          } else if (index == 2) {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const EditUserPage(),
-              ),
-            );
-            _loadUserInfo();
           }
         },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.chat),
-            label: 'Privado',
+            label: '',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.group),
-            label: 'Público',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Meu Perfil',
+            label: '',
           ),
         ],
       ),

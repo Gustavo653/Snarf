@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
@@ -21,12 +22,14 @@ class _EditUserPageState extends State<EditUserPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   String? _userId;
-  String? _userImageUrl;
+  String? _userImageUrl; // URL da imagem vinda do backend
   int favoritedByCount = 0;
   int blockedByCount = 0;
   bool _isLoading = true;
-  File? _pickedFile;
-  final String _defaultImagePath = 'assets/images/user_anonymous.png';
+
+  File? _pickedFile; // Arquivo local escolhido pelo usuário
+  final String _defaultImagePath = // Caminho do asset
+      'assets/images/user_anonymous.png';
 
   List<dynamic> _blockedUsers = [];
   List<dynamic> _favoriteUsers = [];
@@ -37,6 +40,7 @@ class _EditUserPageState extends State<EditUserPage> {
     _loadUserInfo();
   }
 
+  /// Escolhe imagem da galeria
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -45,10 +49,12 @@ class _EditUserPageState extends State<EditUserPage> {
       setState(() {
         _pickedFile = File(pickedFile.path);
         _userImageUrl = null;
+        // Anula a URL, pois agora temos uma nova imagem local
       });
     }
   }
 
+  /// Carrega informações do usuário (nome, email, etc.) do backend
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
     final userInfo = await ApiService.getUserInfoById(userId!);
@@ -70,19 +76,32 @@ class _EditUserPageState extends State<EditUserPage> {
     }
   }
 
-  Future<void> _saveChanges() async {
-    if (_userId == null) return;
-
-    String? base64Image;
+  Future<String?> _getBase64Image() async {
     if (_pickedFile != null) {
       final compressedImage = await FlutterImageCompress.compressWithFile(
         _pickedFile!.absolute.path,
         quality: 50,
       );
+      if (compressedImage == null) return null;
+      return base64Encode(compressedImage);
+    } else {
+      final byteData = await rootBundle.load(_defaultImagePath);
+      final imageBytes = byteData.buffer.asUint8List();
+      final compressedBytes = await FlutterImageCompress.compressWithList(
+        imageBytes,
+        quality: 50,
+      );
+      return base64Encode(compressedBytes);
+    }
+  }
 
-      if (compressedImage != null) {
-        base64Image = base64Encode(compressedImage);
-      }
+  Future<void> _saveChanges() async {
+    if (_userId == null) return;
+
+    final base64Image = await _getBase64Image();
+    if (base64Image == null) {
+      showSnackbar(context, 'Não foi possível gerar a imagem em Base64');
+      return;
     }
 
     final result = await ApiService.editUser(
@@ -94,8 +113,11 @@ class _EditUserPageState extends State<EditUserPage> {
     );
 
     if (result == null) {
-      showSnackbar(context, 'Usuário atualizado com sucesso',
-          color: Colors.green);
+      showSnackbar(
+        context,
+        'Usuário atualizado com sucesso',
+        color: Colors.green,
+      );
       Navigator.of(context).pop();
     } else {
       showSnackbar(context, result);
@@ -104,7 +126,7 @@ class _EditUserPageState extends State<EditUserPage> {
 
   void _deleteImage() {
     setState(() {
-      _pickedFile = File(_defaultImagePath);
+      _pickedFile = null;
       _userImageUrl = null;
     });
   }
@@ -190,14 +212,14 @@ class _EditUserPageState extends State<EditUserPage> {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: Colors.grey.shade300, width: 2),
-        image: _userImageUrl != null
+        image: (_pickedFile != null)
             ? DecorationImage(
-                image: NetworkImage(_userImageUrl!),
+                image: FileImage(_pickedFile!),
                 fit: BoxFit.cover,
               )
-            : _pickedFile != null
+            : (_userImageUrl != null)
                 ? DecorationImage(
-                    image: FileImage(_pickedFile!),
+                    image: NetworkImage(_userImageUrl!),
                     fit: BoxFit.cover,
                   )
                 : const DecorationImage(
@@ -225,8 +247,10 @@ class _EditUserPageState extends State<EditUserPage> {
             final user = users[index];
             return ListTile(
               leading: CircleAvatar(
-                backgroundImage:
-                    NetworkImage(user['imageUrl'] ?? _defaultImagePath),
+                backgroundImage: (user['imageUrl'] != null)
+                    ? NetworkImage(user['imageUrl'])
+                    : const AssetImage('assets/images/user_anonymous.png')
+                        as ImageProvider,
               ),
               title: Text(user['name'] ?? 'Usuário'),
               trailing: isBlockedList
@@ -279,41 +303,26 @@ class _EditUserPageState extends State<EditUserPage> {
       children: [
         ElevatedButton.icon(
           onPressed: _pickImage,
-          icon: const Icon(
-            Icons.photo_camera,
-            color: Colors.white,
-          ),
+          icon: const Icon(Icons.photo_camera, color: Colors.white),
           label: const Text(
             'Upload',
-            style: TextStyle(
-              color: Colors.white,
-            ),
+            style: TextStyle(color: Colors.white),
           ),
         ),
         ElevatedButton.icon(
           onPressed: _saveChanges,
-          icon: const Icon(
-            Icons.save,
-            color: Colors.white,
-          ),
+          icon: const Icon(Icons.save, color: Colors.white),
           label: const Text(
             'Salvar',
-            style: TextStyle(
-              color: Colors.white,
-            ),
+            style: TextStyle(color: Colors.white),
           ),
         ),
         ElevatedButton.icon(
           onPressed: _deleteAccount,
-          icon: const Icon(
-            Icons.delete_forever,
-            color: Colors.white,
-          ),
+          icon: const Icon(Icons.delete_forever, color: Colors.white),
           label: const Text(
             'Excluir',
-            style: TextStyle(
-              color: Colors.white,
-            ),
+            style: TextStyle(color: Colors.white),
           ),
         ),
       ],
@@ -325,7 +334,7 @@ class _EditUserPageState extends State<EditUserPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Editar Usuário'),
-        actions: [
+        actions: const [
           ThemeToggle(),
         ],
       ),
@@ -385,7 +394,7 @@ class _EditUserPageState extends State<EditUserPage> {
                     _buildActionButtons(),
                     const SizedBox(height: 30),
                     _buildUserList('Usuários Bloqueados', _blockedUsers, true),
-                    //_buildUserList('Usuários Favoritos', _favoriteUsers, false),
+                    // _buildUserList('Usuários Favoritos', _favoriteUsers, false),
                   ],
                 ),
               ),

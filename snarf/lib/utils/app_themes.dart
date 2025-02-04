@@ -52,8 +52,11 @@ class AppThemes {
   static final ThemeData darkTheme = ThemeData(
     fontFamily: GoogleFonts.kanit().fontFamily,
     brightness: Brightness.dark,
+    primaryColor: const Color(0xFF4c2a85),
     appBarTheme: const AppBarTheme(
       iconTheme: IconThemeData(color: Colors.white),
+      backgroundColor: Color(0xFF4c2a85),
+      centerTitle: true,
     ),
     textTheme: const TextTheme(
       bodySmall: TextStyle(color: Colors.white),
@@ -61,10 +64,9 @@ class AppThemes {
       bodyLarge: TextStyle(color: Colors.white),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Colors.black,
-      selectedItemColor: Colors.blue,
-      unselectedItemColor: Colors.grey,
-      showUnselectedLabels: true,
+      backgroundColor: Color(0xFF4c2a85),
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Colors.white,
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
