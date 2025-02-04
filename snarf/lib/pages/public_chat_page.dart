@@ -179,7 +179,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chat Público'),
+        title: const Text('Feed'),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -416,7 +416,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
             child: TextField(
               controller: _messageController,
               decoration: InputDecoration(
-                hintText: "Digite uma mensagem",
+                hintText: "Digite uma atualização",
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),

@@ -368,7 +368,6 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF4c2a85),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -378,7 +377,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.menu),
           onPressed: () {
