@@ -75,53 +75,55 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_titles[_tabController.index]),
-        actions: [],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(icon: Icon(Icons.chat)),
-            Tab(icon: Icon(Icons.push_pin)),
-            Tab(icon: Icon(Icons.location_on)),
-            Tab(icon: Icon(Icons.people)),
-          ],
+    return PopScope(
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_titles[_tabController.index]),
+          automaticallyImplyLeading: false,
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: [
+              Tab(icon: Icon(Icons.chat)),
+              Tab(icon: Icon(Icons.push_pin)),
+              Tab(icon: Icon(Icons.location_on)),
+              Tab(icon: Icon(Icons.people)),
+            ],
+          ),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: _pages,
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Divider(),
-          Container(
-            padding: const EdgeInsets.fromLTRB(0, 6, 0, 25),
-            child: GestureDetector(
-              onTap: showPrivacyPolicyDialog,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.shield_outlined),
-                  const SizedBox(width: 4),
-                  const Text("Proteja-se"),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Segurança Online e Prevenção contra Fraude",
-                      style: TextStyle(
-                        color: Colors.blue,
-                        overflow: TextOverflow.ellipsis,
+        body: TabBarView(
+          controller: _tabController,
+          children: _pages,
+        ),
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Divider(),
+            Container(
+              padding: const EdgeInsets.fromLTRB(0, 6, 0, 25),
+              child: GestureDetector(
+                onTap: showPrivacyPolicyDialog,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.shield_outlined),
+                    const SizedBox(width: 4),
+                    const Text("Proteja-se"),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Segurança Online e Prevenção contra Fraude",
+                        style: TextStyle(
+                          color: Colors.blue,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

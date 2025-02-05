@@ -177,107 +177,104 @@ class _PublicChatPageState extends State<PublicChatPage> {
       });
     }
 
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Feed'),
-          automaticallyImplyLeading: false,
-          actions: [
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                setState(() {
-                  _sortByDate = (value == 'date');
-                });
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'date',
-                  child: Text('Ordenar por data'),
-                ),
-                const PopupMenuItem(
-                  value: 'distance',
-                  child: Text('Ordenar por distância'),
-                ),
-              ],
-              icon: const Icon(Icons.sort),
-            ),
-          ],
-        ),
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : Column(
-                children: [
-                  Expanded(
-                    child: ListView.builder(
-                      controller: widget.scrollController,
-                      itemCount: sortedMessages.length,
-                      itemBuilder: (context, index) {
-                        final msg = sortedMessages[index];
-                        final isMine = msg['isMine'] as bool;
-                        final senderName = msg['userName'] as String;
-                        final createdAt = msg['createdAt'] as DateTime;
-                        final distance = msg['distance'] ?? 0.0;
-                        final color =
-                            isMine ? myMessageColor : otherMessageColor;
-
-                        return Column(
-                          crossAxisAlignment: isMine
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    DateJSONUtils.formatRelativeTime(
-                                      createdAt.toString(),
-                                    ),
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                  Text(
-                                    !isMine
-                                        ? '${distance?.toStringAsFixed(2)} km'
-                                        : '',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Align(
-                              alignment: isMine
-                                  ? Alignment.centerRight
-                                  : Alignment.centerLeft,
-                              child: _buildMessageWidget(
-                                message: msg,
-                                isMine: isMine,
-                                messageColor: color,
-                                distance: distance,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  _buildMessageInput(),
-                ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Feed'),
+        automaticallyImplyLeading: false,
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              setState(() {
+                _sortByDate = (value == 'date');
+              });
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'date',
+                child: Text('Ordenar por data'),
               ),
+              const PopupMenuItem(
+                value: 'distance',
+                child: Text('Ordenar por distância'),
+              ),
+            ],
+            icon: const Icon(Icons.sort),
+          ),
+        ],
       ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    controller: widget.scrollController,
+                    itemCount: sortedMessages.length,
+                    itemBuilder: (context, index) {
+                      final msg = sortedMessages[index];
+                      final isMine = msg['isMine'] as bool;
+                      final senderName = msg['userName'] as String;
+                      final createdAt = msg['createdAt'] as DateTime;
+                      final distance = msg['distance'] ?? 0.0;
+                      final color =
+                          isMine ? myMessageColor : otherMessageColor;
+
+                      return Column(
+                        crossAxisAlignment: isMine
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  DateJSONUtils.formatRelativeTime(
+                                    createdAt.toString(),
+                                  ),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                Text(
+                                  !isMine
+                                      ? '${distance?.toStringAsFixed(2)} km'
+                                      : '',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Align(
+                            alignment: isMine
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: _buildMessageWidget(
+                              message: msg,
+                              isMine: isMine,
+                              messageColor: color,
+                              distance: distance,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                _buildMessageInput(),
+              ],
+            ),
     );
   }
 
