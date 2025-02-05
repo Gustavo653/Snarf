@@ -4,7 +4,9 @@ import 'package:snarf/pages/privateChat/parties_page.dart';
 import 'package:snarf/pages/privateChat/recent_page.dart';
 
 class PrivateChatNavigationPage extends StatefulWidget {
-  const PrivateChatNavigationPage({super.key});
+  final ScrollController scrollController;
+
+  const PrivateChatNavigationPage({super.key, required this.scrollController});
 
   @override
   State<PrivateChatNavigationPage> createState() =>

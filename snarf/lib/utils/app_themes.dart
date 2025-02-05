@@ -7,6 +7,7 @@ class AppThemes {
     brightness: Brightness.light,
     appBarTheme: const AppBarTheme(
       iconTheme: IconThemeData(color: Colors.black),
+      centerTitle: true
     ),
     textTheme: const TextTheme(
       bodySmall: TextStyle(color: Colors.black),
@@ -15,8 +16,8 @@ class AppThemes {
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: Colors.white,
-      selectedItemColor: Colors.blue,
-      unselectedItemColor: Colors.grey,
+      selectedItemColor: Colors.black,
+      unselectedItemColor: Colors.black,
       showUnselectedLabels: true,
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
