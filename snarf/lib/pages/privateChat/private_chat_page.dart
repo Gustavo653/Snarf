@@ -11,6 +11,7 @@ import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/providers/call_manager.dart';
+import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/services/signalr_manager.dart';
@@ -1055,49 +1056,58 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Widget _buildBottomBar() {
     return Container(
-      color: Colors.grey[200],
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.camera_alt),
-            onPressed: _takePhoto,
-          ),
-          IconButton(
-            icon: const Icon(Icons.photo),
-            onPressed: _pickImage,
-          ),
-          IconButton(
-            icon: const Icon(Icons.videocam),
-            onPressed: _recordVideo,
-          ),
-          IconButton(
-            icon: const Icon(Icons.video_collection),
-            onPressed: _pickVideo,
-          ),
-          IconButton(
-            icon: Icon(
-              _isRecording ? Icons.stop : Icons.mic,
-              color: _isRecording ? Colors.red : Colors.black,
-            ),
-            onPressed: _isRecording ? _stopRecording : _startRecording,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.add_circle, size: 28),
+            onSelected: (value) {
+              if (value == 'gallery') _pickImage();
+              if (value == 'camera') _takePhoto();
+              if (value == 'video_gallery') _pickVideo();
+              if (value == 'video_camera') _recordVideo();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'gallery',
+                child: Text('Foto da Galeria'),
+              ),
+              const PopupMenuItem(
+                value: 'camera',
+                child: Text('Tirar Foto'),
+              ),
+              const PopupMenuItem(
+                value: 'video_gallery',
+                child: Text('Vídeo da Galeria'),
+              ),
+              const PopupMenuItem(
+                value: 'video_camera',
+                child: Text('Gravar Vídeo'),
+              ),
+            ],
           ),
           Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 120),
-              child: TextField(
-                controller: _messageController,
-                decoration: const InputDecoration(
-                  hintText: "Digite sua mensagem...",
-                  border: InputBorder.none,
-                ),
-                maxLines: null,
+            child: TextField(
+              controller: _messageController,
+              decoration: const InputDecoration(
+                hintText: "Digite sua mensagem...",
+                border: InputBorder.none,
               ),
+              maxLines: null,
             ),
           ),
           IconButton(
             icon: const Icon(Icons.send),
             onPressed: _sendMessage,
+          ),
+          IconButton(
+            icon: Icon(_isRecording ? Icons.stop : Icons.mic,
+                color: _isRecording
+                    ? Colors.red
+                    : Provider.of<ThemeProvider>(context).isDarkMode
+                        ? Colors.white
+                        : Colors.black),
+            onPressed: _isRecording ? _stopRecording : _startRecording,
           ),
         ],
       ),
