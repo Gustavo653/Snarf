@@ -371,10 +371,15 @@ class _HomePageState extends State<HomePage> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/images/logo-white.png',
-              height: 40,
-            ),
+            Provider.of<ThemeProvider>(context).isDarkMode
+                ? Image.asset(
+                    'assets/images/logo-black.png',
+                    height: 40,
+                  )
+                : Image.asset(
+                    'assets/images/logo-white.png',
+                    height: 40,
+                  ),
           ],
         ),
         leading: IconButton(
