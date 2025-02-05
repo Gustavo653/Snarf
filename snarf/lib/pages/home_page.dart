@@ -344,6 +344,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _openPublicChat(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.2,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) {
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: Scaffold(
+              body: PublicChatPage(scrollController: scrollController),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -484,12 +506,7 @@ class _HomePageState extends State<HomePage> {
               ),
             );
           } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const PublicChatPage(),
-              ),
-            );
+            _openPublicChat(context);
           }
         },
         items: const [

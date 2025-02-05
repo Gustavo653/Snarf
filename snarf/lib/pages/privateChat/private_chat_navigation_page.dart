@@ -83,7 +83,7 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
             Tab(icon: Icon(Icons.chat)),
             Tab(icon: Icon(Icons.push_pin)),
             Tab(icon: Icon(Icons.location_on)),
-            Tab(icon: Icon(Icons.celebration)),
+            Tab(icon: Icon(Icons.people)),
           ],
         ),
       ),

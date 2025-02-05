@@ -12,7 +12,9 @@ import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
 
 class PublicChatPage extends StatefulWidget {
-  const PublicChatPage({super.key});
+  final ScrollController scrollController;
+
+  const PublicChatPage({super.key, required this.scrollController});
 
   @override
   _PublicChatPageState createState() => _PublicChatPageState();
@@ -20,7 +22,6 @@ class PublicChatPage extends StatefulWidget {
 
 class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
 
   List<Map<String, dynamic>> _messages = [];
 
@@ -140,9 +141,9 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+      if (widget.scrollController.hasClients) {
+        widget.scrollController.animateTo(
+          widget.scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -152,7 +153,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -177,87 +177,107 @@ class _PublicChatPageState extends State<PublicChatPage> {
       });
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Feed'),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              setState(() {
-                _sortByDate = (value == 'date');
-              });
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'date',
-                child: Text('Ordenar por data'),
-              ),
-              const PopupMenuItem(
-                value: 'distance',
-                child: Text('Ordenar por distância'),
-              ),
-            ],
-            icon: const Icon(Icons.sort),
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: sortedMessages.length,
-                    itemBuilder: (context, index) {
-                      final msg = sortedMessages[index];
-                      final isMine = msg['isMine'] as bool;
-                      final senderName = msg['userName'] as String;
-                      final createdAt = msg['createdAt'] as DateTime;
-                      final distance = msg['distance'] ?? 0.0;
-                      final color = isMine ? myMessageColor : otherMessageColor;
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Feed'),
+          automaticallyImplyLeading: false,
+          actions: [
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                setState(() {
+                  _sortByDate = (value == 'date');
+                });
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'date',
+                  child: Text('Ordenar por data'),
+                ),
+                const PopupMenuItem(
+                  value: 'distance',
+                  child: Text('Ordenar por distância'),
+                ),
+              ],
+              icon: const Icon(Icons.sort),
+            ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      controller: widget.scrollController,
+                      itemCount: sortedMessages.length,
+                      itemBuilder: (context, index) {
+                        final msg = sortedMessages[index];
+                        final isMine = msg['isMine'] as bool;
+                        final senderName = msg['userName'] as String;
+                        final createdAt = msg['createdAt'] as DateTime;
+                        final distance = msg['distance'] ?? 0.0;
+                        final color =
+                            isMine ? myMessageColor : otherMessageColor;
 
-                      return Column(
-                        crossAxisAlignment: isMine
-                            ? CrossAxisAlignment.end
-                            : CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              '${DateJSONUtils.formatMessageTime(createdAt)}'
-                              '${!isMine ? ' • $senderName' : ''}'
-                              '${!isMine ? ' • ${distance?.toStringAsFixed(2)} km' : ''}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                fontStyle: FontStyle.italic,
+                        return Column(
+                          crossAxisAlignment: isMine
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    DateJSONUtils.formatRelativeTime(
+                                      createdAt.toString(),
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                  Text(
+                                    !isMine
+                                        ? '${distance?.toStringAsFixed(2)} km'
+                                        : '',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          Align(
-                            alignment: isMine
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            child: _buildMessageWidget(
-                              message: msg,
-                              isMine: isMine,
-                              messageColor: color,
-                              distance: distance,
+                            Align(
+                              alignment: isMine
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: _buildMessageWidget(
+                                message: msg,
+                                isMine: isMine,
+                                messageColor: color,
+                                distance: distance,
+                              ),
                             ),
-                          ),
-                        ],
-                      );
-                    },
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-                _buildMessageInput(),
-              ],
-            ),
+                  _buildMessageInput(),
+                ],
+              ),
+      ),
     );
   }
 
@@ -327,8 +347,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>
-                                ViewUserPage(userId: userId),
+                            builder: (context) => ViewUserPage(userId: userId),
                           ),
                         );
                       },
@@ -377,7 +396,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                   ],
                 ),
               ),
-              Row(
+              Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (userLatitude != null && userLongitude != null)
