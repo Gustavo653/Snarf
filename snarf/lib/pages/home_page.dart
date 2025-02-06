@@ -350,9 +350,9 @@ class _HomePageState extends State<HomePage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.2,
-        maxChildSize: 0.9,
+        initialChildSize: 0.8,
+        minChildSize: 0.8,
+        maxChildSize: 0.8,
         expand: false,
         builder: (context, scrollController) {
           return ClipRRect(
@@ -373,9 +373,9 @@ class _HomePageState extends State<HomePage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.2,
-        maxChildSize: 0.9,
+        initialChildSize: 0.8,
+        minChildSize: 0.8,
+        maxChildSize: 0.8,
         expand: false,
         builder: (context, scrollController) {
           return ClipRRect(
