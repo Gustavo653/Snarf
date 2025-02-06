@@ -659,11 +659,16 @@ namespace Snarf.API.Controllers
                 .FirstOrDefaultAsync(m => m.Id == guid) ??
                 throw new Exception("Mensagem não encontrada para reagir.");
 
-            if (messageObj.Reactions == null)
-                messageObj.Reactions = new Dictionary<string, string>();
+            messageObj.Reactions ??= [];
 
-            if (!messageObj.Reactions.TryAdd(userId, reaction))
+            if (string.IsNullOrEmpty(reaction))
+            {
+                messageObj.Reactions.Remove(userId);
+            }
+            else
+            {
                 messageObj.Reactions[userId] = reaction;
+            }
 
             await _privateChatMessageRepository.SaveChangesAsync();
 

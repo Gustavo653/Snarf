@@ -344,6 +344,51 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _openPrivateChat(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.2,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) {
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: Scaffold(
+              body:
+                  PrivateChatNavigationPage(scrollController: scrollController),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openPublicChat(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.2,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) {
+          return ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            child: Scaffold(
+              body: PublicChatPage(scrollController: scrollController),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -353,7 +398,13 @@ class _HomePageState extends State<HomePage> {
         constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
         padding: const EdgeInsets.all(8),
         fillColor: Colors.transparent,
-        child: Icon(icon, color: Colors.white, size: 24),
+        splashColor: Colors.transparent,
+        elevation: 0,
+        child: Icon(icon,
+            color: Provider.of<ThemeProvider>(context).isDarkMode
+                ? Colors.white
+                : Colors.black,
+            size: 24),
       ),
     );
   }
@@ -366,137 +417,138 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/logo-white.png',
-              height: 40,
-            ),
-          ],
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: () {
-            log("Botão de menu pressionado");
-          },
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Provider.of<ThemeProvider>(context).isDarkMode
+                  ? Image.asset(
+                      'assets/images/logo-black.png',
+                      height: 40,
+                    )
+                  : Image.asset(
+                      'assets/images/logo-white.png',
+                      height: 40,
+                    ),
+            ],
+          ),
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            icon: const Icon(Icons.menu),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const EditUserPage(),
-                ),
-              );
-              _loadUserInfo();
+              log("Botão de menu pressionado");
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const InitialPage(),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const EditUserPage(),
+                  ),
+                );
+                _loadUserInfo();
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const InitialPage(),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      body: _isLocationLoaded
-          ? Stack(
-              children: [
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    onMapReady: () {
-                      if (widget.initialLatitude != null &&
-                          widget.initialLongitude != null) {
-                        _mapController.move(
-                          LatLng(
-                            widget.initialLatitude!,
-                            widget.initialLongitude!,
-                          ),
-                          15.0,
-                        );
-                      }
-                    },
-                    initialCenter: LatLng(
-                      _currentLocation.latitude!,
-                      _currentLocation.longitude!,
-                    ),
-                    initialZoom: 15.0,
-                    interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-                    ),
-                  ),
-                  children: [
-                    TileLayer(urlTemplate: _getMapUrl(context)),
-                    MarkerLayer(
-                      markers: [
-                        _userLocationMarker,
-                        ..._userMarkers.values,
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            )
-          : const Center(
-              child: CircularProgressIndicator(),
-            ),
-      floatingActionButton: Align(
-        alignment: Alignment.bottomRight,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildFloatingButton(Icons.flight, () {
-              log("Botão avião pressionado");
-            }),
-            _buildFloatingButton(Icons.remove_red_eye, () {
-              log("Botão olho pressionado");
-            }),
-            _buildFloatingButton(Icons.crop_free, () {
-              log("Botão moldura pressionada");
-            }),
-            _buildFloatingButton(Icons.my_location, _recenterMap),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        onTap: (index) async {
-          if (index == 0) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const PrivateChatNavigationPage(),
+        body: _isLocationLoaded
+            ? Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _mapController,
+                    options: MapOptions(
+                      onMapReady: () {
+                        Future.delayed(Duration(milliseconds: 500), () {
+                          if (widget.initialLatitude != null &&
+                              widget.initialLongitude != null) {
+                            _mapController.move(
+                              LatLng(
+                                widget.initialLatitude!,
+                                widget.initialLongitude!,
+                              ),
+                              15.0,
+                            );
+                          }
+                        });
+                      },
+                      initialCenter: LatLng(
+                        _currentLocation.latitude!,
+                        _currentLocation.longitude!,
+                      ),
+                      initialZoom: 15.0,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                      ),
+                    ),
+                    children: [
+                      TileLayer(urlTemplate: _getMapUrl(context)),
+                      MarkerLayer(
+                        markers: [
+                          _userLocationMarker,
+                          ..._userMarkers.values,
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            : const Center(
+                child: CircularProgressIndicator(),
               ),
-            );
-          } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const PublicChatPage(),
-              ),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: '',
+        floatingActionButton: Align(
+          alignment: Alignment.bottomRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildFloatingButton(Icons.flight, () {
+                log("Botão avião pressionado");
+              }),
+              _buildFloatingButton(Icons.remove_red_eye, () {
+                log("Botão olho pressionado");
+              }),
+              _buildFloatingButton(Icons.crop_free, () {
+                log("Botão moldura pressionada");
+              }),
+              _buildFloatingButton(Icons.my_location, _recenterMap),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group),
-            label: '',
-          ),
-        ],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
+          onTap: (index) async {
+            if (index == 0) {
+              _openPrivateChat(context);
+            } else if (index == 1) {
+              _openPublicChat(context);
+            }
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat),
+              label: '',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.group),
+              label: '',
+            ),
+          ],
+        ),
       ),
     );
   }

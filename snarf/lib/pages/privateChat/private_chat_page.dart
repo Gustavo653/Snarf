@@ -11,6 +11,7 @@ import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/providers/call_manager.dart';
+import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/services/signalr_manager.dart';
@@ -265,7 +266,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final map = data as Map<String, dynamic>;
       final messageId = map['MessageId'] as String;
-      final reaction = map['Reaction'] as String;
+      final reaction = map['Reaction'];
       final reactorUserId = map['ReactorUserId'] as String;
 
       setState(() {
@@ -273,7 +274,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         if (idx != -1) {
           final oldMsg = _messages[idx];
           final newReactions = Map<String, String>.from(oldMsg.reactions);
-          newReactions[reactorUserId] = reaction;
+
+          if (reaction == null || reaction.isEmpty) {
+            newReactions.remove(reactorUserId);
+          } else {
+            newReactions[reactorUserId] = reaction;
+          }
+
           _messages[idx] = oldMsg.copyWith(reactions: newReactions);
         }
       });
@@ -377,13 +384,31 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<void> _sendReaction(String messageId, String emoji) async {
     try {
+      final messageIndex = _messages.indexWhere((m) => m.id == messageId);
+      if (messageIndex == -1) return;
+
+      final message = _messages[messageIndex];
+      final currentReaction = message.reactions[widget.userId];
+
+      final dynamic newReaction = (currentReaction == emoji) ? null : emoji;
+
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatReactToMessage,
         {
           'MessageId': messageId,
-          'Reaction': emoji,
+          'Reaction': newReaction,
         },
       );
+
+      setState(() {
+        final updatedReactions = Map<String, String>.from(message.reactions);
+        if (newReaction == null) {
+          updatedReactions.remove(widget.userId);
+        } else {
+          updatedReactions[widget.userId] = newReaction;
+        }
+        _messages[messageIndex] = message.copyWith(reactions: updatedReactions);
+      });
     } catch (e) {
       showSnackbar(context, "Erro ao enviar reação: $e");
     }
@@ -826,6 +851,106 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
+  void _showMessageActionsOverlay(
+      BuildContext context, PrivateChatMessageModel message, GlobalKey key) {
+    final overlay = Overlay.of(context);
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    late OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        return Stack(
+          children: [
+            GestureDetector(
+              onTap: () => overlayEntry.remove(),
+              child: Container(color: Colors.black54.withOpacity(0.3)),
+            ),
+            Center(
+              child: _buildOverlayContent(context, message, overlayEntry),
+            ),
+          ],
+        );
+      },
+    );
+
+    overlay.insert(overlayEntry);
+  }
+
+  Widget _buildOverlayContent(BuildContext context,
+      PrivateChatMessageModel message, OverlayEntry entry) {
+    final emojis = ['👍', '❤️', '😂', '😮', '😢', '😡'];
+    final userReaction = message.reactions[widget.userId];
+
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+        decoration: BoxDecoration(
+          color: Colors.black38,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Wrap(
+              spacing: 6,
+              children: emojis.map((emoji) {
+                final isSelected = userReaction == emoji;
+                return GestureDetector(
+                  onTap: () {
+                    _sendReaction(message.id, emoji);
+                    entry.remove();
+                  },
+                  child: Stack(
+                    alignment: Alignment.topRight,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child:
+                            Text(emoji, style: const TextStyle(fontSize: 20)),
+                      ),
+                      if (isSelected)
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close,
+                              color: Colors.white, size: 8),
+                        ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 12,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.reply, color: Colors.white, size: 18),
+                  onPressed: () {
+                    entry.remove();
+                    _promptReply(message.id);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                  onPressed: () {
+                    entry.remove();
+                    _deleteMessage(message.id);
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessageBubble({
     required PrivateChatMessageModel message,
     required bool isMine,
@@ -833,6 +958,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     required Color myMessageColor,
     required Color otherMessageColor,
   }) {
+    final key = GlobalKey();
     final content = message.message;
     final lower = content.toLowerCase();
     final bool isImage = lower.startsWith('https://') && _isImageUrl(content);
@@ -852,8 +978,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           )
         : null;
 
-    return InkWell(
-      onLongPress: () => _showMessageActionsDialog(message),
+    return GestureDetector(
+      key: key,
+      onLongPress: () => _showMessageActionsOverlay(context, message, key),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         padding: const EdgeInsets.all(12),
@@ -888,66 +1015,66 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 "Mensagem excluída",
                 style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
               )
-            else if (isImage)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.image, size: 40),
-                  SizedBox(width: 8),
-                  Text("Foto"),
-                ],
-              )
-            else if (isVideo)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.video_file, size: 40),
-                  SizedBox(width: 8),
-                  Text("Vídeo"),
-                ],
-              )
-            else if (isAudio)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.audiotrack, size: 40),
-                  SizedBox(width: 8),
-                  Text("Áudio"),
-                ],
-              )
             else
-              Text(
-                content,
-                style: const TextStyle(fontSize: 16),
-              ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (message.reactions.isNotEmpty)
-                  Wrap(
-                    spacing: 6,
-                    children: message.reactions.values.map((emoji) {
-                      return Text(emoji, style: const TextStyle(fontSize: 18));
-                    }).toList(),
-                  ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () {
-                    if (!isDeleted && (isImage || isVideo || isAudio)) {
-                      _openMediaPreview(content);
-                    }
-                  },
-                  child: Text(
-                    time,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.black54,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isImage || isVideo || isAudio)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isImage
+                              ? Icons.image
+                              : isVideo
+                                  ? Icons.video_file
+                                  : Icons.audiotrack,
+                          size: 40,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isImage
+                              ? "Foto"
+                              : isVideo
+                                  ? "Vídeo"
+                                  : "Áudio",
+                        ),
+                      ],
                     ),
+                  if (!isImage && !isVideo && !isAudio)
+                    Text(
+                      content,
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (message.reactions.isNotEmpty)
+                        Wrap(
+                          spacing: 6,
+                          children: message.reactions.values.map((emoji) {
+                            return Text(emoji,
+                                style: const TextStyle(fontSize: 18));
+                          }).toList(),
+                        ),
+                      const SizedBox(width: 8),
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                      if (isImage || isVideo || isAudio)
+                        IconButton(
+                          icon: const Icon(Icons.open_in_new),
+                          onPressed: () => _openMediaPreview(content),
+                        ),
+                    ],
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
       ),
@@ -999,20 +1126,56 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   void _showReactionPicker(String messageId) async {
     final emojis = ['👍', '❤️', '😂', '😮', '😢', '😡'];
+    final messageIndex = _messages.indexWhere((m) => m.id == messageId);
+    if (messageIndex == -1) return;
+
+    final message = _messages[messageIndex];
+    final userReaction = message.reactions[widget.userId];
+
     final selectedEmoji = await showDialog<String>(
       context: context,
       builder: (ctx) {
-        return SimpleDialog(
+        return AlertDialog(
           title: const Text("Selecione uma reação"),
-          children: emojis.map((emoji) {
-            return SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, emoji),
-              child: Text(emoji, style: const TextStyle(fontSize: 24)),
-            );
-          }).toList(),
+          content: Wrap(
+            spacing: 12,
+            children: emojis.map((emoji) {
+              final isSelected = userReaction == emoji;
+              return GestureDetector(
+                onTap: () => Navigator.pop(ctx, emoji),
+                child: Column(
+                  children: [
+                    Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        Text(emoji, style: const TextStyle(fontSize: 32)),
+                        if (isSelected)
+                          Container(
+                            width: 16,
+                            height: 16,
+                            margin: const EdgeInsets.only(top: 2, right: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close,
+                                color: Colors.white, size: 12),
+                          ),
+                      ],
+                    ),
+                    if (isSelected)
+                      const Text("Remover",
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
         );
       },
     );
+
     if (selectedEmoji != null) {
       _sendReaction(messageId, selectedEmoji);
     }
@@ -1055,49 +1218,58 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Widget _buildBottomBar() {
     return Container(
-      color: Colors.grey[200],
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.camera_alt),
-            onPressed: _takePhoto,
-          ),
-          IconButton(
-            icon: const Icon(Icons.photo),
-            onPressed: _pickImage,
-          ),
-          IconButton(
-            icon: const Icon(Icons.videocam),
-            onPressed: _recordVideo,
-          ),
-          IconButton(
-            icon: const Icon(Icons.video_collection),
-            onPressed: _pickVideo,
-          ),
-          IconButton(
-            icon: Icon(
-              _isRecording ? Icons.stop : Icons.mic,
-              color: _isRecording ? Colors.red : Colors.black,
-            ),
-            onPressed: _isRecording ? _stopRecording : _startRecording,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.add_circle, size: 28),
+            onSelected: (value) {
+              if (value == 'gallery') _pickImage();
+              if (value == 'camera') _takePhoto();
+              if (value == 'video_gallery') _pickVideo();
+              if (value == 'video_camera') _recordVideo();
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'gallery',
+                child: Text('Foto da Galeria'),
+              ),
+              const PopupMenuItem(
+                value: 'camera',
+                child: Text('Tirar Foto'),
+              ),
+              const PopupMenuItem(
+                value: 'video_gallery',
+                child: Text('Vídeo da Galeria'),
+              ),
+              const PopupMenuItem(
+                value: 'video_camera',
+                child: Text('Gravar Vídeo'),
+              ),
+            ],
           ),
           Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 120),
-              child: TextField(
-                controller: _messageController,
-                decoration: const InputDecoration(
-                  hintText: "Digite sua mensagem...",
-                  border: InputBorder.none,
-                ),
-                maxLines: null,
+            child: TextField(
+              controller: _messageController,
+              decoration: const InputDecoration(
+                hintText: "Digite sua mensagem...",
+                border: InputBorder.none,
               ),
+              maxLines: null,
             ),
           ),
           IconButton(
             icon: const Icon(Icons.send),
             onPressed: _sendMessage,
+          ),
+          IconButton(
+            icon: Icon(_isRecording ? Icons.stop : Icons.mic,
+                color: _isRecording
+                    ? Colors.red
+                    : Provider.of<ThemeProvider>(context).isDarkMode
+                        ? Colors.white
+                        : Colors.black),
+            onPressed: _isRecording ? _stopRecording : _startRecording,
           ),
         ],
       ),
@@ -1140,6 +1312,7 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   AudioPlayer? _audioPlayer;
+  bool isLoading = true;
 
   bool get isImage => _isImageUrl(widget.url);
 
@@ -1150,10 +1323,12 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
   @override
   void initState() {
     super.initState();
-    if (isVideo) {
+    if (_isVideoUrl(widget.url)) {
       _initializeVideo();
-    } else if (isAudio) {
+    } else if (_isAudioUrl(widget.url)) {
       _initializeAudio();
+    } else {
+      setState(() => isLoading = false);
     }
   }
 
@@ -1188,10 +1363,15 @@ class _MediaPreviewPageState extends State<MediaPreviewPage> {
     if (isImage) {
       return Scaffold(
         appBar: AppBar(title: const Text("Visualizando Imagem")),
-        body: Center(
-          child: InteractiveViewer(
-            child: Image.network(widget.url),
-          ),
+        body: Stack(
+          children: [
+            const Center(child: CircularProgressIndicator()),
+            Center(
+              child: InteractiveViewer(
+                child: Image.network(widget.url),
+              ),
+            ),
+          ],
         ),
       );
     } else if (isVideo) {
