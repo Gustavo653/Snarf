@@ -53,13 +53,8 @@ class CustomModal extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10.0),
-
-            // CONTEÚDO
             content,
-
             const SizedBox(height: 20.0),
-
-            // AÇÕES (botões, por exemplo)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: actions,
