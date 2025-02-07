@@ -84,7 +84,7 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
           bottom: TabBar(
             controller: _tabController,
             tabs: [
-              Tab(icon: Icon(Icons.chat)),
+              Tab(icon: Icon(Icons.chat_bubble)),
               Tab(icon: Icon(Icons.push_pin)),
               Tab(icon: Icon(Icons.location_on)),
               Tab(icon: Icon(Icons.people)),

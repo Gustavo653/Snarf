@@ -216,7 +216,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                       final senderName = msg['userName'] as String;
                       final createdAt = msg['createdAt'] as DateTime;
                       final distance = msg['distance'] ?? 0.0;
-                      final color = Color(0xFF0b0951);
+                      final color = Color(0xFF392ea3);
 
                       return Column(
                         crossAxisAlignment: isMine

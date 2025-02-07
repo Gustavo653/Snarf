@@ -43,12 +43,23 @@ class _HomePageState extends State<HomePage> {
   final Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   late String userImage = '';
+  double _opacity = 0.0;
+  late Timer _timer;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
     _initializeApp();
+    _startOpacityAnimation();
+  }
+
+  void _startOpacityAnimation() {
+    _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      setState(() {
+        _opacity = _opacity == 0.0 ? 1.0 : 0.0;
+      });
+    });
   }
 
   Future<void> _initializeApp() async {
@@ -461,6 +472,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    _timer.cancel();
     super.dispose();
   }
 
@@ -556,8 +568,27 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               )
-            : const Center(
-                child: CircularProgressIndicator(),
+            : Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_on),
+                        Text('Carregando Conteúdo')
+                      ],
+                    ),
+                    AnimatedOpacity(
+                      duration: Duration(seconds: 2),
+                      opacity: _opacity,
+                      child: Image.asset(
+                        'assets/images/small-logo-black.png',
+                        width: 30,
+                      ),
+                    )
+                  ],
+                ),
               ),
         floatingActionButton: Align(
           alignment: Alignment.bottomRight,

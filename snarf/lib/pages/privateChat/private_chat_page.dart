@@ -787,8 +787,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                       message: message,
                       isMine: isMine,
                       time: time,
-                      myMessageColor: Color(0xFF0b0951),
-                      otherMessageColor: Color(0xFF0b0951),
+                      myMessageColor: Color(0xFF392ea3),
+                      otherMessageColor: Color(0xFF392ea3),
                     );
                   },
                 ),

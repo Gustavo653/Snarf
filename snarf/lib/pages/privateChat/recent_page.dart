@@ -180,13 +180,8 @@ class _RecentChatPageState extends State<RecentPage> {
                     style: TextStyle(fontSize: 16, color: Colors.grey),
                   ),
                 )
-              : ListView.separated(
+              : ListView.builder(
                   itemCount: _filteredChats.length,
-                  separatorBuilder: (context, index) => const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Colors.grey,
-                  ),
                   itemBuilder: (context, index) {
                     final chat = _filteredChats[index];
 
@@ -198,23 +193,50 @@ class _RecentChatPageState extends State<RecentPage> {
                     }
 
                     return ListTile(
-                      leading: CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.blueAccent.shade700,
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: ClipOval(
-                            child: Image.network(
-                              chat['UserImage'],
-                              errorBuilder: (ctx, error, stack) {
-                                return Image.asset(
-                                  'assets/images/user_anonymous.png',
-                                  fit: BoxFit.cover,
-                                );
-                              },
+                      leading: Stack(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundColor:
+                                isOnline ? Colors.green : Colors.transparent,
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: ClipOval(
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  child: Image.network(
+                                    chat['UserImage'],
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (ctx, error, stack) {
+                                      return Image.asset(
+                                        'assets/images/user_anonymous.png',
+                                        fit: BoxFit.cover,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          if (isOnline)
+                            Positioned(
+                              left: 10,
+                              top: 4,
+                              child: Container(
+                                width: 12,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.black,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       title: Text(
                         chat['UserName'],
@@ -235,14 +257,6 @@ class _RecentChatPageState extends State<RecentPage> {
                                 : chat['LastMessage'],
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            isOnline ? 'Online' : 'Offline',
-                            style: TextStyle(
-                              color: isOnline ? Colors.green : Colors.red,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
                           ),
                         ],
                       ),
@@ -266,46 +280,21 @@ class _RecentChatPageState extends State<RecentPage> {
                                 Padding(
                                   padding: const EdgeInsets.only(left: 8.0),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                    width: 24,
+                                    height: 24,
                                     decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      borderRadius: BorderRadius.circular(8),
+                                      color: Color(0xFFF2A120),
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black,
-                                            borderRadius:
-                                                BorderRadius.circular(4),
-                                          ),
-                                          child: const Text(
-                                            'NOVO',
-                                            style: TextStyle(
-                                              color: Colors.orange,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          '${chat['UnreadCount']}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '${chat['UnreadCount']}',
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ),
                                 ),
