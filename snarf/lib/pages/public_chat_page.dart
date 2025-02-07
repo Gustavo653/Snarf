@@ -158,9 +158,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final myMessageColor = isDarkMode ? Colors.blue[400] : Colors.blue[300];
-    final otherMessageColor = isDarkMode ? Colors.grey[700] : Colors.grey[300];
     final sortedMessages = List<Map<String, dynamic>>.from(_messages);
 
     if (_sortByDate) {
@@ -218,8 +215,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                       final senderName = msg['userName'] as String;
                       final createdAt = msg['createdAt'] as DateTime;
                       final distance = msg['distance'] ?? 0.0;
-                      final color =
-                          isMine ? myMessageColor : otherMessageColor;
+                      final color = Color(0xFF0b0951);
 
                       return Column(
                         crossAxisAlignment: isMine
@@ -232,8 +228,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
                               vertical: 4,
                             ),
                             child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   DateJSONUtils.formatRelativeTime(
@@ -442,7 +437,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
           IconButton(
             icon: const Icon(Icons.send),
             onPressed: _sendMessage,
-            color: Colors.blue,
             iconSize: 30,
           ),
         ],

@@ -706,10 +706,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final myMessageColor = isDarkMode ? Colors.blue[400] : Colors.blue[300];
-    final otherMessageColor = isDarkMode ? Colors.grey[700] : Colors.grey[500];
-
     return Scaffold(
       appBar: AppBar(
         title: InkWell(
@@ -791,8 +787,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                       message: message,
                       isMine: isMine,
                       time: time,
-                      myMessageColor: myMessageColor!,
-                      otherMessageColor: otherMessageColor!,
+                      myMessageColor: Color(0xFF0b0951),
+                      otherMessageColor: Color(0xFF0b0951),
                     );
                   },
                 ),
@@ -1063,7 +1059,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                         time,
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
                         ),
                       ),
                       if (isImage || isVideo || isAudio)
@@ -1251,9 +1246,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           Expanded(
             child: TextField(
               controller: _messageController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: "Digite sua mensagem...",
-                border: InputBorder.none,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
               maxLines: null,
             ),
