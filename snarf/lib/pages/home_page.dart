@@ -12,6 +12,7 @@ import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
+import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -349,20 +350,44 @@ class _HomePageState extends State<HomePage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.8,
-        minChildSize: 0.8,
-        maxChildSize: 0.8,
-        expand: false,
-        builder: (context, scrollController) {
-          return ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            child: Scaffold(
-              body:
-                  PrivateChatNavigationPage(scrollController: scrollController),
+      builder: (context) => GestureDetector(
+        onTap: () => Navigator.pop(context),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 50),
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30.0),
+                border: const Border.symmetric(
+                  horizontal: BorderSide(
+                    color: Color(0xFF392ea3),
+                    width: 5,
+                  ),
+                ),
+              ),
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.9,
+                minChildSize: 0.9,
+                maxChildSize: 0.9,
+                expand: false,
+                builder: (context, scrollController) {
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
+                      bottom: Radius.circular(30),
+                    ),
+                    child: Scaffold(
+                      body: PrivateChatNavigationPage(
+                          scrollController: scrollController),
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -372,26 +397,46 @@ class _HomePageState extends State<HomePage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.only(left: 50),
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.8,
-          minChildSize: 0.8,
-          maxChildSize: 0.8,
-          expand: false,
-          builder: (context, scrollController) {
-            return ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: Scaffold(
-                body: PublicChatPage(scrollController: scrollController),
+      builder: (context) => GestureDetector(
+        onTap: () => Navigator.pop(context),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 50),
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30.0),
+                border: const Border.symmetric(
+                  horizontal: BorderSide(
+                    color: Color(0xFF392ea3),
+                    width: 5,
+                  ),
+                ),
               ),
-            );
-          },
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.9,
+                minChildSize: 0.9,
+                maxChildSize: 0.9,
+                expand: false,
+                builder: (context, scrollController) {
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
+                      bottom: Radius.circular(30),
+                    ),
+                    child: Scaffold(
+                      body: PublicChatPage(scrollController: scrollController),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
-
 
   Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {
     return Padding(

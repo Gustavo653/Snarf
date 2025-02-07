@@ -177,6 +177,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Feed'),
+        backgroundColor: Colors.transparent,
         automaticallyImplyLeading: false,
         actions: [
           PopupMenuButton<String>(

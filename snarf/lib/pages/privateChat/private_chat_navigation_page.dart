@@ -78,6 +78,7 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
     return PopScope(
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
           title: Text(_titles[_tabController.index]),
           automaticallyImplyLeading: false,
           bottom: TabBar(
