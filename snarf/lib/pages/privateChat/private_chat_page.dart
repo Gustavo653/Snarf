@@ -88,11 +88,11 @@ class PrivateChatPage extends StatefulWidget {
   final String userImage;
 
   const PrivateChatPage({
-    Key? key,
+    super.key,
     required this.userId,
     required this.userName,
     required this.userImage,
-  }) : super(key: key);
+  });
 
   @override
   _PrivateChatPageState createState() => _PrivateChatPageState();
@@ -787,8 +787,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                       message: message,
                       isMine: isMine,
                       time: time,
-                      myMessageColor: Color(0xFF392ea3),
-                      otherMessageColor: Color(0xFF392ea3),
+                      myMessageColor: Colors.grey.shade700,
+                      otherMessageColor: Colors.grey.shade700,
                     );
                   },
                 ),
@@ -1299,7 +1299,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 class MediaPreviewPage extends StatefulWidget {
   final String url;
 
-  const MediaPreviewPage({Key? key, required this.url}) : super(key: key);
+  const MediaPreviewPage({super.key, required this.url});
 
   @override
   State<MediaPreviewPage> createState() => _MediaPreviewPageState();

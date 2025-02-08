@@ -23,7 +23,7 @@ class PublicChatPage extends StatefulWidget {
 class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
 
-  List<Map<String, dynamic>> _messages = [];
+  final List<Map<String, dynamic>> _messages = [];
 
   String? _userId;
   bool _isLoading = true;

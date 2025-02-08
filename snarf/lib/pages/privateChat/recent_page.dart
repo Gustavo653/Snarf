@@ -261,32 +261,34 @@ class _RecentChatPageState extends State<RecentPage> {
                         ],
                       ),
                       trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
                             DateJSONUtils.formatRelativeTime(
-                              chat['LastMessageDate'].toString(),
-                            ),
+                                chat['LastMessageDate'].toString()),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
                               fontStyle: FontStyle.italic,
                             ),
                           ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (chat['UnreadCount'] > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8.0),
-                                  child: Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFFF2A120),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    alignment: Alignment.center,
+                          if (chat['UnreadCount'] > 0)
+                            Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF2A120),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 0,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 10),
                                     child: Text(
                                       '${chat['UnreadCount']}',
                                       style: const TextStyle(
@@ -298,8 +300,8 @@ class _RecentChatPageState extends State<RecentPage> {
                                     ),
                                   ),
                                 ),
-                            ],
-                          ),
+                              ],
+                            ),
                         ],
                       ),
                       onTap: () async {

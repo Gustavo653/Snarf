@@ -483,6 +483,8 @@ void showForgotPasswordModal(BuildContext context) {
 }
 
 class ForgotPasswordModal extends StatefulWidget {
+  const ForgotPasswordModal({super.key});
+
   @override
   State<ForgotPasswordModal> createState() => _ForgotPasswordModalState();
 }
@@ -586,7 +588,7 @@ void showResetPasswordModal(BuildContext context, String email) {
 class ResetPasswordModal extends StatefulWidget {
   final String email;
 
-  const ResetPasswordModal({required this.email});
+  const ResetPasswordModal({super.key, required this.email});
 
   @override
   State<ResetPasswordModal> createState() => _ResetPasswordModalState();

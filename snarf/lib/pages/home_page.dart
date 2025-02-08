@@ -12,7 +12,6 @@ import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
-import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/services/api_service.dart';

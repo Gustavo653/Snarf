@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 
 class ThemeToggle extends StatelessWidget {
