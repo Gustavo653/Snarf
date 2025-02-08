@@ -801,45 +801,53 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _selectedMessageId = null);
-                  },
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final isMine = message.senderId != widget.userId;
-                      final time =
-                          DateJSONUtils.formatMessageTime(message.createdAt);
-
-                      return _buildMessageRow(
-                        message: message,
-                        isMine: isMine,
-                        time: time,
-                      );
+      body: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: NetworkImage(widget.userImage),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedMessageId = null);
                     },
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        final isMine = message.senderId != widget.userId;
+                        final time = DateJSONUtils.formatRelativeTime(
+                            message.createdAt.toString());
+
+                        return _buildMessageRow(
+                          message: message,
+                          isMine: isMine,
+                          time: time,
+                        );
+                      },
+                    ),
                   ),
                 ),
-              ),
-              _buildReplyBanner(),
-              _buildBottomBar(),
-            ],
-          ),
-          if (_isSendingMedia)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
+                _buildReplyBanner(),
+                _buildBottomBar(),
+              ],
             ),
-        ],
+            if (_isSendingMedia)
+              Container(
+                color: Colors.black54,
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -849,34 +857,30 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final originalText = _replyingToMessage!.message;
     final isMedia = originalText.startsWith('https://');
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.all(
-          Radius.circular(30),
-        ),
-        border: Border.all(color: Colors.white, width: 1),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          const Icon(Icons.reply, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              isMedia
-                  ? 'Respondendo a um arquivo (imagem/vídeo/áudio)'
-                  : 'Respondendo: $originalText',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+      color: Color(0xFF0b0951),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.reply, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isMedia
+                    ? 'Respondendo a um arquivo (imagem/vídeo/áudio)'
+                    : 'Respondendo: $originalText',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() => _replyingToMessage = null);
-            },
-            icon: const Icon(Icons.close),
-          ),
-        ],
+            IconButton(
+              onPressed: () {
+                setState(() => _replyingToMessage = null);
+              },
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -888,12 +892,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       child: Row(
         children: [
           PopupMenuButton<String>(
+            color: Color(0xFF0b0951),
             icon: const Icon(Icons.add_circle, size: 28),
             onSelected: (value) {
               if (value == 'gallery') _pickImage();
               if (value == 'camera') _takePhoto();
               if (value == 'video_gallery') _pickVideo();
-              if (value == 'video_camera') _recordVideo();
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
@@ -904,14 +908,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 value: 'camera',
                 child: Text('Tirar Foto'),
               ),
-              const PopupMenuItem(
+              /*const PopupMenuItem(
                 value: 'video_gallery',
                 child: Text('Vídeo da Galeria'),
-              ),
-              const PopupMenuItem(
-                value: 'video_camera',
-                child: Text('Gravar Vídeo'),
-              ),
+              ),*/
             ],
           ),
           Expanded(
@@ -939,6 +939,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               } else {
                 _sendMessage();
               }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.camera_alt),
+            onPressed: () {
+              _recordVideo();
             },
           ),
           IconButton(
@@ -973,9 +979,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         crossAxisAlignment:
             isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
+          _buildMessageBubble(message, isMine, time),
           if (_selectedMessageId == message.id)
             _buildActionsBar(message, isMine),
-          _buildMessageBubble(message, isMine, time),
         ],
       ),
     );
@@ -994,7 +1000,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             onPressed: () => _openEmojiPicker(message.id),
             tooltip: 'Reagir',
           ),
-          // RESPONDER
           IconButton(
             icon: const Icon(Icons.reply),
             onPressed: () {
@@ -1037,7 +1042,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           )
         : null;
 
-    final bubbleColor = Colors.grey.shade700;
+    final bubbleColor = Color(0xFFE8ECEF);
     final borderRadius = BorderRadius.only(
       topLeft: const Radius.circular(16),
       topRight: const Radius.circular(16),
@@ -1048,94 +1053,111 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
     return GestureDetector(
       onLongPress: () => _onMessageLongPress(message),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: bubbleColor,
-          borderRadius: borderRadius,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (replyToMsg != null) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  "Em resposta: ${replyToMsg.message.startsWith('https://') ? '(Mídia)' : replyToMsg.message}",
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
-              ),
-            ],
-            if (isDeleted)
-              const Text(
-                "Mensagem excluída",
-                style: TextStyle(fontStyle: FontStyle.italic),
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isImage || isVideo || isAudio)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isImage
-                              ? Icons.image
-                              : isVideo
-                                  ? Icons.videocam
-                                  : Icons.audiotrack,
-                          size: 40,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isImage
-                              ? "Foto"
-                              : isVideo
-                                  ? "Vídeo"
-                                  : "Áudio",
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.open_in_new),
-                          onPressed: () => _openMediaPreview(content),
-                        ),
-                      ],
+      child: Column(
+        children: [
+          Text(
+            time,
+            style: const TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: borderRadius,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (replyToMsg != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  if (!isImage && !isVideo && !isAudio)
-                    Text(
-                      content,
-                      style: const TextStyle(fontSize: 16),
+                    child: Text(
+                      "Em resposta: ${replyToMsg.message.startsWith('https://') ? '(Mídia)' : replyToMsg.message}",
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.black,
+                      ),
                     ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  ),
+                ],
+                if (isDeleted)
+                  const Text(
+                    "Mensagem excluída",
+                    style: TextStyle(
+                        fontStyle: FontStyle.italic, color: Colors.black),
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Reactions
-                      if (message.reactions.isNotEmpty) ...[
-                        Wrap(
-                          spacing: 4,
-                          children: message.reactions.values.map((emoji) {
-                            return Text(emoji,
-                                style: const TextStyle(fontSize: 18));
-                          }).toList(),
+                      if (isImage || isVideo || isAudio)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isImage
+                                  ? Icons.image
+                                  : isVideo
+                                      ? Icons.videocam
+                                      : Icons.audiotrack,
+                              size: 40,
+                              color: Colors.black,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isImage
+                                  ? "Foto"
+                                  : isVideo
+                                      ? "Vídeo"
+                                      : "Áudio",
+                              style: TextStyle(
+                                color: Colors.black,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.open_in_new),
+                              color: Colors.black,
+                              onPressed: () => _openMediaPreview(content),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                      ],
-                      Text(
-                        time,
-                        style: const TextStyle(fontSize: 12),
+                      if (!isImage && !isVideo && !isAudio)
+                        Text(
+                          content,
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.black),
+                        ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Reactions
+                          if (message.reactions.isNotEmpty) ...[
+                            Wrap(
+                              spacing: 4,
+                              children: message.reactions.values.map((emoji) {
+                                return Text(emoji,
+                                    style: const TextStyle(fontSize: 18));
+                              }).toList(),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

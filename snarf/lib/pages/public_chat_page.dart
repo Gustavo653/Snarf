@@ -471,6 +471,7 @@ class ChatMessageOptions extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: Color(0xFF0b0951),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -483,6 +484,8 @@ class ChatMessageOptions extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
+                        elevation: 10,
+                        backgroundColor: Color(0xFF4c2a85),
                         iconColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -509,6 +512,8 @@ class ChatMessageOptions extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
+                        elevation: 10,
+                        backgroundColor: Color(0xFF4c2a85),
                         iconColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -531,7 +536,12 @@ class ChatMessageOptions extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               TextButton(
-                child: const Text("Cancelar"),
+                child: const Text(
+                  "Cancelar",
+                  style: TextStyle(
+                    color: Colors.white,
+                  ),
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
