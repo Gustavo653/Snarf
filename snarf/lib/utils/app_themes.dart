@@ -6,9 +6,7 @@ class AppThemes {
     fontFamily: GoogleFonts.kanit().fontFamily,
     brightness: Brightness.light,
     appBarTheme: const AppBarTheme(
-      iconTheme: IconThemeData(color: Colors.black),
-      centerTitle: true
-    ),
+        iconTheme: IconThemeData(color: Colors.black), centerTitle: true),
     textTheme: const TextTheme(
       bodySmall: TextStyle(color: Colors.black),
       bodyMedium: TextStyle(color: Colors.black),
@@ -54,9 +52,10 @@ class AppThemes {
     fontFamily: GoogleFonts.kanit().fontFamily,
     brightness: Brightness.dark,
     primaryColor: const Color(0xFF4c2a85),
+    scaffoldBackgroundColor: const Color(0xFF0b0951),
     appBarTheme: const AppBarTheme(
       iconTheme: IconThemeData(color: Colors.white),
-      backgroundColor: Color(0xFF4c2a85),
+      backgroundColor: Color(0xFF0b0951),
       centerTitle: true,
     ),
     textTheme: const TextTheme(
@@ -65,7 +64,7 @@ class AppThemes {
       bodyLarge: TextStyle(color: Colors.white),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Color(0xFF4c2a85),
+      backgroundColor: Color(0xFF0b0951),
       selectedItemColor: Colors.white,
       unselectedItemColor: Colors.white,
     ),

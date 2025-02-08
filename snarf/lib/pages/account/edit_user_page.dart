@@ -22,14 +22,13 @@ class _EditUserPageState extends State<EditUserPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   String? _userId;
-  String? _userImageUrl; // URL da imagem vinda do backend
+  String? _userImageUrl;
   int favoritedByCount = 0;
   int blockedByCount = 0;
   bool _isLoading = true;
 
-  File? _pickedFile; // Arquivo local escolhido pelo usuário
-  final String _defaultImagePath = // Caminho do asset
-      'assets/images/user_anonymous.png';
+  File? _pickedFile;
+  final String _defaultImagePath = 'assets/images/user_anonymous.png';
 
   List<dynamic> _blockedUsers = [];
   List<dynamic> _favoriteUsers = [];
@@ -40,7 +39,6 @@ class _EditUserPageState extends State<EditUserPage> {
     _loadUserInfo();
   }
 
-  /// Escolhe imagem da galeria
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
@@ -49,12 +47,10 @@ class _EditUserPageState extends State<EditUserPage> {
       setState(() {
         _pickedFile = File(pickedFile.path);
         _userImageUrl = null;
-        // Anula a URL, pois agora temos uma nova imagem local
       });
     }
   }
 
-  /// Carrega informações do usuário (nome, email, etc.) do backend
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
     final userInfo = await ApiService.getUserInfoById(userId!);

@@ -194,7 +194,7 @@ packages:
     source: hosted
     version: "7.0.2"
   emoji_picker_flutter:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: emoji_picker_flutter
       sha256: "9a44c102079891ea5877f78c70f2e3c6e9df7b7fe0a01757d31f1046eeaa016d"

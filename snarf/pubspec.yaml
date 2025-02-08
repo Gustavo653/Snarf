@@ -3,7 +3,7 @@ description: "snarf"
 
 publish_to: 'none'
 
-version: 1.2.1+21
+version: 1.2.2+22
 
 environment:
   sdk: ^3.6.0
@@ -37,6 +37,7 @@ dependencies:
   record: ^5.2.0
   image: ^4.5.2
   jitsi_meet_flutter_sdk: ^10.3.0
+  emoji_picker_flutter: ^4.3.0
 
 dev_dependencies:
   flutter_test:

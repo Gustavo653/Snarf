@@ -42,12 +42,23 @@ class _HomePageState extends State<HomePage> {
   final Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   late String userImage = '';
+  double _opacity = 0.0;
+  late Timer _timer;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
     _initializeApp();
+    _startOpacityAnimation();
+  }
+
+  void _startOpacityAnimation() {
+    _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      setState(() {
+        _opacity = _opacity == 0.0 ? 1.0 : 0.0;
+      });
+    });
   }
 
   Future<void> _initializeApp() async {
@@ -129,18 +140,18 @@ class _HomePageState extends State<HomePage> {
   void _updateUserMarker(double latitude, double longitude) {
     _userLocationMarker = Marker(
       point: LatLng(latitude, longitude),
-      width: 60,
-      height: 60,
+      width: 80,
+      height: 80,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Container(
-            width: 55,
-            height: 55,
+            width: 75,
+            height: 75,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.blue,
+                color: Colors.green,
                 width: 4.0,
               ),
             ),
@@ -153,8 +164,8 @@ class _HomePageState extends State<HomePage> {
             bottom: 0,
             left: 0,
             child: Container(
-              width: 20,
-              height: 20,
+              width: 25,
+              height: 25,
               decoration: BoxDecoration(
                 color: Colors.orange,
                 shape: BoxShape.circle,
@@ -162,7 +173,7 @@ class _HomePageState extends State<HomePage> {
               child: Icon(
                 Icons.videocam,
                 color: Colors.white,
-                size: 14,
+                size: 20,
               ),
             ),
           ),
@@ -170,8 +181,8 @@ class _HomePageState extends State<HomePage> {
             top: 0,
             right: 0,
             child: Container(
-              width: 20,
-              height: 20,
+              width: 25,
+              height: 25,
               decoration: BoxDecoration(
                 color: Colors.green,
                 shape: BoxShape.circle,
@@ -179,7 +190,7 @@ class _HomePageState extends State<HomePage> {
               child: Icon(
                 Icons.person,
                 color: Colors.white,
-                size: 14,
+                size: 20,
               ),
             ),
           ),
@@ -230,16 +241,16 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _userMarkers[userId] = Marker(
         point: LatLng(latitude, longitude),
-        width: 60,
-        height: 60,
+        width: 80,
+        height: 80,
         child: GestureDetector(
           onTap: () => _openProfile(userId),
           child: Stack(
             alignment: Alignment.center,
             children: [
               Container(
-                width: 55,
-                height: 55,
+                width: 75,
+                height: 75,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
@@ -256,8 +267,8 @@ class _HomePageState extends State<HomePage> {
                 bottom: 0,
                 left: 0,
                 child: Container(
-                  width: 20,
-                  height: 20,
+                  width: 25,
+                  height: 25,
                   decoration: BoxDecoration(
                     color: Colors.orange,
                     shape: BoxShape.circle,
@@ -273,8 +284,8 @@ class _HomePageState extends State<HomePage> {
                 top: 0,
                 right: 0,
                 child: Container(
-                  width: 20,
-                  height: 20,
+                  width: 25,
+                  height: 25,
                   decoration: BoxDecoration(
                     color: Colors.green,
                     shape: BoxShape.circle,
@@ -349,20 +360,44 @@ class _HomePageState extends State<HomePage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.2,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) {
-          return ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            child: Scaffold(
-              body:
-                  PrivateChatNavigationPage(scrollController: scrollController),
+      builder: (context) => GestureDetector(
+        onTap: () => Navigator.pop(context),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 50),
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30.0),
+                border: const Border.symmetric(
+                  horizontal: BorderSide(
+                    color: Color(0xFF392ea3),
+                    width: 5,
+                  ),
+                ),
+              ),
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.9,
+                minChildSize: 0.9,
+                maxChildSize: 0.9,
+                expand: false,
+                builder: (context, scrollController) {
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
+                      bottom: Radius.circular(30),
+                    ),
+                    child: Scaffold(
+                      body: PrivateChatNavigationPage(
+                          scrollController: scrollController),
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -372,19 +407,43 @@ class _HomePageState extends State<HomePage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.2,
-        maxChildSize: 0.9,
-        expand: false,
-        builder: (context, scrollController) {
-          return ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            child: Scaffold(
-              body: PublicChatPage(scrollController: scrollController),
+      builder: (context) => GestureDetector(
+        onTap: () => Navigator.pop(context),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 50),
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30.0),
+                border: const Border.symmetric(
+                  horizontal: BorderSide(
+                    color: Color(0xFF392ea3),
+                    width: 5,
+                  ),
+                ),
+              ),
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.9,
+                minChildSize: 0.9,
+                maxChildSize: 0.9,
+                expand: false,
+                builder: (context, scrollController) {
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
+                      bottom: Radius.circular(30),
+                    ),
+                    child: Scaffold(
+                      body: PublicChatPage(scrollController: scrollController),
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -412,6 +471,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    _timer.cancel();
     super.dispose();
   }
 
@@ -427,11 +487,11 @@ class _HomePageState extends State<HomePage> {
               Provider.of<ThemeProvider>(context).isDarkMode
                   ? Image.asset(
                       'assets/images/logo-black.png',
-                      height: 40,
+                      height: 20,
                     )
                   : Image.asset(
                       'assets/images/logo-white.png',
-                      height: 40,
+                      height: 20,
                     ),
             ],
           ),
@@ -507,8 +567,27 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               )
-            : const Center(
-                child: CircularProgressIndicator(),
+            : Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_on),
+                        Text('Carregando Conteúdo')
+                      ],
+                    ),
+                    AnimatedOpacity(
+                      duration: Duration(seconds: 2),
+                      opacity: _opacity,
+                      child: Image.asset(
+                        'assets/images/small-logo-black.png',
+                        width: 30,
+                      ),
+                    )
+                  ],
+                ),
               ),
         floatingActionButton: Align(
           alignment: Alignment.bottomRight,

@@ -7,10 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
-import 'package:snarf/pages/account/forgot_password_page.dart';
 import 'package:snarf/pages/account/register_page.dart';
 import 'package:snarf/pages/home_page.dart';
+import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:uuid/uuid.dart';
@@ -43,6 +45,7 @@ class _InitialPageState extends State<InitialPage> {
   void _performLogout() async {
     await ApiService.logout();
     await SignalRManager().stopConnection();
+    Provider.of<ThemeProvider>(context, listen: false).setDarkTheme();
   }
 
   void _shuffleImages() {
@@ -145,7 +148,31 @@ class _InitialPageState extends State<InitialPage> {
   }
 
   void _showErrorDialog(BuildContext context, String message) {
-    _showModal(context, 'Erro', message);
+    showDialog(
+      context: context,
+      builder: (context) => CustomModal(
+        title: 'Erro',
+        content: Text(
+          message,
+          style: TextStyle(
+            fontSize: 16.0,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              'Fechar',
+              style: TextStyle(
+                color: Color(0xFF0b0951),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+        useGradient: true,
+      ),
+    );
   }
 
   @override
@@ -162,7 +189,7 @@ class _InitialPageState extends State<InitialPage> {
                 children: [
                   Image.asset(
                     'assets/images/logo-black.png',
-                    height: 100,
+                    height: 50,
                   ),
                   const SizedBox(height: 48),
                   FractionallySizedBox(
@@ -319,173 +346,355 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(30.0),
-      ),
-      child: Column(
+    return CustomModal(
+      title: 'Confirmar Idade',
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            height: 10.0,
-            decoration: const BoxDecoration(
-              color: Color(0xFF392EA3),
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(30.0),
-              ),
+          Text(
+            'Snarf é um app exclusivo para maiores de idade.\n'
+            'Precisamos verificar a sua idade.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.grey.shade800,
+              fontSize: 14.0,
             ),
           ),
+          const SizedBox(height: 20.0),
+          const Text(
+            'Quando Você Nasceu?',
+            style: TextStyle(
+              color: Color(0xFF0b0951),
+              fontSize: 16.0,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 20.0),
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
                 colors: [
                   Colors.white,
                   Colors.pink.shade50,
                 ],
               ),
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(30.0),
-              ),
+              borderRadius: BorderRadius.circular(30.0),
             ),
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Confirmar Idade',
-                  style: TextStyle(
-                    color: Color(0xFF0b0951),
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.bold,
-                  ),
+            child: SizedBox(
+              height: 100.0,
+              child: ListWheelScrollView.useDelegate(
+                controller: FixedExtentScrollController(
+                  initialItem: currentYear - selectedYear,
                 ),
-                const SizedBox(height: 10.0),
-                Text(
-                  'Snarf é um app exclusivo para maiores de idade.\nPrecisamos verificar a sua idade.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey.shade800,
-                    fontSize: 14.0,
-                  ),
-                ),
-                const SizedBox(height: 20.0),
-                const Text(
-                  'Quando Você Nasceu?',
-                  style: TextStyle(
-                    color: Color(0xFF0b0951),
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 20.0),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.white,
-                        Colors.pink.shade50,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(30.0),
-                  ),
-                  child: SizedBox(
-                    height: 100.0,
-                    child: ListWheelScrollView.useDelegate(
-                      controller: FixedExtentScrollController(
-                        initialItem: currentYear - selectedYear,
+                itemExtent: 25.0,
+                perspective: 0.003,
+                physics: const FixedExtentScrollPhysics(),
+                onSelectedItemChanged: (index) {
+                  setState(() {
+                    selectedYear = currentYear - index;
+                  });
+                },
+                childDelegate: ListWheelChildBuilderDelegate(
+                  builder: (context, index) {
+                    final year = currentYear - index;
+                    final isSelected = year == selectedYear;
+                    return Container(
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        border: isSelected
+                            ? Border(
+                                top: BorderSide(
+                                  color: Colors.grey.shade300,
+                                  width: 1.0,
+                                ),
+                                bottom: BorderSide(
+                                  color: Colors.grey.shade300,
+                                  width: 1.0,
+                                ),
+                              )
+                            : null,
                       ),
-                      itemExtent: 25.0,
-                      perspective: 0.003,
-                      physics: const FixedExtentScrollPhysics(),
-                      onSelectedItemChanged: (index) {
-                        setState(() {
-                          selectedYear = currentYear - index;
-                        });
-                      },
-                      childDelegate: ListWheelChildBuilderDelegate(
-                        builder: (context, index) {
-                          final year = currentYear - index;
-                          final isSelected = year == selectedYear;
-                          return Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              border: isSelected
-                                  ? Border(
-                                      top: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0),
-                                      bottom: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0),
-                                    )
-                                  : null,
-                            ),
-                            child: Text(
-                              year.toString(),
-                              style: TextStyle(
-                                fontSize: 18.0,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isSelected
-                                    ? const Color(0xFF0b0951)
-                                    : Colors.black,
-                              ),
-                            ),
-                          );
-                        },
-                        childCount: currentYear - minYear + 1,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20.0),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text(
-                        'Voltar',
+                      child: Text(
+                        year.toString(),
                         style: TextStyle(
-                          color: Color(0xFF0b0951),
-                          fontWeight: FontWeight.bold,
+                          fontSize: 18.0,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? const Color(0xFF0b0951)
+                              : Colors.black,
                         ),
                       ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (currentYear - selectedYear >= 18) {
-                          Navigator.of(context).pop(selectedYear);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text(
-                                  'Você precisa ser maior de idade para continuar.'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      },
-                      child: const Text(
-                        'Avançar',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
+                    );
+                  },
+                  childCount: currentYear - minYear + 1,
                 ),
-              ],
+              ),
             ),
           ),
         ],
       ),
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text(
+            'Voltar',
+            style: TextStyle(
+              color: Color(0xFF0b0951),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (currentYear - selectedYear >= 18) {
+              Navigator.of(context).pop(selectedYear);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content:
+                      Text('Você precisa ser maior de idade para continuar.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          child: const Text(
+            'Avançar',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+      useGradient: true,
+    );
+  }
+}
+
+void showForgotPasswordModal(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => ForgotPasswordModal(),
+  );
+}
+
+class ForgotPasswordModal extends StatefulWidget {
+  const ForgotPasswordModal({super.key});
+
+  @override
+  State<ForgotPasswordModal> createState() => _ForgotPasswordModalState();
+}
+
+class _ForgotPasswordModalState extends State<ForgotPasswordModal> {
+  final TextEditingController _emailController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  Future<void> _requestResetCode() async {
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      setState(() {
+        _errorMessage = 'Por favor, insira seu e-mail.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final response = await ApiService.requestResetPassword(email);
+
+      if (response == null) {
+        Navigator.pop(context);
+        showResetPasswordModal(context, email);
+      } else {
+        setState(() {
+          _errorMessage = response;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao solicitar código: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomModal(
+      title: 'Esqueci Minha Senha',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Insira seu e-mail para receber um código de redefinição de senha.',
+            style: TextStyle(
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _emailController,
+            decoration: InputDecoration(
+              labelText: 'E-mail',
+              fillColor: Colors.black,
+              labelStyle: TextStyle(color: Colors.black),
+              prefixIconColor: Colors.black,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              prefixIcon: const Icon(Icons.email),
+            ),
+            keyboardType: TextInputType.emailAddress,
+            style: TextStyle(color: Colors.black),
+          ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+          ],
+        ],
+      ),
+      actions: [
+        LoadingElevatedButton(
+          text: 'Enviar Código',
+          isLoading: _isLoading,
+          onPressed: _isLoading ? null : _requestResetCode,
+        ),
+      ],
+      useGradient: true,
+    );
+  }
+}
+
+void showResetPasswordModal(BuildContext context, String email) {
+  showDialog(
+    context: context,
+    builder: (context) => ResetPasswordModal(email: email),
+  );
+}
+
+class ResetPasswordModal extends StatefulWidget {
+  final String email;
+
+  const ResetPasswordModal({super.key, required this.email});
+
+  @override
+  State<ResetPasswordModal> createState() => _ResetPasswordModalState();
+}
+
+class _ResetPasswordModalState extends State<ResetPasswordModal> {
+  final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  Future<void> _resetPassword() async {
+    final code = _codeController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (code.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = 'Por favor, preencha todos os campos.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final response =
+          await ApiService.resetPassword(widget.email, code, password);
+
+      if (response == null) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Senha redefinida com sucesso!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        setState(() {
+          _errorMessage = response;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Erro ao redefinir a senha: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomModal(
+      title: 'Redefinir Senha',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Insira o código recebido por e-mail e sua nova senha.'),
+          const SizedBox(height: 16),
+          TextField(
+            style: TextStyle(color: Colors.black),
+            controller: _codeController,
+            decoration: InputDecoration(
+              labelText: 'Código',
+              labelStyle: TextStyle(color: Colors.black),
+              prefixIconColor: Colors.black,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              prefixIcon: const Icon(Icons.dataset),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            style: TextStyle(color: Colors.black),
+            controller: _passwordController,
+            decoration: InputDecoration(
+              labelText: 'Nova Senha',
+              labelStyle: TextStyle(color: Colors.black),
+              prefixIconColor: Colors.black,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              prefixIcon: const Icon(Icons.lock),
+            ),
+            obscureText: true,
+          ),
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
+          ],
+        ],
+      ),
+      actions: [
+        LoadingElevatedButton(
+          text: 'Redefinir Senha',
+          isLoading: _isLoading,
+          onPressed: _isLoading ? null : _resetPassword,
+        ),
+      ],
+      useGradient: true,
     );
   }
 }
@@ -549,16 +758,19 @@ class _LoginModalState extends State<LoginModal> {
   Widget build(BuildContext context) {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-      child: AlertDialog(
-        title: const Text('Login'),
+      child: CustomModal(
+        title: 'Login',
         content: SingleChildScrollView(
           child: Column(
             children: [
               const SizedBox(height: 10),
               TextField(
                 controller: emailController,
+                style: TextStyle(color: Colors.black),
                 decoration: InputDecoration(
                   labelText: 'E-mail',
+                  labelStyle: TextStyle(color: Colors.black),
+                  prefixIconColor: Colors.black,
                   prefixIcon: const Icon(Icons.email),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
@@ -572,8 +784,12 @@ class _LoginModalState extends State<LoginModal> {
                 builder: (context, isVisible, child) {
                   return TextField(
                     controller: passwordController,
+                    style: TextStyle(color: Colors.black),
                     decoration: InputDecoration(
                       labelText: 'Senha',
+                      labelStyle: TextStyle(color: Colors.black),
+                      prefixIconColor: Colors.black,
+                      suffixIconColor: Colors.black,
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -602,66 +818,66 @@ class _LoginModalState extends State<LoginModal> {
           ),
         ),
         actions: [
-          if (isLoading) const Center(child: CircularProgressIndicator()),
-          if (!isLoading) ...[
-            Center(
-              child: Column(
-                children: [
-                  LoadingElevatedButton(
-                    text: 'Entrar',
-                    isLoading: false,
-                    onPressed: login,
+          if (isLoading)
+            const Center(child: CircularProgressIndicator())
+          else ...[
+            LoadingElevatedButton(
+              text: 'Entrar',
+              isLoading: false,
+              onPressed: login,
+            ),
+            Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    showForgotPasswordModal(context);
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.only(top: 16.0),
+                    child: Text(
+                      'Esqueci minha senha',
+                      style: TextStyle(
+                        color: Colors.blue,
+                      ),
+                    ),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const ForgotPasswordPage()),
-                      );
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.only(top: 16.0),
-                      child: Text(
-                        'Esqueci minha senha',
-                        style: TextStyle(
-                          color: Colors.blue,
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterPage(),
+                      ),
+                    );
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.only(top: 8.0),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Primeira vez no Snarf? ',
+                          style: TextStyle(
+                            color: Colors.black,
+                          ),
                         ),
-                      ),
+                        Text(
+                          'Criar conta',
+                          style: TextStyle(
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const RegisterPage()),
-                      );
-                    },
-                    child: const Padding(
-                      padding: EdgeInsets.only(top: 8.0),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Primeira vez no Snarf? ',
-                          ),
-                          Text(
-                            'Criar conta',
-                            style: TextStyle(
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ],
+        useGradient: true,
       ),
     );
   }
