@@ -682,6 +682,24 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         return SizedBox(
           height: 300,
           child: EmojiPicker(
+            config: Config(
+              categoryViewConfig: CategoryViewConfig(
+                backgroundColor: Color(0xFF0b0951),
+                iconColor: Colors.white,
+              ),
+              emojiViewConfig: EmojiViewConfig(
+                backgroundColor: Color(0xFF0b0951),
+              ),
+              searchViewConfig: SearchViewConfig(
+                backgroundColor: Color(0xFF0b0951),
+                buttonIconColor: Colors.white,
+              ),
+              bottomActionBarConfig: BottomActionBarConfig(
+                backgroundColor: Color(0xFF0b0951),
+                buttonIconColor: Colors.white,
+                buttonColor: Color(0xFF0b0951),
+              ),
+            ),
             onBackspacePressed: () {
               _sendReaction(messageId, '');
               Navigator.pop(ctx);
