@@ -828,14 +828,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           InkWell(
             onTap: distanceInfo.isNotEmpty
                 ? () {
-                    Navigator.push(
-                      context,
+                    Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (_) => HomePage(
-                          initialLatitude: _userLatitude!,
-                          initialLongitude: _userLongitude!,
+                        builder: (context) => HomePage(
+                          initialLatitude: _userLatitude,
+                          initialLongitude: _userLongitude,
                         ),
                       ),
+                      (Route<dynamic> route) => false,
                     );
                   }
                 : null,
