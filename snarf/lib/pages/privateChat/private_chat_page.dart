@@ -1180,13 +1180,10 @@ class _InlineMediaWidget extends StatefulWidget {
 }
 
 class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
-  // Para vídeo
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   bool _videoInitialized = false;
-  bool _isExpanded = false;
 
-  // Para áudio
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
   Duration _currentPosition = Duration.zero;
@@ -1203,25 +1200,24 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
   }
 
   Future<void> _initVideo() async {
-    _videoController = VideoPlayerController.network(widget.mediaUrl);
+    _videoController =
+        VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl));
     await _videoController!.initialize();
+
     _chewieController = ChewieController(
       videoPlayerController: _videoController!,
       autoPlay: false,
       looping: false,
-      allowFullScreen: false,
+      optionsTranslation: OptionsTranslation(
+        playbackSpeedButtonText: 'Velocidade de reprodução',
+        cancelButtonText: 'Cancelar',
+      ),
+      allowFullScreen: true,
+      aspectRatio: _videoController!.value.aspectRatio,
     );
+
     setState(() {
       _videoInitialized = true;
-    });
-
-    _videoController!.addListener(() {
-      if (!_videoController!.value.isPlaying && _isExpanded) {
-        if (_videoController!.value.position >=
-            _videoController!.value.duration) {
-          setState(() => _isExpanded = false);
-        }
-      }
     });
   }
 
@@ -1239,6 +1235,9 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
         _currentPosition = Duration.zero;
       });
     });
+
+    await _audioPlayer.play(UrlSource(widget.mediaUrl));
+    await _audioPlayer.stop();
   }
 
   @override
@@ -1279,8 +1278,8 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
         borderRadius: BorderRadius.circular(8),
         child: Image.network(
           widget.mediaUrl,
-          width: 150,
-          height: 150,
+          width: 250,
+          height: 250,
           fit: BoxFit.cover,
         ),
       ),
@@ -1296,43 +1295,10 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
       );
     }
 
-    final double width =
-        _isExpanded ? MediaQuery.of(context).size.width * 0.8 : 150;
-    final double height = _isExpanded ? 200 : 150;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        shape: _isExpanded ? BoxShape.rectangle : BoxShape.circle,
-        borderRadius: _isExpanded ? BorderRadius.circular(10) : null,
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Chewie(controller: _chewieController!),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: IconButton(
-              icon: Icon(
-                _isExpanded ? Icons.close_fullscreen : Icons.open_in_full,
-                color: Colors.white,
-              ),
-              onPressed: () {
-                setState(() {
-                  if (_isExpanded && _videoController!.value.isPlaying) {
-                    _videoController!.pause();
-                  }
-                  _isExpanded = !_isExpanded;
-                });
-              },
-            ),
-          ),
-        ],
-      ),
+    return SizedBox(
+      width: 250,
+      height: 250,
+      child: Chewie(controller: _chewieController!),
     );
   }
 
