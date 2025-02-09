@@ -111,6 +111,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   double? _userLatitude;
   double? _userLongitude;
 
+  bool _isLoading = false;
+
   bool get _isOnline {
     if (_lastActivity == null) return false;
     final difference = DateTime.now().difference(_lastActivity!);
@@ -124,22 +126,35 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _initializeChat() async {
-    await _initLocation();
-    await _loadUserInfo();
-    SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
-    await SignalRManager().sendSignalRMessage(
-      SignalREventType.PrivateChatGetPreviousMessages,
-      {'ReceiverUserId': widget.userId},
-    );
-    await SignalRManager().sendSignalRMessage(
-      SignalREventType.PrivateChatMarkMessagesAsRead,
-      {'SenderUserId': widget.userId},
-    );
-    await SignalRManager().sendSignalRMessage(
-      SignalREventType.PrivateChatGetFavorites,
-      {},
-    );
-    await _initAudioRecorder();
+    setState(() => _isLoading = true);
+    try {
+      await _initLocation();
+      await _loadUserInfo();
+
+      SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
+
+      await SignalRManager().sendSignalRMessage(
+        SignalREventType.PrivateChatGetPreviousMessages,
+        {'ReceiverUserId': widget.userId},
+      );
+
+      await SignalRManager().sendSignalRMessage(
+        SignalREventType.PrivateChatMarkMessagesAsRead,
+        {'SenderUserId': widget.userId},
+      );
+
+      await SignalRManager().sendSignalRMessage(
+        SignalREventType.PrivateChatGetFavorites,
+        {},
+      );
+
+      await _initAudioRecorder();
+    } catch (e) {
+      log("Erro ao inicializar chat: $e");
+      showSnackbar(context, "Erro ao inicializar chat: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _initLocation() async {
@@ -807,7 +822,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
           Text(_isOnline
               ? 'Conectado'
-              : DateJSONUtils.formatRelativeTime(_lastActivity!.toString())),
+              : (_lastActivity != null
+                  ? DateJSONUtils.formatRelativeTime(_lastActivity!.toString())
+                  : 'Offline')),
           InkWell(
             onTap: distanceInfo.isNotEmpty
                 ? () {
@@ -875,64 +892,67 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: NetworkImage(widget.userImage),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 0.9,
-                colors: [Colors.transparent, Colors.black87],
-                stops: const [0.6, 1.0],
-              ),
-            ),
-          ),
-          Column(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _selectedMessageId = null);
-                  },
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final isMine = message.senderId != widget.userId;
-                      final time = DateJSONUtils.formatRelativeTime(
-                          message.createdAt.toString());
-                      return _buildMessageRow(
-                        message: message,
-                        isMine: isMine,
-                        time: time,
-                      );
-                    },
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: NetworkImage(widget.userImage),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              ),
-              _buildReplyBanner(),
-              _buildBottomBar(),
-              _buildOnlineStatusBar(),
-            ],
-          ),
-          if (_isSendingMedia)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: 0.9,
+                      colors: [Colors.transparent, Colors.black87],
+                      stops: const [0.6, 1.0],
+                    ),
+                  ),
+                ),
+                Column(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedMessageId = null);
+                        },
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final message = _messages[index];
+                            final isMine = message.senderId != widget.userId;
+                            final time = DateJSONUtils.formatRelativeTime(
+                              message.createdAt.toString(),
+                            );
+                            return _buildMessageRow(
+                              message: message,
+                              isMine: isMine,
+                              time: time,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    _buildReplyBanner(),
+                    _buildBottomBar(),
+                    _buildOnlineStatusBar(),
+                  ],
+                ),
+                if (_isSendingMedia)
+                  Container(
+                    color: Colors.black54,
+                    child: const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 
@@ -1196,8 +1216,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               ],
             ),
           ),
-          if (_selectedMessageId == message.id)
-            _buildActionsBar(message, isMine),
         ],
       ),
     );
