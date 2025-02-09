@@ -561,6 +561,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
     if (video == null) return;
 
+    final durationOk = await _checkVideoDuration(File(video.path));
+    if (!durationOk) {
+      showSnackbar(context, "O vídeo excede 15 segundos!");
+      return;
+    }
+
     await _sendVideo(video);
   }
 
@@ -601,6 +607,15 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     } finally {
       if (mounted) setState(() => _isSendingMedia = false);
     }
+  }
+
+  Future<bool> _checkVideoDuration(File file) async {
+    final controller = VideoPlayerController.file(file);
+    await controller.initialize();
+    final duration = controller.value.duration;
+    controller.dispose();
+
+    return duration <= const Duration(seconds: 15);
   }
 
   Future<File?> _compressVideo(File file) async {
