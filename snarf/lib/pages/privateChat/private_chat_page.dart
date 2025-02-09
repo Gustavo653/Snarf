@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter/ffmpeg_kit_config.dart';
+import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -616,7 +619,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         showSnackbar(context, "Falha ao comprimir vídeo");
         return;
       }
-      final fileBytes = await compressedFile.readAsBytes();
+      final resizedFile = await _resizeVideo(compressedFile);
+      final fileBytes = await resizedFile!.readAsBytes();
       final base64Video = base64Encode(fileBytes);
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatSendVideo,
@@ -633,6 +637,27 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
+  Future<File?> _resizeVideo(File inputFile) async {
+    final String outputPath = '${inputFile.path}_square.mp4';
+
+    final String inPath = "'${inputFile.path}'";
+    final String outPath = "'$outputPath'";
+    final String command =
+        '-y -i $inPath -vf "crop=min(iw\\,ih):min(iw\\,ih),scale=720:720" -c:a copy $outPath';
+
+    final session = await FFmpegKit.execute(command);
+
+    final returnCode = await session.getReturnCode();
+    if (ReturnCode.isSuccess(returnCode)) {
+      final file = File(outputPath);
+      if (file.existsSync()) {
+        return file;
+      }
+    }
+    return null;
+  }
+
+
   Future<bool> _checkVideoDuration(File file) async {
     final controller = VideoPlayerController.file(file);
     await controller.initialize();
@@ -642,17 +667,15 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<File?> _compressVideo(File file) async {
-    try {
-      final compressedVideo = await VideoCompress.compressVideo(
-        file.path,
-        quality: VideoQuality.LowQuality,
-        deleteOrigin: false,
-        includeAudio: true,
-      );
-      if (compressedVideo != null && compressedVideo.file != null) {
-        return compressedVideo.file;
-      }
-    } catch (e) {}
+    final compressedVideo = await VideoCompress.compressVideo(
+      file.path,
+      quality: VideoQuality.HighestQuality,
+      deleteOrigin: false,
+      includeAudio: true,
+    );
+    if (compressedVideo != null && compressedVideo.file != null) {
+      return compressedVideo.file;
+    }
     return null;
   }
 
@@ -788,7 +811,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
     return Container(
       width: double.infinity,
-      color: Colors.black54,
+      color: Color(0xff090737),
       padding: const EdgeInsets.all(8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1161,7 +1184,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(6),
             margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
               color: bubbleColor,
@@ -1371,10 +1394,16 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
         child: Center(child: CircularProgressIndicator()),
       );
     }
-    return SizedBox(
-      width: 250,
-      height: 250,
-      child: Chewie(controller: _chewieController!),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.black12,
+      ),
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: Chewie(controller: _chewieController!),
+      ),
     );
   }
 
