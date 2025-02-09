@@ -2,33 +2,28 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:image_picker/image_picker.dart';
 import 'package:location/location.dart' as loc;
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
+import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/services/signalr_manager.dart';
-
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
-
 import 'package:image/image.dart' as img;
 import 'package:snarf/utils/signalr_event_type.dart';
 import 'package:video_compress/video_compress.dart';
-
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-
 import 'package:audioplayers/audioplayers.dart';
 import 'package:snarf/services/api_service.dart';
 
@@ -101,21 +96,16 @@ class PrivateChatPage extends StatefulWidget {
 class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
   List<PrivateChatMessageModel> _messages = [];
-
   final _record = AudioRecorder();
   bool _isRecording = false;
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
-
   bool _isFavorite = false;
   bool _isSendingMedia = false;
   String? _selectedMessageId;
   PrivateChatMessageModel? _replyingToMessage;
-
   DateTime? _lastActivity;
-
   double? _myLatitude;
   double? _myLongitude;
   double? _userLatitude;
@@ -136,24 +126,19 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Future<void> _initializeChat() async {
     await _initLocation();
     await _loadUserInfo();
-
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
-
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatGetPreviousMessages,
       {'ReceiverUserId': widget.userId},
     );
-
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatMarkMessagesAsRead,
       {'SenderUserId': widget.userId},
     );
-
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatGetFavorites,
       {},
     );
-
     await _initAudioRecorder();
   }
 
@@ -170,7 +155,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       showSnackbar(context, "Não foi possível carregar dados do usuário");
       return;
     }
-
     setState(() {
       if (userInfo['lastActivity'] != null) {
         _lastActivity = DateTime.parse(userInfo['lastActivity']).toLocal();
@@ -185,22 +169,17 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   void _handleSignalRMessage(List<Object?>? args) {
     if (args == null || args.isEmpty) return;
-
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
-
       if (!message.containsKey('Type') || !message.containsKey('Data')) {
         return;
       }
-
       final typeString = message['Type'] as String;
       final dynamic data = message['Data'];
-
       SignalREventType type = SignalREventType.values.firstWhere(
         (e) => e.toString().split('.').last == typeString,
         orElse: () => SignalREventType.PrivateChatReceiveMessage,
       );
-
       switch (type) {
         case SignalREventType.PrivateChatReceivePreviousMessages:
           _handleReceivedMessages(data);
@@ -220,7 +199,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         case SignalREventType.PrivateChatReceiveReply:
           _handleReply(data);
           break;
-
         case SignalREventType.MapReceiveLocation:
           if (data is Map<String, dynamic>) {
             final userId = data['userId'] as String?;
@@ -235,7 +213,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             }
           }
           break;
-
         default:
           log("Evento não tratado: $typeString");
       }
@@ -253,7 +230,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         final map = item as Map<String, dynamic>;
         return PrivateChatMessageModel.fromJson(map);
       }).toList();
-
       setState(() {
         _messages = previousMessages;
       });
@@ -268,7 +244,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final map = data as Map<String, dynamic>;
       final newMessage = PrivateChatMessageModel.fromJson(map);
-
       setState(() {
         _messages.add(newMessage);
       });
@@ -283,7 +258,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final map = data as Map<String, dynamic>;
       final String messageId = map['MessageId'] as String;
-
       setState(() {
         final idx = _messages.indexWhere((m) => m.id == messageId);
         if (idx != -1) {
@@ -322,19 +296,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       final messageId = map['MessageId'] as String;
       final reaction = map['Reaction'];
       final reactorUserId = map['ReactorUserId'] as String;
-
       setState(() {
         final idx = _messages.indexWhere((m) => m.id == messageId);
         if (idx != -1) {
           final oldMsg = _messages[idx];
           final newReactions = Map<String, String>.from(oldMsg.reactions);
-
           if (reaction == null || reaction.isEmpty) {
             newReactions.remove(reactorUserId);
           } else {
             newReactions[reactorUserId] = reaction;
           }
-
           _messages[idx] = oldMsg.copyWith(reactions: newReactions);
         }
       });
@@ -348,7 +319,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final map = data as Map<String, dynamic>;
       final newMessage = PrivateChatMessageModel.fromJson(map);
-
       setState(() {
         _messages.add(newMessage);
       });
@@ -362,9 +332,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatDeleteMessage,
-        {
-          'MessageId': messageId,
-        },
+        {'MessageId': messageId},
       );
     } catch (err) {
       showSnackbar(context, "Erro ao excluir mensagem: $err");
@@ -393,14 +361,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         );
       },
     );
-
     if (confirm == true) {
       try {
         await SignalRManager().sendSignalRMessage(
           SignalREventType.PrivateChatDeleteChat,
-          {
-            'ReceiverUserId': widget.userId,
-          },
+          {'ReceiverUserId': widget.userId},
         );
         if (mounted) Navigator.pop(context);
       } catch (err) {
@@ -441,7 +406,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Future<void> _sendReaction(String messageId, String emoji) async {
     try {
       final newReaction = emoji.isEmpty ? null : emoji;
-
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatReactToMessage,
         {
@@ -449,7 +413,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           'Reaction': newReaction,
         },
       );
-
       setState(() => _selectedMessageId = null);
     } catch (e) {
       showSnackbar(context, "Erro ao enviar reação: $e");
@@ -482,16 +445,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<void> _startRecording() async {
     if (_isRecording) return;
-
     final hasPermission = await _record.hasPermission();
     if (!hasPermission) {
       showSnackbar(context, "Sem permissão para gravar áudio");
       return;
     }
-
     _isRecording = true;
     setState(() {});
-
     _recordingSeconds = 0;
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       _recordingSeconds++;
@@ -500,10 +460,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       }
       setState(() {});
     });
-
     final tempPath =
         '${Directory.systemTemp.path}/temp_audio_${DateTime.now().millisecondsSinceEpoch}.aac';
-
     await _record.start(
       const RecordConfig(),
       path: tempPath,
@@ -512,13 +470,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<void> _stopRecording() async {
     if (!_isRecording) return;
-
     final path = await _record.stop();
     _isRecording = false;
     _recordingTimer?.cancel();
     _recordingTimer = null;
     setState(() {});
-
     if (path != null) {
       await _sendAudio(path);
     }
@@ -529,7 +485,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final fileBytes = await File(filePath).readAsBytes();
       final base64Audio = base64Encode(fileBytes);
-
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatSendAudio,
         {
@@ -619,13 +574,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       maxDuration: const Duration(seconds: 15),
     );
     if (video == null) return;
-
     final durationOk = await _checkVideoDuration(File(video.path));
     if (!durationOk) {
       showSnackbar(context, "O vídeo excede 15 segundos!");
       return;
     }
-
     await _sendVideo(video);
   }
 
@@ -636,7 +589,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       maxDuration: const Duration(seconds: 15),
     );
     if (video == null) return;
-
     await _sendVideo(video);
   }
 
@@ -649,10 +601,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         showSnackbar(context, "Falha ao comprimir vídeo");
         return;
       }
-
       final fileBytes = await compressedFile.readAsBytes();
       final base64Video = base64Encode(fileBytes);
-
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatSendVideo,
         {
@@ -673,7 +623,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     await controller.initialize();
     final duration = controller.value.duration;
     controller.dispose();
-
     return duration <= const Duration(seconds: 15);
   }
 
@@ -688,9 +637,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       if (compressedVideo != null && compressedVideo.file != null) {
         return compressedVideo.file;
       }
-    } catch (e) {
-      debugPrint("Erro ao comprimir vídeo: $e");
-    }
+    } catch (e) {}
     return null;
   }
 
@@ -735,6 +682,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     if (result == null) {
       showSnackbar(context, 'Usuário denunciado com sucesso.',
           color: Colors.green);
+      Navigator.pop(context);
     } else {
       showSnackbar(context, 'Erro ao denunciar usuário: $result');
     }
@@ -823,19 +771,65 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       );
       distanceInfo = '${distance.toStringAsFixed(2)} km';
     }
-
     return Container(
       width: double.infinity,
       color: Colors.black54,
       padding: const EdgeInsets.all(8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
+          PopupMenuButton<int>(
+            color: Color(0xFF0b0951),
+            onSelected: (value) {
+              if (value == 0) {
+                _deleteEntireChat();
+              } else if (value == 1) {
+                _reportUser();
+              } else if (value == 2) {
+                _blockUser();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 0,
+                child: Text('Excluir todo o chat'),
+              ),
+              const PopupMenuItem(
+                value: 1,
+                child: Text('Denunciar'),
+              ),
+              const PopupMenuItem(
+                value: 2,
+                child: Text('Bloquear'),
+              ),
+            ],
+            child: Icon(Icons.more_horiz),
+          ),
           Text(_isOnline
               ? 'Conectado'
               : DateJSONUtils.formatRelativeTime(_lastActivity!.toString())),
-          Text(' | '),
-          Text(distanceInfo)
+          InkWell(
+            onTap: distanceInfo.isNotEmpty
+                ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HomePage(
+                          initialLatitude: _userLatitude!,
+                          initialLongitude: _userLongitude!,
+                        ),
+                      ),
+                    );
+                  }
+                : null,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.my_location, size: 14, color: Colors.blue),
+                Text(distanceInfo, style: const TextStyle(color: Colors.blue)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -876,34 +870,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             onPressed: _toggleFavorite,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_forever),
-            onPressed: _deleteEntireChat,
-          ),
-          IconButton(
             icon: const Icon(Icons.videocam),
             onPressed: () => _initiateCall(widget.userId),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'block':
-                  _blockUser();
-                  break;
-                case 'report':
-                  _reportUser();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'block',
-                child: Text('Bloquear'),
-              ),
-              const PopupMenuItem(
-                value: 'report',
-                child: Text('Denunciar'),
-              ),
-            ],
           ),
         ],
       ),
@@ -942,7 +910,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                       final isMine = message.senderId != widget.userId;
                       final time = DateJSONUtils.formatRelativeTime(
                           message.createdAt.toString());
-
                       return _buildMessageRow(
                         message: message,
                         isMine: isMine,
@@ -1048,7 +1015,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             onPressed: () {
               final text = _messageController.text.trim();
               if (text.isEmpty) return;
-
               if (_replyingToMessage != null) {
                 _replyToMessage(_replyingToMessage!.id, text);
                 _replyingToMessage = null;
@@ -1122,7 +1088,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           IconButton(
             icon: const Icon(Icons.mood),
             onPressed: () => _openEmojiPicker(message.id),
-            tooltip: 'Reagir',
           ),
           IconButton(
             icon: const Icon(Icons.reply),
@@ -1132,13 +1097,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 _selectedMessageId = null;
               });
             },
-            tooltip: 'Responder',
           ),
           if (isMine && message.message != 'Mensagem excluída')
             IconButton(
               icon: const Icon(Icons.delete),
               onPressed: () => _deleteMessage(message.id),
-              tooltip: 'Excluir',
             ),
         ],
       ),
@@ -1152,7 +1115,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final bool isImage = lower.startsWith('https://') && _isImageUrl(content);
     final bool isVideo = lower.startsWith('https://') && _isVideoUrl(content);
     final bool isAudio = lower.startsWith('https://') && _isAudioUrl(content);
-
     final replyToMsg = (message.replyToMessageId != null)
         ? _messages.firstWhere(
             (m) => m.id == message.replyToMessageId,
@@ -1164,7 +1126,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             ),
           )
         : null;
-
     final bubbleColor = const Color(0xFFE8ECEF);
     final borderRadius = BorderRadius.only(
       topLeft: const Radius.circular(16),
@@ -1173,7 +1134,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       bottomRight:
           isMine ? const Radius.circular(0) : const Radius.circular(16),
     );
-
     return GestureDetector(
       onLongPress: () => _onMessageLongPress(message),
       child: Column(
@@ -1190,7 +1150,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (replyToMsg != null && replyToMsg.id.isNotEmpty) ...[
+                if (replyToMsg != null && replyToMsg.id.isNotEmpty)
                   Container(
                     padding: const EdgeInsets.all(8),
                     margin: const EdgeInsets.only(bottom: 8),
@@ -1206,7 +1166,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                       ),
                     ),
                   ),
-                ],
                 if (isDeleted)
                   const Text(
                     "Mensagem excluída",
@@ -1227,15 +1186,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     content,
                     style: const TextStyle(fontSize: 16, color: Colors.black),
                   ),
-                if (message.reactions.isNotEmpty) ...[
-                  const SizedBox(height: 6),
+                if (message.reactions.isNotEmpty)
                   Wrap(
                     spacing: 4,
                     children: message.reactions.values.map((emoji) {
                       return Text(emoji, style: const TextStyle(fontSize: 18));
                     }).toList(),
                   ),
-                ],
               ],
             ),
           ),
@@ -1290,7 +1247,6 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   bool _videoInitialized = false;
-
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isPlaying = false;
   Duration _currentPosition = Duration.zero;
@@ -1310,7 +1266,6 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
     _videoController =
         VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl));
     await _videoController!.initialize();
-
     _chewieController = ChewieController(
       videoPlayerController: _videoController!,
       autoPlay: false,
@@ -1322,7 +1277,6 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
       allowFullScreen: true,
       aspectRatio: _videoController!.value.aspectRatio,
     );
-
     setState(() {
       _videoInitialized = true;
     });
@@ -1335,14 +1289,12 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
     _audioPlayer.onPositionChanged.listen((pos) {
       setState(() => _currentPosition = pos);
     });
-
     _audioPlayer.onPlayerComplete.listen((event) {
       setState(() {
         _isPlaying = false;
         _currentPosition = Duration.zero;
       });
     });
-
     await _audioPlayer.play(UrlSource(widget.mediaUrl));
     await _audioPlayer.stop();
   }
@@ -1401,7 +1353,6 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
         child: Center(child: CircularProgressIndicator()),
       );
     }
-
     return SizedBox(
       width: 250,
       height: 250,
@@ -1448,15 +1399,11 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
             children: [
               Text(
                 _formatDuration(_currentPosition),
-                style: TextStyle(
-                  color: Colors.black,
-                ),
+                style: TextStyle(color: Colors.black),
               ),
               Text(
                 _formatDuration(_totalDuration),
-                style: TextStyle(
-                  color: Colors.black,
-                ),
+                style: TextStyle(color: Colors.black),
               ),
             ],
           )
