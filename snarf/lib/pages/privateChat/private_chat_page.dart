@@ -801,53 +801,63 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: NetworkImage(widget.userImage),
-            fit: BoxFit.cover,
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: NetworkImage(widget.userImage),
+                fit: BoxFit.cover,
+              ),
+            ),
           ),
-        ),
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() => _selectedMessageId = null);
-                    },
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        final isMine = message.senderId != widget.userId;
-                        final time = DateJSONUtils.formatRelativeTime(
-                            message.createdAt.toString());
+          Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.center,
+                radius: 0.9,
+                colors: [Colors.transparent, Colors.black87],
+                stops: const [0.6, 1.0],
+              ),
+            ),
+          ),
+          Column(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() => _selectedMessageId = null);
+                  },
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isMine = message.senderId != widget.userId;
+                      final time = DateJSONUtils.formatRelativeTime(
+                          message.createdAt.toString());
 
-                        return _buildMessageRow(
-                          message: message,
-                          isMine: isMine,
-                          time: time,
-                        );
-                      },
-                    ),
+                      return _buildMessageRow(
+                        message: message,
+                        isMine: isMine,
+                        time: time,
+                      );
+                    },
                   ),
                 ),
-                _buildReplyBanner(),
-                _buildBottomBar(),
-              ],
-            ),
-            if (_isSendingMedia)
-              Container(
-                color: Colors.black54,
-                child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
               ),
-          ],
-        ),
+              _buildReplyBanner(),
+              _buildBottomBar(),
+            ],
+          ),
+          if (_isSendingMedia)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -908,10 +918,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 value: 'camera',
                 child: Text('Tirar Foto'),
               ),
-              /*const PopupMenuItem(
+              const PopupMenuItem(
                 value: 'video_gallery',
                 child: Text('Vídeo da Galeria'),
-              ),*/
+              ),
             ],
           ),
           Expanded(
@@ -979,7 +989,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         crossAxisAlignment:
             isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          _buildMessageBubble(message, isMine, time),
+          Text(
+            time,
+            style: const TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          _buildMessageBubble(message, isMine),
           if (_selectedMessageId == message.id)
             _buildActionsBar(message, isMine),
         ],
@@ -1021,8 +1038,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  Widget _buildMessageBubble(
-      PrivateChatMessageModel message, bool isMine, String time) {
+  Widget _buildMessageBubble(PrivateChatMessageModel message, bool isMine) {
     final isDeleted = message.message == 'Mensagem excluída';
     final content = message.message;
     final lower = content.toLowerCase();
@@ -1055,13 +1071,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       onLongPress: () => _onMessageLongPress(message),
       child: Column(
         children: [
-          Text(
-            time,
-            style: const TextStyle(
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
