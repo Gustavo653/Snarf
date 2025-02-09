@@ -487,11 +487,11 @@ class _HomePageState extends State<HomePage> {
               Provider.of<ThemeProvider>(context).isDarkMode
                   ? Image.asset(
                       'assets/images/logo-black.png',
-                      height: 20,
+                      height: 30,
                     )
                   : Image.asset(
                       'assets/images/logo-white.png',
-                      height: 20,
+                      height: 30,
                     ),
             ],
           ),

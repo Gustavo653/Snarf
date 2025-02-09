@@ -2,31 +2,28 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:image_picker/image_picker.dart';
+import 'package:location/location.dart' as loc;
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
+import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/providers/theme_provider.dart';
+import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/services/signalr_manager.dart';
-
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
-
 import 'package:image/image.dart' as img;
 import 'package:snarf/utils/signalr_event_type.dart';
 import 'package:video_compress/video_compress.dart';
-
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-
 import 'package:audioplayers/audioplayers.dart';
 import 'package:snarf/services/api_service.dart';
 
@@ -99,19 +96,28 @@ class PrivateChatPage extends StatefulWidget {
 class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-
   List<PrivateChatMessageModel> _messages = [];
-
   final _record = AudioRecorder();
   bool _isRecording = false;
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
-
   bool _isFavorite = false;
   bool _isSendingMedia = false;
-
   String? _selectedMessageId;
   PrivateChatMessageModel? _replyingToMessage;
+  DateTime? _lastActivity;
+  double? _myLatitude;
+  double? _myLongitude;
+  double? _userLatitude;
+  double? _userLongitude;
+
+  bool _isLoading = false;
+
+  bool get _isOnline {
+    if (_lastActivity == null) return false;
+    final difference = DateTime.now().difference(_lastActivity!);
+    return difference.inMinutes < 1;
+  }
 
   @override
   void initState() {
@@ -120,44 +126,75 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _initializeChat() async {
-    SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
+    setState(() => _isLoading = true);
+    try {
+      await _initLocation();
+      await _loadUserInfo();
 
-    await SignalRManager().sendSignalRMessage(
-      SignalREventType.PrivateChatGetPreviousMessages,
-      {'ReceiverUserId': widget.userId},
-    );
+      SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
 
-    await SignalRManager().sendSignalRMessage(
-      SignalREventType.PrivateChatMarkMessagesAsRead,
-      {'SenderUserId': widget.userId},
-    );
+      await SignalRManager().sendSignalRMessage(
+        SignalREventType.PrivateChatGetPreviousMessages,
+        {'ReceiverUserId': widget.userId},
+      );
 
-    await SignalRManager().sendSignalRMessage(
-      SignalREventType.PrivateChatGetFavorites,
-      {},
-    );
+      await SignalRManager().sendSignalRMessage(
+        SignalREventType.PrivateChatMarkMessagesAsRead,
+        {'SenderUserId': widget.userId},
+      );
 
-    await _initAudioRecorder();
+      await SignalRManager().sendSignalRMessage(
+        SignalREventType.PrivateChatGetFavorites,
+        {},
+      );
+
+      await _initAudioRecorder();
+    } catch (e) {
+      log("Erro ao inicializar chat: $e");
+      showSnackbar(context, "Erro ao inicializar chat: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _initLocation() async {
+    loc.Location location = loc.Location();
+    var position = await location.getLocation();
+    _myLatitude = position.latitude;
+    _myLongitude = position.longitude;
+  }
+
+  Future<void> _loadUserInfo() async {
+    final userInfo = await ApiService.getUserInfoById(widget.userId);
+    if (userInfo == null) {
+      showSnackbar(context, "Não foi possível carregar dados do usuário");
+      return;
+    }
+    setState(() {
+      if (userInfo['lastActivity'] != null) {
+        _lastActivity = DateTime.parse(userInfo['lastActivity']).toLocal();
+      }
+      if (userInfo['lastLatitude'] != null &&
+          userInfo['lastLongitude'] != null) {
+        _userLatitude = (userInfo['lastLatitude'] as num).toDouble();
+        _userLongitude = (userInfo['lastLongitude'] as num).toDouble();
+      }
+    });
   }
 
   void _handleSignalRMessage(List<Object?>? args) {
     if (args == null || args.isEmpty) return;
-
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
-
       if (!message.containsKey('Type') || !message.containsKey('Data')) {
         return;
       }
-
       final typeString = message['Type'] as String;
       final dynamic data = message['Data'];
-
       SignalREventType type = SignalREventType.values.firstWhere(
         (e) => e.toString().split('.').last == typeString,
         orElse: () => SignalREventType.PrivateChatReceiveMessage,
       );
-
       switch (type) {
         case SignalREventType.PrivateChatReceivePreviousMessages:
           _handleReceivedMessages(data);
@@ -177,6 +214,20 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         case SignalREventType.PrivateChatReceiveReply:
           _handleReply(data);
           break;
+        case SignalREventType.MapReceiveLocation:
+          if (data is Map<String, dynamic>) {
+            final userId = data['userId'] as String?;
+            if (userId == widget.userId) {
+              setState(() {
+                _lastActivity = DateTime.now();
+                if (data['Latitude'] != null && data['Longitude'] != null) {
+                  _userLatitude = (data['Latitude'] as num).toDouble();
+                  _userLongitude = (data['Longitude'] as num).toDouble();
+                }
+              });
+            }
+          }
+          break;
         default:
           log("Evento não tratado: $typeString");
       }
@@ -194,7 +245,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         final map = item as Map<String, dynamic>;
         return PrivateChatMessageModel.fromJson(map);
       }).toList();
-
       setState(() {
         _messages = previousMessages;
       });
@@ -209,7 +259,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final map = data as Map<String, dynamic>;
       final newMessage = PrivateChatMessageModel.fromJson(map);
-
       setState(() {
         _messages.add(newMessage);
       });
@@ -224,7 +273,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final map = data as Map<String, dynamic>;
       final String messageId = map['MessageId'] as String;
-
       setState(() {
         final idx = _messages.indexWhere((m) => m.id == messageId);
         if (idx != -1) {
@@ -263,19 +311,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       final messageId = map['MessageId'] as String;
       final reaction = map['Reaction'];
       final reactorUserId = map['ReactorUserId'] as String;
-
       setState(() {
         final idx = _messages.indexWhere((m) => m.id == messageId);
         if (idx != -1) {
           final oldMsg = _messages[idx];
           final newReactions = Map<String, String>.from(oldMsg.reactions);
-
           if (reaction == null || reaction.isEmpty) {
             newReactions.remove(reactorUserId);
           } else {
             newReactions[reactorUserId] = reaction;
           }
-
           _messages[idx] = oldMsg.copyWith(reactions: newReactions);
         }
       });
@@ -289,7 +334,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final map = data as Map<String, dynamic>;
       final newMessage = PrivateChatMessageModel.fromJson(map);
-
       setState(() {
         _messages.add(newMessage);
       });
@@ -303,9 +347,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatDeleteMessage,
-        {
-          'MessageId': messageId,
-        },
+        {'MessageId': messageId},
       );
     } catch (err) {
       showSnackbar(context, "Erro ao excluir mensagem: $err");
@@ -334,14 +376,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         );
       },
     );
-
     if (confirm == true) {
       try {
         await SignalRManager().sendSignalRMessage(
           SignalREventType.PrivateChatDeleteChat,
-          {
-            'ReceiverUserId': widget.userId,
-          },
+          {'ReceiverUserId': widget.userId},
         );
         if (mounted) Navigator.pop(context);
       } catch (err) {
@@ -382,7 +421,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Future<void> _sendReaction(String messageId, String emoji) async {
     try {
       final newReaction = emoji.isEmpty ? null : emoji;
-
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatReactToMessage,
         {
@@ -390,7 +428,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           'Reaction': newReaction,
         },
       );
-
       setState(() => _selectedMessageId = null);
     } catch (e) {
       showSnackbar(context, "Erro ao enviar reação: $e");
@@ -423,16 +460,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<void> _startRecording() async {
     if (_isRecording) return;
-
     final hasPermission = await _record.hasPermission();
     if (!hasPermission) {
       showSnackbar(context, "Sem permissão para gravar áudio");
       return;
     }
-
     _isRecording = true;
     setState(() {});
-
     _recordingSeconds = 0;
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       _recordingSeconds++;
@@ -441,10 +475,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       }
       setState(() {});
     });
-
     final tempPath =
         '${Directory.systemTemp.path}/temp_audio_${DateTime.now().millisecondsSinceEpoch}.aac';
-
     await _record.start(
       const RecordConfig(),
       path: tempPath,
@@ -453,13 +485,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<void> _stopRecording() async {
     if (!_isRecording) return;
-
     final path = await _record.stop();
     _isRecording = false;
     _recordingTimer?.cancel();
     _recordingTimer = null;
     setState(() {});
-
     if (path != null) {
       await _sendAudio(path);
     }
@@ -470,7 +500,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     try {
       final fileBytes = await File(filePath).readAsBytes();
       final base64Audio = base64Encode(fileBytes);
-
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatSendAudio,
         {
@@ -560,7 +589,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       maxDuration: const Duration(seconds: 15),
     );
     if (video == null) return;
-
+    final durationOk = await _checkVideoDuration(File(video.path));
+    if (!durationOk) {
+      showSnackbar(context, "O vídeo excede 15 segundos!");
+      return;
+    }
     await _sendVideo(video);
   }
 
@@ -571,7 +604,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       maxDuration: const Duration(seconds: 15),
     );
     if (video == null) return;
-
     await _sendVideo(video);
   }
 
@@ -584,10 +616,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         showSnackbar(context, "Falha ao comprimir vídeo");
         return;
       }
-
       final fileBytes = await compressedFile.readAsBytes();
       final base64Video = base64Encode(fileBytes);
-
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatSendVideo,
         {
@@ -603,6 +633,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
+  Future<bool> _checkVideoDuration(File file) async {
+    final controller = VideoPlayerController.file(file);
+    await controller.initialize();
+    final duration = controller.value.duration;
+    controller.dispose();
+    return duration <= const Duration(seconds: 15);
+  }
+
   Future<File?> _compressVideo(File file) async {
     try {
       final compressedVideo = await VideoCompress.compressVideo(
@@ -614,9 +652,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       if (compressedVideo != null && compressedVideo.file != null) {
         return compressedVideo.file;
       }
-    } catch (e) {
-      debugPrint("Erro ao comprimir vídeo: $e");
-    }
+    } catch (e) {}
     return null;
   }
 
@@ -661,6 +697,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     if (result == null) {
       showSnackbar(context, 'Usuário denunciado com sucesso.',
           color: Colors.green);
+      Navigator.pop(context);
     } else {
       showSnackbar(context, 'Erro ao denunciar usuário: $result');
     }
@@ -735,6 +772,86 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     super.dispose();
   }
 
+  Widget _buildOnlineStatusBar() {
+    String distanceInfo = '';
+    if (_myLatitude != null &&
+        _myLongitude != null &&
+        _userLatitude != null &&
+        _userLongitude != null) {
+      final distance = DistanceUtils.calculateDistance(
+        _myLatitude!,
+        _myLongitude!,
+        _userLatitude!,
+        _userLongitude!,
+      );
+      distanceInfo = '${distance.toStringAsFixed(2)} km';
+    }
+    return Container(
+      width: double.infinity,
+      color: Colors.black54,
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          PopupMenuButton<int>(
+            color: Color(0xFF0b0951),
+            onSelected: (value) {
+              if (value == 0) {
+                _deleteEntireChat();
+              } else if (value == 1) {
+                _reportUser();
+              } else if (value == 2) {
+                _blockUser();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 0,
+                child: Text('Excluir todo o chat'),
+              ),
+              const PopupMenuItem(
+                value: 1,
+                child: Text('Denunciar'),
+              ),
+              const PopupMenuItem(
+                value: 2,
+                child: Text('Bloquear'),
+              ),
+            ],
+            child: Icon(Icons.more_horiz),
+          ),
+          Text(_isOnline
+              ? 'Conectado'
+              : (_lastActivity != null
+                  ? DateJSONUtils.formatRelativeTime(_lastActivity!.toString())
+                  : 'Offline')),
+          InkWell(
+            onTap: distanceInfo.isNotEmpty
+                ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => HomePage(
+                          initialLatitude: _userLatitude!,
+                          initialLongitude: _userLongitude!,
+                        ),
+                      ),
+                    );
+                  }
+                : null,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.my_location, size: 14, color: Colors.blue),
+                Text(distanceInfo, style: const TextStyle(color: Colors.blue)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -770,77 +887,72 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             onPressed: _toggleFavorite,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_forever),
-            onPressed: _deleteEntireChat,
-          ),
-          IconButton(
             icon: const Icon(Icons.videocam),
             onPressed: () => _initiateCall(widget.userId),
           ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'block':
-                  _blockUser();
-                  break;
-                case 'report':
-                  _reportUser();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'block',
-                child: Text('Bloquear'),
-              ),
-              const PopupMenuItem(
-                value: 'report',
-                child: Text('Denunciar'),
-              ),
-            ],
-          ),
         ],
       ),
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => _selectedMessageId = null);
-                  },
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final isMine = message.senderId != widget.userId;
-                      final time =
-                          DateJSONUtils.formatMessageTime(message.createdAt);
-
-                      return _buildMessageRow(
-                        message: message,
-                        isMine: isMine,
-                        time: time,
-                      );
-                    },
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: NetworkImage(widget.userImage),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              ),
-              _buildReplyBanner(),
-              _buildBottomBar(),
-            ],
-          ),
-          if (_isSendingMedia)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment.center,
+                      radius: 0.9,
+                      colors: [Colors.transparent, Colors.black87],
+                      stops: const [0.6, 1.0],
+                    ),
+                  ),
+                ),
+                Column(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedMessageId = null);
+                        },
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final message = _messages[index];
+                            final isMine = message.senderId != widget.userId;
+                            final time = DateJSONUtils.formatRelativeTime(
+                              message.createdAt.toString(),
+                            );
+                            return _buildMessageRow(
+                              message: message,
+                              isMine: isMine,
+                              time: time,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    _buildReplyBanner(),
+                    _buildBottomBar(),
+                    _buildOnlineStatusBar(),
+                  ],
+                ),
+                if (_isSendingMedia)
+                  Container(
+                    color: Colors.black54,
+                    child: const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 
@@ -849,34 +961,30 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final originalText = _replyingToMessage!.message;
     final isMedia = originalText.startsWith('https://');
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.all(
-          Radius.circular(30),
-        ),
-        border: Border.all(color: Colors.white, width: 1),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          const Icon(Icons.reply, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              isMedia
-                  ? 'Respondendo a um arquivo (imagem/vídeo/áudio)'
-                  : 'Respondendo: $originalText',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+      color: Color(0xFF0b0951),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.reply, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isMedia
+                    ? 'Respondendo a um arquivo (imagem/vídeo/áudio)'
+                    : 'Respondendo: $originalText',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() => _replyingToMessage = null);
-            },
-            icon: const Icon(Icons.close),
-          ),
-        ],
+            IconButton(
+              onPressed: () {
+                setState(() => _replyingToMessage = null);
+              },
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -888,12 +996,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       child: Row(
         children: [
           PopupMenuButton<String>(
+            color: Color(0xFF0b0951),
             icon: const Icon(Icons.add_circle, size: 28),
             onSelected: (value) {
               if (value == 'gallery') _pickImage();
               if (value == 'camera') _takePhoto();
               if (value == 'video_gallery') _pickVideo();
-              if (value == 'video_camera') _recordVideo();
             },
             itemBuilder: (context) => [
               const PopupMenuItem(
@@ -907,10 +1015,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               const PopupMenuItem(
                 value: 'video_gallery',
                 child: Text('Vídeo da Galeria'),
-              ),
-              const PopupMenuItem(
-                value: 'video_camera',
-                child: Text('Gravar Vídeo'),
               ),
             ],
           ),
@@ -931,7 +1035,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             onPressed: () {
               final text = _messageController.text.trim();
               if (text.isEmpty) return;
-
               if (_replyingToMessage != null) {
                 _replyToMessage(_replyingToMessage!.id, text);
                 _replyingToMessage = null;
@@ -939,6 +1042,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               } else {
                 _sendMessage();
               }
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.camera_alt),
+            onPressed: () {
+              _recordVideo();
             },
           ),
           IconButton(
@@ -973,9 +1082,16 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         crossAxisAlignment:
             isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
+          Text(
+            time,
+            style: const TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          _buildMessageBubble(message, isMine),
           if (_selectedMessageId == message.id)
             _buildActionsBar(message, isMine),
-          _buildMessageBubble(message, isMine, time),
         ],
       ),
     );
@@ -992,9 +1108,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           IconButton(
             icon: const Icon(Icons.mood),
             onPressed: () => _openEmojiPicker(message.id),
-            tooltip: 'Reagir',
           ),
-          // RESPONDER
           IconButton(
             icon: const Icon(Icons.reply),
             onPressed: () {
@@ -1003,28 +1117,24 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 _selectedMessageId = null;
               });
             },
-            tooltip: 'Responder',
           ),
           if (isMine && message.message != 'Mensagem excluída')
             IconButton(
               icon: const Icon(Icons.delete),
               onPressed: () => _deleteMessage(message.id),
-              tooltip: 'Excluir',
             ),
         ],
       ),
     );
   }
 
-  Widget _buildMessageBubble(
-      PrivateChatMessageModel message, bool isMine, String time) {
+  Widget _buildMessageBubble(PrivateChatMessageModel message, bool isMine) {
     final isDeleted = message.message == 'Mensagem excluída';
     final content = message.message;
     final lower = content.toLowerCase();
     final bool isImage = lower.startsWith('https://') && _isImageUrl(content);
     final bool isVideo = lower.startsWith('https://') && _isVideoUrl(content);
     final bool isAudio = lower.startsWith('https://') && _isAudioUrl(content);
-
     final replyToMsg = (message.replyToMessageId != null)
         ? _messages.firstWhere(
             (m) => m.id == message.replyToMessageId,
@@ -1036,8 +1146,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             ),
           )
         : null;
-
-    final bubbleColor = Colors.grey.shade700;
+    final bubbleColor = const Color(0xFFE8ECEF);
     final borderRadius = BorderRadius.only(
       topLeft: const Radius.circular(16),
       topRight: const Radius.circular(16),
@@ -1045,106 +1154,69 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       bottomRight:
           isMine ? const Radius.circular(0) : const Radius.circular(16),
     );
-
     return GestureDetector(
       onLongPress: () => _onMessageLongPress(message),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: bubbleColor,
-          borderRadius: borderRadius,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (replyToMsg != null) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  "Em resposta: ${replyToMsg.message.startsWith('https://') ? '(Mídia)' : replyToMsg.message}",
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
-              ),
-            ],
-            if (isDeleted)
-              const Text(
-                "Mensagem excluída",
-                style: TextStyle(fontStyle: FontStyle.italic),
-              )
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isImage || isVideo || isAudio)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isImage
-                              ? Icons.image
-                              : isVideo
-                                  ? Icons.videocam
-                                  : Icons.audiotrack,
-                          size: 40,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          isImage
-                              ? "Foto"
-                              : isVideo
-                                  ? "Vídeo"
-                                  : "Áudio",
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.open_in_new),
-                          onPressed: () => _openMediaPreview(content),
-                        ),
-                      ],
+      child: Column(
+        crossAxisAlignment:
+            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 4),
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: borderRadius,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (replyToMsg != null && replyToMsg.id.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  if (!isImage && !isVideo && !isAudio)
-                    Text(
-                      content,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Reactions
-                      if (message.reactions.isNotEmpty) ...[
-                        Wrap(
-                          spacing: 4,
-                          children: message.reactions.values.map((emoji) {
-                            return Text(emoji,
-                                style: const TextStyle(fontSize: 18));
-                          }).toList(),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                      Text(
-                        time,
-                        style: const TextStyle(fontSize: 12),
+                    child: Text(
+                      "Em resposta: ${replyToMsg.message.startsWith('https://') ? '(Mídia)' : replyToMsg.message}",
+                      style: const TextStyle(
+                        fontStyle: FontStyle.italic,
+                        color: Colors.black,
                       ),
-                    ],
+                    ),
                   ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _openMediaPreview(String url) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MediaPreviewPage(url: url),
+                if (isDeleted)
+                  const Text(
+                    "Mensagem excluída",
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.black,
+                    ),
+                  )
+                else if (isImage || isVideo || isAudio)
+                  _InlineMediaWidget(
+                    mediaUrl: content,
+                    isImage: isImage,
+                    isVideo: isVideo,
+                    isAudio: isAudio,
+                  )
+                else
+                  Text(
+                    content,
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                  ),
+                if (message.reactions.isNotEmpty)
+                  Wrap(
+                    spacing: 4,
+                    children: message.reactions.values.map((emoji) {
+                      return Text(emoji, style: const TextStyle(fontSize: 18));
+                    }).toList(),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1172,123 +1244,206 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 }
 
-class MediaPreviewPage extends StatefulWidget {
-  final String url;
+class _InlineMediaWidget extends StatefulWidget {
+  final String mediaUrl;
+  final bool isImage;
+  final bool isVideo;
+  final bool isAudio;
 
-  const MediaPreviewPage({super.key, required this.url});
+  const _InlineMediaWidget({
+    required this.mediaUrl,
+    required this.isImage,
+    required this.isVideo,
+    required this.isAudio,
+  });
 
   @override
-  State<MediaPreviewPage> createState() => _MediaPreviewPageState();
+  State<_InlineMediaWidget> createState() => _InlineMediaWidgetState();
 }
 
-class _MediaPreviewPageState extends State<MediaPreviewPage> {
+class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
-  AudioPlayer? _audioPlayer;
-
-  bool get isImage => _isImageUrl(widget.url);
-
-  bool get isVideo => _isVideoUrl(widget.url);
-
-  bool get isAudio => _isAudioUrl(widget.url);
+  bool _videoInitialized = false;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlaying = false;
+  Duration _currentPosition = Duration.zero;
+  Duration _totalDuration = Duration.zero;
 
   @override
   void initState() {
     super.initState();
-    if (isVideo) {
-      _initializeVideo();
-    } else if (isAudio) {
-      _initializeAudio();
+    if (widget.isVideo) {
+      _initVideo();
+    } else if (widget.isAudio) {
+      _initAudio();
     }
   }
 
-  Future<void> _initializeVideo() async {
-    _videoController = VideoPlayerController.network(widget.url);
+  Future<void> _initVideo() async {
+    _videoController =
+        VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl));
     await _videoController!.initialize();
     _chewieController = ChewieController(
       videoPlayerController: _videoController!,
-      autoPlay: true,
-      looping: true,
+      autoPlay: false,
+      looping: false,
+      optionsTranslation: OptionsTranslation(
+        playbackSpeedButtonText: 'Velocidade de reprodução',
+        cancelButtonText: 'Cancelar',
+      ),
+      allowFullScreen: true,
+      aspectRatio: _videoController!.value.aspectRatio,
     );
-    setState(() {});
+    setState(() {
+      _videoInitialized = true;
+    });
   }
 
-  Future<void> _initializeAudio() async {
-    _audioPlayer = AudioPlayer();
-    await _audioPlayer!.play(UrlSource(widget.url));
+  Future<void> _initAudio() async {
+    _audioPlayer.onDurationChanged.listen((dur) {
+      setState(() => _totalDuration = dur);
+    });
+    _audioPlayer.onPositionChanged.listen((pos) {
+      setState(() => _currentPosition = pos);
+    });
+    _audioPlayer.onPlayerComplete.listen((event) {
+      setState(() {
+        _isPlaying = false;
+        _currentPosition = Duration.zero;
+      });
+    });
+    await _audioPlayer.play(UrlSource(widget.mediaUrl));
+    await _audioPlayer.stop();
   }
 
   @override
   void dispose() {
-    _chewieController?.dispose();
     _videoController?.dispose();
-    _audioPlayer?.stop();
-    _audioPlayer?.dispose();
+    _chewieController?.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isImage) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Visualizando Imagem")),
-        body: Center(
-          child: InteractiveViewer(
-            child: Image.network(widget.url),
+    if (widget.isImage) {
+      return _buildImage();
+    } else if (widget.isVideo) {
+      return _buildVideo();
+    } else if (widget.isAudio) {
+      return _buildAudio();
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildImage() {
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (_) => Dialog(
+            insetPadding: EdgeInsets.zero,
+            backgroundColor: Colors.black,
+            child: InteractiveViewer(
+              child: Image.network(widget.mediaUrl),
+            ),
           ),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          widget.mediaUrl,
+          width: 250,
+          height: 250,
+          fit: BoxFit.cover,
         ),
+      ),
+    );
+  }
+
+  Widget _buildVideo() {
+    if (!_videoInitialized || _chewieController == null) {
+      return const SizedBox(
+        width: 50,
+        height: 50,
+        child: Center(child: CircularProgressIndicator()),
       );
-    } else if (isVideo) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Visualizando Vídeo")),
-        body: _chewieController != null &&
-                _chewieController!.videoPlayerController.value.isInitialized
-            ? Chewie(controller: _chewieController!)
-            : const Center(child: CircularProgressIndicator()),
-      );
-    } else if (isAudio) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Reproduzindo Áudio")),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.audiotrack, size: 100),
-              SizedBox(height: 20),
-              Text("Tocando áudio..."),
+    }
+    return SizedBox(
+      width: 250,
+      height: 250,
+      child: Chewie(controller: _chewieController!),
+    );
+  }
+
+  Widget _buildAudio() {
+    return Container(
+      width: 250,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.black12,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                onPressed: _togglePlayPause,
+                color: Colors.black,
+              ),
+              Expanded(
+                child: Slider(
+                  activeColor: Colors.black,
+                  min: 0,
+                  max: _totalDuration.inMilliseconds.toDouble(),
+                  value: _currentPosition.inMilliseconds
+                      .toDouble()
+                      .clamp(0, _totalDuration.inMilliseconds.toDouble()),
+                  onChanged: (value) {
+                    final pos = Duration(milliseconds: value.floor());
+                    _audioPlayer.seek(pos);
+                  },
+                ),
+              ),
             ],
           ),
-        ),
-      );
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _formatDuration(_currentPosition),
+                style: TextStyle(color: Colors.black),
+              ),
+              Text(
+                _formatDuration(_totalDuration),
+                style: TextStyle(color: Colors.black),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Future<void> _togglePlayPause() async {
+    if (_isPlaying) {
+      await _audioPlayer.pause();
+      setState(() => _isPlaying = false);
     } else {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Mídia")),
-        body: Center(
-          child: Text("Tipo de mídia não reconhecido: ${widget.url}"),
-        ),
-      );
+      await _audioPlayer.play(UrlSource(widget.mediaUrl));
+      setState(() => _isPlaying = true);
     }
   }
 
-  bool _isImageUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.png') ||
-        lower.contains('image');
-  }
-
-  bool _isVideoUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.mp4') ||
-        lower.endsWith('.mov') ||
-        lower.contains('video');
-  }
-
-  bool _isAudioUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.aac') ||
-        lower.endsWith('.mp3') ||
-        lower.contains('audio');
+  String _formatDuration(Duration d) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(d.inMinutes.remainder(60));
+    final seconds = twoDigits(d.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 }

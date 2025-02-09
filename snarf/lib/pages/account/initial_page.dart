@@ -551,7 +551,7 @@ class _ForgotPasswordModalState extends State<ForgotPasswordModal> {
               labelText: 'E-mail',
               fillColor: Colors.black,
               labelStyle: TextStyle(color: Colors.black),
-              prefixIconColor: Colors.black,
+              prefixIconColor: Color(0xFF0b0951),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
@@ -659,7 +659,7 @@ class _ResetPasswordModalState extends State<ResetPasswordModal> {
             decoration: InputDecoration(
               labelText: 'Código',
               labelStyle: TextStyle(color: Colors.black),
-              prefixIconColor: Colors.black,
+              prefixIconColor: Color(0xFF0b0951),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
@@ -673,7 +673,7 @@ class _ResetPasswordModalState extends State<ResetPasswordModal> {
             decoration: InputDecoration(
               labelText: 'Nova Senha',
               labelStyle: TextStyle(color: Colors.black),
-              prefixIconColor: Colors.black,
+              prefixIconColor: Color(0xFF0b0951),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
@@ -770,7 +770,7 @@ class _LoginModalState extends State<LoginModal> {
                 decoration: InputDecoration(
                   labelText: 'E-mail',
                   labelStyle: TextStyle(color: Colors.black),
-                  prefixIconColor: Colors.black,
+                  prefixIconColor: Color(0xFF0b0951),
                   prefixIcon: const Icon(Icons.email),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
@@ -788,13 +788,14 @@ class _LoginModalState extends State<LoginModal> {
                     decoration: InputDecoration(
                       labelText: 'Senha',
                       labelStyle: TextStyle(color: Colors.black),
-                      prefixIconColor: Colors.black,
+                      prefixIconColor: Color(0xFF0b0951),
                       suffixIconColor: Colors.black,
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
                           isVisible ? Icons.visibility : Icons.visibility_off,
                         ),
+                        color: Color(0xFF0b0951),
                         onPressed: () {
                           isPasswordVisible.value = !isVisible;
                         },
