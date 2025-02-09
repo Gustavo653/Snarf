@@ -1058,7 +1058,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           )
         : null;
 
-    final bubbleColor = Color(0xFFE8ECEF);
+    final bubbleColor = const Color(0xFFE8ECEF);
     final borderRadius = BorderRadius.only(
       topLeft: const Radius.circular(16),
       topRight: const Radius.circular(16),
@@ -1070,9 +1070,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     return GestureDetector(
       onLongPress: () => _onMessageLongPress(message),
       child: Column(
+        crossAxisAlignment:
+            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 4),
             decoration: BoxDecoration(
               color: bubbleColor,
               borderRadius: borderRadius,
@@ -1080,7 +1083,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (replyToMsg != null) ...[
+                if (replyToMsg != null && replyToMsg.id.isNotEmpty) ...[
                   Container(
                     padding: const EdgeInsets.all(8),
                     margin: const EdgeInsets.only(bottom: 8),
@@ -1101,69 +1104,231 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                   const Text(
                     "Mensagem excluída",
                     style: TextStyle(
-                        fontStyle: FontStyle.italic, color: Colors.black),
+                      fontStyle: FontStyle.italic,
+                      color: Colors.black,
+                    ),
+                  )
+                else if (isImage || isVideo || isAudio)
+                  _InlineMediaWidget(
+                    mediaUrl: content,
+                    isImage: isImage,
+                    isVideo: isVideo,
+                    isAudio: isAudio,
                   )
                 else
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (isImage || isVideo || isAudio)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isImage
-                                  ? Icons.image
-                                  : isVideo
-                                      ? Icons.videocam
-                                      : Icons.audiotrack,
-                              size: 40,
-                              color: Colors.black,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              isImage
-                                  ? "Foto"
-                                  : isVideo
-                                      ? "Vídeo"
-                                      : "Áudio",
-                              style: TextStyle(
-                                color: Colors.black,
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.open_in_new),
-                              color: Colors.black,
-                              onPressed: () => _openMediaPreview(content),
-                            ),
-                          ],
-                        ),
-                      if (!isImage && !isVideo && !isAudio)
-                        Text(
-                          content,
-                          style: const TextStyle(
-                              fontSize: 16, color: Colors.black),
-                        ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Reactions
-                          if (message.reactions.isNotEmpty) ...[
-                            Wrap(
-                              spacing: 4,
-                              children: message.reactions.values.map((emoji) {
-                                return Text(emoji,
-                                    style: const TextStyle(fontSize: 18));
-                              }).toList(),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                        ],
-                      ),
-                    ],
+                  Text(
+                    content,
+                    style: const TextStyle(fontSize: 16, color: Colors.black),
                   ),
+                if (message.reactions.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 4,
+                    children: message.reactions.values.map((emoji) {
+                      return Text(emoji, style: const TextStyle(fontSize: 18));
+                    }).toList(),
+                  ),
+                ],
               ],
+            ),
+          ),
+          if (_selectedMessageId == message.id)
+            _buildActionsBar(message, isMine),
+        ],
+      ),
+    );
+  }
+
+  bool _isImageUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.contains('image');
+  }
+
+  bool _isVideoUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.mp4') ||
+        lower.endsWith('.mov') ||
+        lower.contains('video');
+  }
+
+  bool _isAudioUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.aac') ||
+        lower.endsWith('.mp3') ||
+        lower.contains('audio');
+  }
+}
+
+class _InlineMediaWidget extends StatefulWidget {
+  final String mediaUrl;
+  final bool isImage;
+  final bool isVideo;
+  final bool isAudio;
+
+  const _InlineMediaWidget({
+    required this.mediaUrl,
+    required this.isImage,
+    required this.isVideo,
+    required this.isAudio,
+  });
+
+  @override
+  State<_InlineMediaWidget> createState() => _InlineMediaWidgetState();
+}
+
+class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
+  // Para vídeo
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
+  bool _videoInitialized = false;
+  bool _isExpanded = false;
+
+  // Para áudio
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isPlaying = false;
+  Duration _currentPosition = Duration.zero;
+  Duration _totalDuration = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isVideo) {
+      _initVideo();
+    } else if (widget.isAudio) {
+      _initAudio();
+    }
+  }
+
+  Future<void> _initVideo() async {
+    _videoController = VideoPlayerController.network(widget.mediaUrl);
+    await _videoController!.initialize();
+    _chewieController = ChewieController(
+      videoPlayerController: _videoController!,
+      autoPlay: false,
+      looping: false,
+      allowFullScreen: false,
+    );
+    setState(() {
+      _videoInitialized = true;
+    });
+
+    _videoController!.addListener(() {
+      if (!_videoController!.value.isPlaying && _isExpanded) {
+        if (_videoController!.value.position >=
+            _videoController!.value.duration) {
+          setState(() => _isExpanded = false);
+        }
+      }
+    });
+  }
+
+  Future<void> _initAudio() async {
+    _audioPlayer.onDurationChanged.listen((dur) {
+      setState(() => _totalDuration = dur);
+    });
+    _audioPlayer.onPositionChanged.listen((pos) {
+      setState(() => _currentPosition = pos);
+    });
+
+    _audioPlayer.onPlayerComplete.listen((event) {
+      setState(() {
+        _isPlaying = false;
+        _currentPosition = Duration.zero;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    _chewieController?.dispose();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isImage) {
+      return _buildImage();
+    } else if (widget.isVideo) {
+      return _buildVideo();
+    } else if (widget.isAudio) {
+      return _buildAudio();
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildImage() {
+    return GestureDetector(
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (_) => Dialog(
+            insetPadding: EdgeInsets.zero,
+            backgroundColor: Colors.black,
+            child: InteractiveViewer(
+              child: Image.network(widget.mediaUrl),
+            ),
+          ),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          widget.mediaUrl,
+          width: 150,
+          height: 150,
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideo() {
+    if (!_videoInitialized || _chewieController == null) {
+      return const SizedBox(
+        width: 50,
+        height: 50,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final double width =
+        _isExpanded ? MediaQuery.of(context).size.width * 0.8 : 150;
+    final double height = _isExpanded ? 200 : 150;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        shape: _isExpanded ? BoxShape.rectangle : BoxShape.circle,
+        borderRadius: _isExpanded ? BorderRadius.circular(10) : null,
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Chewie(controller: _chewieController!),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton(
+              icon: Icon(
+                _isExpanded ? Icons.close_fullscreen : Icons.open_in_full,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                setState(() {
+                  if (_isExpanded && _videoController!.value.isPlaying) {
+                    _videoController!.pause();
+                  }
+                  _isExpanded = !_isExpanded;
+                });
+              },
             ),
           ),
         ],
@@ -1171,155 +1336,76 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  void _openMediaPreview(String url) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MediaPreviewPage(url: url),
+  Widget _buildAudio() {
+    return Container(
+      width: 250,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.black12,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                onPressed: _togglePlayPause,
+                color: Colors.black,
+              ),
+              Expanded(
+                child: Slider(
+                  activeColor: Colors.black,
+                  min: 0,
+                  max: _totalDuration.inMilliseconds.toDouble(),
+                  value: _currentPosition.inMilliseconds
+                      .toDouble()
+                      .clamp(0, _totalDuration.inMilliseconds.toDouble()),
+                  onChanged: (value) {
+                    final pos = Duration(milliseconds: value.floor());
+                    _audioPlayer.seek(pos);
+                  },
+                ),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _formatDuration(_currentPosition),
+                style: TextStyle(
+                  color: Colors.black,
+                ),
+              ),
+              Text(
+                _formatDuration(_totalDuration),
+                style: TextStyle(
+                  color: Colors.black,
+                ),
+              ),
+            ],
+          )
+        ],
       ),
     );
   }
 
-  bool _isImageUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.png') ||
-        lower.contains('image');
-  }
-
-  bool _isVideoUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.mp4') ||
-        lower.endsWith('.mov') ||
-        lower.contains('video');
-  }
-
-  bool _isAudioUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.aac') ||
-        lower.endsWith('.mp3') ||
-        lower.contains('audio');
-  }
-}
-
-class MediaPreviewPage extends StatefulWidget {
-  final String url;
-
-  const MediaPreviewPage({super.key, required this.url});
-
-  @override
-  State<MediaPreviewPage> createState() => _MediaPreviewPageState();
-}
-
-class _MediaPreviewPageState extends State<MediaPreviewPage> {
-  VideoPlayerController? _videoController;
-  ChewieController? _chewieController;
-  AudioPlayer? _audioPlayer;
-
-  bool get isImage => _isImageUrl(widget.url);
-
-  bool get isVideo => _isVideoUrl(widget.url);
-
-  bool get isAudio => _isAudioUrl(widget.url);
-
-  @override
-  void initState() {
-    super.initState();
-    if (isVideo) {
-      _initializeVideo();
-    } else if (isAudio) {
-      _initializeAudio();
-    }
-  }
-
-  Future<void> _initializeVideo() async {
-    _videoController = VideoPlayerController.network(widget.url);
-    await _videoController!.initialize();
-    _chewieController = ChewieController(
-      videoPlayerController: _videoController!,
-      autoPlay: true,
-      looping: true,
-    );
-    setState(() {});
-  }
-
-  Future<void> _initializeAudio() async {
-    _audioPlayer = AudioPlayer();
-    await _audioPlayer!.play(UrlSource(widget.url));
-  }
-
-  @override
-  void dispose() {
-    _chewieController?.dispose();
-    _videoController?.dispose();
-    _audioPlayer?.stop();
-    _audioPlayer?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (isImage) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Visualizando Imagem")),
-        body: Center(
-          child: InteractiveViewer(
-            child: Image.network(widget.url),
-          ),
-        ),
-      );
-    } else if (isVideo) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Visualizando Vídeo")),
-        body: _chewieController != null &&
-                _chewieController!.videoPlayerController.value.isInitialized
-            ? Chewie(controller: _chewieController!)
-            : const Center(child: CircularProgressIndicator()),
-      );
-    } else if (isAudio) {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Reproduzindo Áudio")),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.audiotrack, size: 100),
-              SizedBox(height: 20),
-              Text("Tocando áudio..."),
-            ],
-          ),
-        ),
-      );
+  Future<void> _togglePlayPause() async {
+    if (_isPlaying) {
+      await _audioPlayer.pause();
+      setState(() => _isPlaying = false);
     } else {
-      return Scaffold(
-        appBar: AppBar(title: const Text("Mídia")),
-        body: Center(
-          child: Text("Tipo de mídia não reconhecido: ${widget.url}"),
-        ),
-      );
+      await _audioPlayer.play(UrlSource(widget.mediaUrl));
+      setState(() => _isPlaying = true);
     }
   }
 
-  bool _isImageUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.jpg') ||
-        lower.endsWith('.jpeg') ||
-        lower.endsWith('.png') ||
-        lower.contains('image');
-  }
-
-  bool _isVideoUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.mp4') ||
-        lower.endsWith('.mov') ||
-        lower.contains('video');
-  }
-
-  bool _isAudioUrl(String url) {
-    final lower = url.toLowerCase();
-    return lower.endsWith('.aac') ||
-        lower.endsWith('.mp3') ||
-        lower.contains('audio');
+  String _formatDuration(Duration d) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(d.inMinutes.remainder(60));
+    final seconds = twoDigits(d.inSeconds.remainder(60));
+    return '$minutes:$seconds';
   }
 }
