@@ -181,6 +181,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
         automaticallyImplyLeading: false,
         actions: [
           PopupMenuButton<String>(
+            color: Color(0xFF0b0951),
             onSelected: (value) {
               setState(() {
                 _sortByDate = (value == 'date');
