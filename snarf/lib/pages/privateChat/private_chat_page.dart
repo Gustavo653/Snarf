@@ -8,11 +8,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:image_picker/image_picker.dart';
+import 'package:location/location.dart' as loc;
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/providers/theme_provider.dart';
+import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/services/signalr_manager.dart';
@@ -109,9 +111,21 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   bool _isFavorite = false;
   bool _isSendingMedia = false;
-
   String? _selectedMessageId;
   PrivateChatMessageModel? _replyingToMessage;
+
+  DateTime? _lastActivity;
+
+  double? _myLatitude;
+  double? _myLongitude;
+  double? _userLatitude;
+  double? _userLongitude;
+
+  bool get _isOnline {
+    if (_lastActivity == null) return false;
+    final difference = DateTime.now().difference(_lastActivity!);
+    return difference.inMinutes < 1;
+  }
 
   @override
   void initState() {
@@ -120,6 +134,9 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _initializeChat() async {
+    await _initLocation();
+    await _loadUserInfo();
+
     SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
 
     await SignalRManager().sendSignalRMessage(
@@ -138,6 +155,32 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
 
     await _initAudioRecorder();
+  }
+
+  Future<void> _initLocation() async {
+    loc.Location location = loc.Location();
+    var position = await location.getLocation();
+    _myLatitude = position.latitude;
+    _myLongitude = position.longitude;
+  }
+
+  Future<void> _loadUserInfo() async {
+    final userInfo = await ApiService.getUserInfoById(widget.userId);
+    if (userInfo == null) {
+      showSnackbar(context, "Não foi possível carregar dados do usuário");
+      return;
+    }
+
+    setState(() {
+      if (userInfo['lastActivity'] != null) {
+        _lastActivity = DateTime.parse(userInfo['lastActivity']).toLocal();
+      }
+      if (userInfo['lastLatitude'] != null &&
+          userInfo['lastLongitude'] != null) {
+        _userLatitude = (userInfo['lastLatitude'] as num).toDouble();
+        _userLongitude = (userInfo['lastLongitude'] as num).toDouble();
+      }
+    });
   }
 
   void _handleSignalRMessage(List<Object?>? args) {
@@ -177,6 +220,22 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         case SignalREventType.PrivateChatReceiveReply:
           _handleReply(data);
           break;
+
+        case SignalREventType.MapReceiveLocation:
+          if (data is Map<String, dynamic>) {
+            final userId = data['userId'] as String?;
+            if (userId == widget.userId) {
+              setState(() {
+                _lastActivity = DateTime.now();
+                if (data['Latitude'] != null && data['Longitude'] != null) {
+                  _userLatitude = (data['Latitude'] as num).toDouble();
+                  _userLongitude = (data['Longitude'] as num).toDouble();
+                }
+              });
+            }
+          }
+          break;
+
         default:
           log("Evento não tratado: $typeString");
       }
@@ -750,6 +809,38 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     super.dispose();
   }
 
+  Widget _buildOnlineStatusBar() {
+    String distanceInfo = '';
+    if (_myLatitude != null &&
+        _myLongitude != null &&
+        _userLatitude != null &&
+        _userLongitude != null) {
+      final distance = DistanceUtils.calculateDistance(
+        _myLatitude!,
+        _myLongitude!,
+        _userLatitude!,
+        _userLongitude!,
+      );
+      distanceInfo = '${distance.toStringAsFixed(2)} km';
+    }
+
+    return Container(
+      width: double.infinity,
+      color: Colors.black54,
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(_isOnline
+              ? 'Conectado'
+              : DateJSONUtils.formatRelativeTime(_lastActivity!.toString())),
+          Text(' | '),
+          Text(distanceInfo)
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -863,6 +954,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               ),
               _buildReplyBanner(),
               _buildBottomBar(),
+              _buildOnlineStatusBar(),
             ],
           ),
           if (_isSendingMedia)
