@@ -15,6 +15,7 @@ import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/theme_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 class InitialPage extends StatefulWidget {
@@ -225,12 +226,7 @@ class _InitialPageState extends State<InitialPage> {
             bottom: 30,
             left: 15,
             right: 15,
-            child: TermsFooter(
-              onTermsTap: () => _showModal(
-                  context, 'Termos de Serviço', 'Descrição Termos de Serviço'),
-              onPrivacyTap: () => _showModal(context, 'Política de Privacidade',
-                  'Descrição Política de Privacidade'),
-            ),
+            child: TermsFooter(),
           ),
         ],
       ),
@@ -267,14 +263,16 @@ class BackgroundCarousel extends StatelessWidget {
 }
 
 class TermsFooter extends StatelessWidget {
-  final VoidCallback onTermsTap;
-  final VoidCallback onPrivacyTap;
+  const TermsFooter({super.key});
 
-  const TermsFooter({
-    super.key,
-    required this.onTermsTap,
-    required this.onPrivacyTap,
-  });
+  void _openUrl(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      debugPrint('Não foi possível abrir a URL: $url');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -293,7 +291,8 @@ class TermsFooter extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             GestureDetector(
-              onTap: onTermsTap,
+              onTap: () =>
+                  _openUrl('https://snarf.inovitech.inf.br/service.html'),
               child: const Text(
                 'Termos de Serviço',
                 style: TextStyle(
@@ -309,7 +308,8 @@ class TermsFooter extends StatelessWidget {
               ),
             ),
             GestureDetector(
-              onTap: onPrivacyTap,
+              onTap: () =>
+                  _openUrl('https://snarf.inovitech.inf.br/privacy.html'),
               child: const Text(
                 'Política de Privacidade',
                 style: TextStyle(
