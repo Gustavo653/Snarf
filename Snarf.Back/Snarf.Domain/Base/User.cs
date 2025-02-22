@@ -11,6 +11,7 @@ namespace Snarf.Domain.Base
         public DateTime? LastActivity { get; set; }
         public double? LastLatitude { get; set; }
         public double? LastLongitude { get; set; }
+        public string? FcmToken { get; set; }
         public required RoleName Role { get; set; }
 
         public virtual IList<BlockedUser> BlockedUsers { get; set; } = [];
