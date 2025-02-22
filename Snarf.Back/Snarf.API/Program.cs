@@ -1,3 +1,5 @@
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
 using Hangfire;
 using Hangfire.Dashboard.BasicAuthorization;
 using Hangfire.PostgreSql;
@@ -133,6 +135,12 @@ namespace Snarf.API
                             }
                         }
                     }) }
+            });
+
+            string firebaseCredentials = Environment.GetEnvironmentVariable("FirebaseCredentials") ?? configuration.GetConnectionString("FirebaseCredentials")!;
+            FirebaseApp.Create(new AppOptions()
+            {
+                Credential = GoogleCredential.FromJson(firebaseCredentials)
             });
 
             app.UseSwagger();

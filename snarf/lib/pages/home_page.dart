@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -23,11 +24,7 @@ class HomePage extends StatefulWidget {
   final double? initialLatitude;
   final double? initialLongitude;
 
-  const HomePage({
-    super.key,
-    this.initialLatitude,
-    this.initialLongitude,
-  });
+  const HomePage({super.key, this.initialLatitude, this.initialLongitude});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -44,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   late String userImage = '';
   double _opacity = 0.0;
   late Timer _timer;
+  String? _fcmToken;
 
   @override
   void initState() {
@@ -63,8 +61,17 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initializeApp() async {
     await _loadUserInfo();
+    await _getFcmToken();
     await _initializeLocation();
     await _setupSignalRConnection();
+  }
+
+  Future<void> _getFcmToken() async {
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    if (fcmToken != null) {
+      log("FCM Token: $fcmToken");
+      _fcmToken = fcmToken;
+    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -320,6 +327,7 @@ class _HomePageState extends State<HomePage> {
           .sendSignalRMessage(SignalREventType.MapUpdateLocation, {
         "Latitude": _currentLocation.latitude,
         "Longitude": _currentLocation.longitude,
+        "FcmToken": _fcmToken,
       });
     } catch (e) {
       log('Erro ao enviar localização: $e');

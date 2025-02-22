@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.SignalR;
+﻿using FirebaseAdmin.Messaging;
+using Google.Apis.Storage.v1.Data;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Snarf.DataAccess;
@@ -137,6 +139,7 @@ namespace Snarf.API.Controllers
             user.LastActivity = DateTime.Now;
             user.LastLatitude = location.Latitude;
             user.LastLongitude = location.Longitude;
+            user.FcmToken = location.FcmToken;
             await _userRepository.SaveChangesAsync();
 
             Log.Information($"Localização atualizada: {userId} - ({location.Latitude}, {location.Longitude})");
@@ -300,6 +303,31 @@ namespace Snarf.API.Controllers
             });
             await Clients.User(senderUserId).SendAsync("ReceiveMessage", jsonResponse);
             await Clients.User(receiverUserId).SendAsync("ReceiveMessage", jsonResponse);
+
+            if (!string.IsNullOrWhiteSpace(receiver.FcmToken))
+            {
+                var notification = new FirebaseAdmin.Messaging.Notification
+                {
+                    Title = "Mensagem Recebida",
+                    Body = $"Você recebeu uma mensagem privada!"
+                };
+
+                var message = new Message
+                {
+                    Token = receiver.FcmToken,
+                    Notification = notification,
+                };
+
+                try
+                {
+                    string response = await FirebaseMessaging.DefaultInstance.SendAsync(message);
+                    Log.Information($"Notificação enviada com sucesso: {response}");
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"Erro ao enviar notificação: {ex.Message}");
+                }
+            }
         }
 
         private async Task HandlePrivateChatGetRecentChats()
@@ -867,6 +895,7 @@ namespace Snarf.API.Controllers
         {
             public double Latitude { get; set; }
             public double Longitude { get; set; }
+            public string FcmToken { get; set; }
         }
 
         #endregion

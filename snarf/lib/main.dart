@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_update_checker/flutter_update_checker.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/services/signalr_manager.dart';
@@ -33,27 +34,28 @@ Future<void> main() async {
     return true;
   };
 
-  final notificationSettings = await FirebaseMessaging.instance.requestPermission(provisional: true);
+  final updateChecker = UpdateStoreChecker(
+      androidGooglePlayPackage: 'com.snarf.snarf',
+      androidAppGalleryId: 'com.snarf.snarf',
+      androidAppGalleryPackageName: 'com.snarf.snarf');
 
-  final fcmToken = await FirebaseMessaging.instance.getToken();
-  if (fcmToken != null) {
-    log("FCM Token: $fcmToken");
+  bool isUpdateAvailable = await updateChecker.checkUpdate();
+  if (isUpdateAvailable) {
+    log("Atualização disponível!");
+    await updateChecker.update();
+  } else {
+    log("Você está usando a última versão.");
   }
+
+  String storeVersion = await updateChecker.getStoreVersion();
+  log("Última versão na loja: $storeVersion");
+
+  await FirebaseMessaging.instance.requestPermission(provisional: true);
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   configureApiConstants();
   await SignalRManager().initializeConnection();
-
-  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    if (message.notification != null) {
-      log('Mensagem em primeiro plano: ${message.notification!.title}');
-    }
-  });
-
-  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-    log('App aberto a partir da notificação: ${message.notification?.title}');
-  });
 
   runApp(
     MultiProvider(
