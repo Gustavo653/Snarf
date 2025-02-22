@@ -1,3 +1,7 @@
+import 'dart:ui';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/call_manager.dart';
@@ -12,6 +16,15 @@ import 'utils/app_themes.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  FlutterError.onError = (errorDetails) {
+    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+
   configureApiConstants();
   await SignalRManager().initializeConnection();
 
@@ -147,7 +160,6 @@ class _CallOverlay extends StatelessWidget {
           );
         }
 
-        // Caso não haja chamada para exibir, retorna um widget vazio
         return const SizedBox.shrink();
       },
     );
