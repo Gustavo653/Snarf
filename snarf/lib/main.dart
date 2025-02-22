@@ -1,7 +1,9 @@
+import 'dart:developer';
 import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/call_manager.dart';
@@ -14,9 +16,15 @@ import 'services/api_service.dart';
 import 'utils/api_constants.dart';
 import 'utils/app_themes.dart';
 
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  log('Mensagem recebida em background: ${message.messageId}');
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
   FlutterError.onError = (errorDetails) {
     FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
   };
@@ -25,18 +33,40 @@ Future<void> main() async {
     return true;
   };
 
+  final notificationSettings = await FirebaseMessaging.instance.requestPermission(provisional: true);
+
+  final fcmToken = await FirebaseMessaging.instance.getToken();
+  if (fcmToken != null) {
+    log("FCM Token: $fcmToken");
+  }
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
   configureApiConstants();
   await SignalRManager().initializeConnection();
 
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    if (message.notification != null) {
+      log('Mensagem em primeiro plano: ${message.notification!.title}');
+    }
+  });
+
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    log('App aberto a partir da notificação: ${message.notification?.title}');
+  });
+
   runApp(
-    MultiProvider(providers: [
-      ChangeNotifierProvider<CallManager>(
-        create: (_) => CallManager(),
-      ),
-      ChangeNotifierProvider<ThemeProvider>(
-        create: (_) => ThemeProvider(),
-      ),
-    ], child: const SnarfApp()),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<CallManager>(
+          create: (_) => CallManager(),
+        ),
+        ChangeNotifierProvider<ThemeProvider>(
+          create: (_) => ThemeProvider(),
+        ),
+      ],
+      child: const SnarfApp(),
+    ),
   );
 }
 
