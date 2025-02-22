@@ -1,4 +1,11 @@
+import 'dart:developer';
+import 'dart:ui';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_update_checker/flutter_update_checker.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/services/signalr_manager.dart';
@@ -10,20 +17,58 @@ import 'services/api_service.dart';
 import 'utils/api_constants.dart';
 import 'utils/app_themes.dart';
 
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  log('Mensagem recebida em background: ${message.messageId}');
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  FlutterError.onError = (errorDetails) {
+    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+
+  final updateChecker = UpdateStoreChecker(
+      androidGooglePlayPackage: 'com.snarf.snarf',
+      androidAppGalleryId: 'com.snarf.snarf',
+      androidAppGalleryPackageName: 'com.snarf.snarf');
+
+  bool isUpdateAvailable = await updateChecker.checkUpdate();
+  if (isUpdateAvailable) {
+    log("Atualização disponível!");
+    await updateChecker.update();
+  } else {
+    log("Você está usando a última versão.");
+  }
+
+  String storeVersion = await updateChecker.getStoreVersion();
+  log("Última versão na loja: $storeVersion");
+
+  await FirebaseMessaging.instance.requestPermission(provisional: true);
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
   configureApiConstants();
   await SignalRManager().initializeConnection();
 
   runApp(
-    MultiProvider(providers: [
-      ChangeNotifierProvider<CallManager>(
-        create: (_) => CallManager(),
-      ),
-      ChangeNotifierProvider<ThemeProvider>(
-        create: (_) => ThemeProvider(),
-      ),
-    ], child: const SnarfApp()),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<CallManager>(
+          create: (_) => CallManager(),
+        ),
+        ChangeNotifierProvider<ThemeProvider>(
+          create: (_) => ThemeProvider(),
+        ),
+      ],
+      child: const SnarfApp(),
+    ),
   );
 }
 
@@ -147,7 +192,6 @@ class _CallOverlay extends StatelessWidget {
           );
         }
 
-        // Caso não haja chamada para exibir, retorna um widget vazio
         return const SizedBox.shrink();
       },
     );
