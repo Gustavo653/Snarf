@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:snarf/components/toggle_theme_component.dart';
+import 'package:provider/provider.dart';
+import 'package:provider/provider.dart';
+import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
@@ -32,7 +34,6 @@ class _EditUserPageState extends State<EditUserPage> {
   final String _defaultImagePath = 'assets/images/user_anonymous.png';
 
   List<dynamic> _blockedUsers = [];
-  List<dynamic> _favoriteUsers = [];
 
   @override
   void initState() {
@@ -64,7 +65,6 @@ class _EditUserPageState extends State<EditUserPage> {
         _userImageUrl = userInfo['imageUrl'];
         _blockedUsers = userInfo['blockedUsers'] ?? [];
         blockedByCount = userInfo['blockedBy'] ?? 0;
-        _favoriteUsers = userInfo['favoriteChats'] ?? [];
         favoritedByCount = userInfo['favoritedBy'] ?? 0;
         _isLoading = false;
       });
@@ -230,7 +230,7 @@ class _EditUserPageState extends State<EditUserPage> {
     );
   }
 
-  Widget _buildUserList(String title, List<dynamic> users, bool isBlockedList) {
+  Widget _buildUserList(String title, List<dynamic> users) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -256,12 +256,10 @@ class _EditUserPageState extends State<EditUserPage> {
                         as ImageProvider,
               ),
               title: Text(user['name'] ?? 'Usuário'),
-              trailing: isBlockedList
-                  ? IconButton(
-                      icon: const Icon(Icons.lock_open, color: Colors.green),
-                      onPressed: () => _unblockUser(user['id']),
-                    )
-                  : null,
+              trailing: IconButton(
+                icon: const Icon(Icons.lock_open, color: Colors.green),
+                onPressed: () => _unblockUser(user['id']),
+              ),
             );
           },
         ),
@@ -301,31 +299,39 @@ class _EditUserPageState extends State<EditUserPage> {
   }
 
   Widget _buildActionButtons() {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         ElevatedButton.icon(
           onPressed: _pickImage,
-          icon: const Icon(Icons.photo_camera, color: Colors.white),
-          label: const Text(
+          style: ElevatedButton.styleFrom(
+              backgroundColor: configProvider.secondaryColor),
+          icon: Icon(Icons.photo_camera, color: configProvider.iconColor),
+          label: Text(
             'Upload',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: configProvider.textColor),
           ),
         ),
         ElevatedButton.icon(
           onPressed: _saveChanges,
-          icon: const Icon(Icons.save, color: Colors.white),
-          label: const Text(
+          style: ElevatedButton.styleFrom(
+              backgroundColor: configProvider.secondaryColor),
+          icon: Icon(Icons.save, color: configProvider.iconColor),
+          label: Text(
             'Salvar',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: configProvider.textColor),
           ),
         ),
         ElevatedButton.icon(
           onPressed: _deleteAccount,
-          icon: const Icon(Icons.delete_forever, color: Colors.white),
-          label: const Text(
+          style: ElevatedButton.styleFrom(
+              backgroundColor: configProvider.secondaryColor),
+          icon: Icon(Icons.delete_forever, color: configProvider.iconColor),
+          label: Text(
             'Excluir',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: configProvider.textColor),
           ),
         ),
       ],
@@ -334,13 +340,14 @@ class _EditUserPageState extends State<EditUserPage> {
 
   @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Editar Usuário'),
-        actions: const [
-          ThemeToggle(),
-        ],
+        backgroundColor: configProvider.primaryColor,
       ),
+      backgroundColor: configProvider.primaryColor,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -353,10 +360,13 @@ class _EditUserPageState extends State<EditUserPage> {
                     if (_pickedFile != null || _userImageUrl != null)
                       TextButton.icon(
                         onPressed: _deleteImage,
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        label: const Text(
+                        icon:
+                            Icon(Icons.delete, color: configProvider.iconColor),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: configProvider.secondaryColor),
+                        label: Text(
                           'Remover Foto',
-                          style: TextStyle(color: Colors.red),
+                          style: TextStyle(color: configProvider.textColor),
                         ),
                       ),
                     const SizedBox(height: 20),
@@ -396,8 +406,7 @@ class _EditUserPageState extends State<EditUserPage> {
                     const SizedBox(height: 20),
                     _buildActionButtons(),
                     const SizedBox(height: 30),
-                    _buildUserList('Usuários Bloqueados', _blockedUsers, true),
-                    // _buildUserList('Usuários Favoritos', _favoriteUsers, false),
+                    _buildUserList('Usuários Bloqueados', _blockedUsers),
                   ],
                 ),
               ),

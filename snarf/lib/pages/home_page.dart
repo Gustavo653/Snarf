@@ -479,6 +479,13 @@ class _HomePageState extends State<HomePage> {
         offset.dx + 50,
         offset.dy + 50,
       ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(30),
+        side: BorderSide(
+          color: configProvider.secondaryColor,
+          width: 3,
+        ),
+      ),
       items: [
         PopupMenuItem(
           value: 'config',
@@ -544,12 +551,6 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
       elevation: 8.0,
-      shape: Border.symmetric(
-        horizontal: BorderSide(
-          color: configProvider.secondaryColor,
-          width: 5,
-        ),
-      ),
     ).then((value) {
       if (value == 'config') {
         Navigator.push(
@@ -557,17 +558,14 @@ class _HomePageState extends State<HomePage> {
           MaterialPageRoute(builder: (context) => const EditUserPage()),
         );
       } else if (value == 'toggle_theme') {
-        /// Chama o provider para trocar o tema
         configProvider.toggleTheme();
+      } else if (value == 'toggle_images') {
+        configProvider.toggleHideImages();
       } else if (value == 'logout') {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const InitialPage(),
-          ),
+          MaterialPageRoute(builder: (context) => const InitialPage()),
         );
-      } else if (value == 'toggle_images') {
-        configProvider.toggleHideImages();
       }
     });
   }
@@ -709,7 +707,9 @@ class _HomePageState extends State<HomePage> {
                     duration: const Duration(seconds: 2),
                     opacity: _opacity,
                     child: Image.asset(
-                      'assets/images/small-logo-black.png',
+                      configProvider.isDarkMode
+                          ? 'assets/images/small-logo-black.png'
+                          : 'assets/images/small-logo-white.png',
                       width: 30,
                     ),
                   )
