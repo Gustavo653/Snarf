@@ -2,8 +2,35 @@ import 'package:flutter/material.dart';
 
 class ConfigProvider with ChangeNotifier {
   bool _isDarkMode = true;
-
   bool get isDarkMode => _isDarkMode;
+
+  Color get primaryColor =>
+      _isDarkMode ? darkPrimaryColor : lightPrimaryColor;
+
+  Color get darkPrimaryColor => const Color(0xFF0b0951);
+  Color get lightPrimaryColor => Colors.white;
+
+  Color get secondaryColor =>
+      _isDarkMode ? darkSecondaryColor : lightSecondaryColor;
+
+  Color get darkSecondaryColor => const Color(0xFF4c2a85);
+  Color get lightSecondaryColor => Colors.grey;
+
+  Color get textColor =>
+      _isDarkMode ? darkTextColor : lightTextColor;
+
+  Color get darkTextColor => Colors.white;
+  Color get lightTextColor => Colors.black;
+
+  Color get customGreen => const Color(0xFF008000);
+  Color get customOrange => const Color(0xFFFFA500);
+  Color get customWhite => const Color(0xFFFFFFFF);
+  Color get customBlack => const Color(0xFF000000);
+  Color get customBlue => const Color(0xFF0000FF);
+  Color get customRed => const Color(0xFFFF0000);
+  Color get customPurple => const Color(0xFF392ea3);
+
+  Color get iconColor => isDarkMode ? Colors.white : Colors.black;
 
   void toggleTheme() {
     _isDarkMode = !_isDarkMode;
@@ -21,7 +48,6 @@ class ConfigProvider with ChangeNotifier {
   }
 
   bool _hideImages = true;
-
   bool get hideImages => _hideImages;
 
   void toggleHideImages() {

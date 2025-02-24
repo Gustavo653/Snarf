@@ -145,71 +145,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  void _updateUserMarker(double latitude, double longitude) {
-    _userLocationMarker = Marker(
-      point: LatLng(latitude, longitude),
-      width: 80,
-      height: 80,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 75,
-            height: 75,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.green,
-                width: 4.0,
-              ),
-            ),
-            child: CircleAvatar(
-              backgroundImage: InterceptedImageProvider(
-                originalProvider: NetworkImage(userImage),
-                hideImages: false,
-              ),
-              radius: 25,
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Container(
-              width: 25,
-              height: 25,
-              decoration: BoxDecoration(
-                color: Colors.orange,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.videocam,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Container(
-              width: 25,
-              height: 25,
-              decoration: BoxDecoration(
-                color: Colors.green,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.person,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _setupSignalRConnection() async {
     SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
   }
@@ -234,7 +169,6 @@ class _HomePageState extends State<HomePage> {
         case SignalREventType.UserDisconnected:
           _handleUserDisconnected(data);
           break;
-
         default:
           log("Evento não reconhecido: ${message['Type']}");
       }
@@ -244,7 +178,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _handleReceiveLocation(Map<String, dynamic> data) {
-    final config = Provider.of<ConfigProvider>(context);
+    final config = Provider.of<ConfigProvider>(context, listen: false);
     final userId = data['userId'];
     final latitude = data['Latitude'];
     final longitude = data['Longitude'];
@@ -266,13 +200,13 @@ class _HomePageState extends State<HomePage> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.green,
+                    color: config.customGreen,
                     width: 4.0,
                   ),
                 ),
                 child: CircleAvatar(
                   backgroundImage: InterceptedImageProvider(
-                    originalProvider: userImage,
+                    originalProvider: NetworkImage(userImage),
                     hideImages: config.hideImages,
                   ),
                   radius: 25,
@@ -285,12 +219,12 @@ class _HomePageState extends State<HomePage> {
                   width: 25,
                   height: 25,
                   decoration: BoxDecoration(
-                    color: Colors.orange,
+                    color: config.customOrange,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.videocam,
-                    color: Colors.white,
+                    color: config.customWhite,
                     size: 14,
                   ),
                 ),
@@ -302,12 +236,12 @@ class _HomePageState extends State<HomePage> {
                   width: 25,
                   height: 25,
                   decoration: BoxDecoration(
-                    color: Colors.green,
+                    color: config.customGreen,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.person,
-                    color: Colors.white,
+                    color: config.customWhite,
                     size: 14,
                   ),
                 ),
@@ -340,6 +274,72 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       log('Erro ao enviar localização: $e');
     }
+  }
+
+  void _updateUserMarker(double latitude, double longitude) {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    _userLocationMarker = Marker(
+      point: LatLng(latitude, longitude),
+      width: 80,
+      height: 80,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 75,
+            height: 75,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: config.customGreen,
+                width: 4.0,
+              ),
+            ),
+            child: CircleAvatar(
+              backgroundImage: InterceptedImageProvider(
+                originalProvider: NetworkImage(userImage),
+                hideImages: false,
+              ),
+              radius: 25,
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            child: Container(
+              width: 25,
+              height: 25,
+              decoration: BoxDecoration(
+                color: config.customOrange,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.videocam,
+                color: config.customWhite,
+                size: 20,
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Container(
+              width: 25,
+              height: 25,
+              decoration: BoxDecoration(
+                color: config.customGreen,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.person,
+                color: config.customWhite,
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _recenterMap() {
@@ -386,9 +386,10 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(30.0),
-                border: const Border.symmetric(
+                border: Border.symmetric(
                   horizontal: BorderSide(
-                    color: Color(0xFF392ea3),
+                    color: Provider.of<ConfigProvider>(context, listen: false)
+                        .secondaryColor,
                     width: 5,
                   ),
                 ),
@@ -406,7 +407,8 @@ class _HomePageState extends State<HomePage> {
                     ),
                     child: Scaffold(
                       body: PrivateChatNavigationPage(
-                          scrollController: scrollController),
+                        scrollController: scrollController,
+                      ),
                     ),
                   );
                 },
@@ -433,9 +435,10 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(30.0),
-                border: const Border.symmetric(
+                border: Border.symmetric(
                   horizontal: BorderSide(
-                    color: Color(0xFF392ea3),
+                    color: Provider.of<ConfigProvider>(context, listen: false)
+                        .secondaryColor,
                     width: 5,
                   ),
                 ),
@@ -464,7 +467,114 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _showCustomMenu(BuildContext context, Offset offset) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
+    showMenu(
+      context: context,
+      color: configProvider.primaryColor,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy,
+        offset.dx + 50,
+        offset.dy + 50,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'config',
+          child: Row(
+            children: [
+              Icon(Icons.settings, color: configProvider.iconColor),
+              const SizedBox(width: 10),
+              Text(
+                "Configurações",
+                style: TextStyle(fontSize: 16, color: configProvider.textColor),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'toggle_theme',
+          child: Row(
+            children: [
+              Icon(
+                Icons.brightness_6,
+                color: configProvider.iconColor,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                configProvider.isDarkMode ? "Tema Claro" : "Tema Escuro",
+                style: TextStyle(fontSize: 16, color: configProvider.textColor),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'toggle_images',
+          child: Row(
+            children: [
+              Icon(
+                configProvider.hideImages
+                    ? Icons.image_not_supported
+                    : Icons.image,
+                color: configProvider.iconColor,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                configProvider.hideImages
+                    ? 'Exibir Imagens'
+                    : 'Ocultar Imagens',
+                style: TextStyle(fontSize: 16, color: configProvider.textColor),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'logout',
+          child: Row(
+            children: [
+              Icon(Icons.exit_to_app, color: configProvider.iconColor),
+              const SizedBox(width: 10),
+              Text(
+                "Sair",
+                style: TextStyle(fontSize: 16, color: configProvider.textColor),
+              ),
+            ],
+          ),
+        ),
+      ],
+      elevation: 8.0,
+      shape: Border.symmetric(
+        horizontal: BorderSide(
+          color: configProvider.secondaryColor,
+          width: 5,
+        ),
+      ),
+    ).then((value) {
+      if (value == 'config') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const EditUserPage()),
+        );
+      } else if (value == 'toggle_theme') {
+        /// Chama o provider para trocar o tema
+        configProvider.toggleTheme();
+      } else if (value == 'logout') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const InitialPage(),
+          ),
+        );
+      } else if (value == 'toggle_images') {
+        configProvider.toggleHideImages();
+      }
+    });
+  }
+
   Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: RawMaterialButton(
@@ -475,11 +585,11 @@ class _HomePageState extends State<HomePage> {
         fillColor: Colors.transparent,
         splashColor: Colors.transparent,
         elevation: 0,
-        child: Icon(icon,
-            color: Provider.of<ConfigProvider>(context).isDarkMode
-                ? Colors.white
-                : Colors.black,
-            size: 24),
+        child: Icon(
+          icon,
+          color: configProvider.iconColor,
+          size: 24,
+        ),
       ),
     );
   }
@@ -493,157 +603,160 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Provider.of<ConfigProvider>(context).isDarkMode
-                  ? Image.asset(
-                      'assets/images/logo-black.png',
-                      height: 30,
-                    )
-                  : Image.asset(
-                      'assets/images/logo-white.png',
-                      height: 30,
-                    ),
-            ],
-          ),
-          automaticallyImplyLeading: false,
-          leading: IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () {
-              log("Botão de menu pressionado");
-            },
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.settings),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const EditUserPage(),
+    final configProvider = Provider.of<ConfigProvider>(context);
+
+    return Scaffold(
+      backgroundColor: configProvider.primaryColor,
+      appBar: AppBar(
+        backgroundColor: configProvider.primaryColor,
+        iconTheme: IconThemeData(color: configProvider.iconColor),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            configProvider.isDarkMode
+                ? Image.asset(
+                    'assets/images/logo-black.png',
+                    height: 30,
+                  )
+                : Image.asset(
+                    'assets/images/logo-white.png',
+                    height: 30,
                   ),
-                );
-                _loadUserInfo();
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const InitialPage(),
-                ),
-              ),
-            ),
           ],
         ),
-        body: _isLocationLoaded
-            ? Stack(
-                children: [
-                  FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      onMapReady: () {
-                        Future.delayed(Duration(milliseconds: 500), () {
-                          if (widget.initialLatitude != null &&
-                              widget.initialLongitude != null) {
-                            _mapController.move(
-                              LatLng(
-                                widget.initialLatitude!,
-                                widget.initialLongitude!,
-                              ),
-                              15.0,
-                            );
-                          }
-                        });
-                      },
-                      initialCenter: LatLng(
-                        _currentLocation.latitude!,
-                        _currentLocation.longitude!,
-                      ),
-                      initialZoom: 15.0,
-                      interactionOptions: const InteractionOptions(
-                        flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-                      ),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: Icon(
+            Icons.filter_list_rounded,
+            color: configProvider.iconColor,
+          ),
+          onPressed: () {
+            log("Botão de menu pressionado");
+          },
+        ),
+        actions: [
+          GestureDetector(
+            onTapDown: (TapDownDetails details) {
+              _showCustomMenu(context, details.globalPosition);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Icon(
+                Icons.settings,
+                color: configProvider.iconColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: _isLocationLoaded
+          ? Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    onMapReady: () {
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        if (widget.initialLatitude != null &&
+                            widget.initialLongitude != null) {
+                          _mapController.move(
+                            LatLng(
+                              widget.initialLatitude!,
+                              widget.initialLongitude!,
+                            ),
+                            15.0,
+                          );
+                        }
+                      });
+                    },
+                    initialCenter: LatLng(
+                      _currentLocation.latitude!,
+                      _currentLocation.longitude!,
                     ),
+                    initialZoom: 15.0,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                    ),
+                  ),
+                  children: [
+                    TileLayer(urlTemplate: _getMapUrl(context)),
+                    MarkerLayer(
+                      markers: [
+                        _userLocationMarker,
+                        ..._userMarkers.values,
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      TileLayer(urlTemplate: _getMapUrl(context)),
-                      MarkerLayer(
-                        markers: [
-                          _userLocationMarker,
-                          ..._userMarkers.values,
-                        ],
+                      Icon(Icons.location_on, color: configProvider.iconColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Carregando Conteúdo',
+                        style: TextStyle(color: configProvider.textColor),
                       ),
                     ],
                   ),
-                ],
-              )
-            : Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.location_on),
-                        Text('Carregando Conteúdo')
-                      ],
+                  AnimatedOpacity(
+                    duration: const Duration(seconds: 2),
+                    opacity: _opacity,
+                    child: Image.asset(
+                      'assets/images/small-logo-black.png',
+                      width: 30,
                     ),
-                    AnimatedOpacity(
-                      duration: Duration(seconds: 2),
-                      opacity: _opacity,
-                      child: Image.asset(
-                        'assets/images/small-logo-black.png',
-                        width: 30,
-                      ),
-                    )
-                  ],
-                ),
+                  )
+                ],
               ),
-        floatingActionButton: Align(
-          alignment: Alignment.bottomRight,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildFloatingButton(Icons.flight, () {
-                log("Botão avião pressionado");
-              }),
-              _buildFloatingButton(Icons.remove_red_eye, () {
-                log("Botão olho pressionado");
-              }),
-              _buildFloatingButton(Icons.crop_free, () {
-                log("Botão moldura pressionada");
-              }),
-              _buildFloatingButton(Icons.my_location, _recenterMap),
-            ],
-          ),
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          onTap: (index) async {
-            if (index == 0) {
-              _openPrivateChat(context);
-            } else if (index == 1) {
-              _openPublicChat(context);
-            }
-          },
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.chat),
-              label: '',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.group),
-              label: '',
-            ),
+      floatingActionButton: Align(
+        alignment: Alignment.bottomRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFloatingButton(Icons.flight, () {
+              log("Botão avião pressionado");
+            }),
+            _buildFloatingButton(Icons.remove_red_eye, () {
+              log("Botão olho pressionado");
+            }),
+            _buildFloatingButton(Icons.crop_free, () {
+              log("Botão moldura pressionada");
+            }),
+            _buildFloatingButton(Icons.my_location, _recenterMap),
           ],
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: configProvider.primaryColor,
+        selectedItemColor: configProvider.iconColor,
+        unselectedItemColor: configProvider.iconColor,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        onTap: (index) async {
+          if (index == 0) {
+            _openPrivateChat(context);
+          } else if (index == 1) {
+            _openPublicChat(context);
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.group),
+            label: '',
+          ),
+        ],
       ),
     );
   }
