@@ -6,6 +6,8 @@ import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/providers/call_manager.dart';
+import 'package:snarf/providers/config_provider.dart';
+import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/distance_utils.dart';
@@ -150,6 +152,8 @@ class _ViewUserPageState extends State<ViewUserPage> {
   }
 
   Widget _buildUserImage() {
+    final config = Provider.of<ConfigProvider>(context);
+
     return Container(
       width: 120,
       height: 120,
@@ -158,7 +162,10 @@ class _ViewUserPageState extends State<ViewUserPage> {
         border: Border.all(color: Colors.grey.shade300, width: 2),
         image: _userImageUrl != null
             ? DecorationImage(
-                image: NetworkImage(_userImageUrl!),
+                image: InterceptedImageProvider(
+                  originalProvider: NetworkImage(_userImageUrl!),
+                  hideImages: config.hideImages,
+                ),
                 fit: BoxFit.cover,
               )
             : const DecorationImage(

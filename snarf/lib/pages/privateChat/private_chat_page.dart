@@ -4,7 +4,6 @@ import 'dart:developer';
 import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit_config.dart';
 import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,7 +14,8 @@ import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/call_manager.dart';
-import 'package:snarf/providers/theme_provider.dart';
+import 'package:snarf/providers/config_provider.dart';
+import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
@@ -657,7 +657,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     return null;
   }
 
-
   Future<bool> _checkVideoDuration(File file) async {
     final controller = VideoPlayerController.file(file);
     await controller.initialize();
@@ -877,6 +876,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<ConfigProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: InkWell(
@@ -891,7 +892,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           child: Row(
             children: [
               CircleAvatar(
-                backgroundImage: NetworkImage(widget.userImage),
+                backgroundImage: InterceptedImageProvider(
+                  originalProvider: NetworkImage(widget.userImage),
+                  hideImages: config.hideImages,
+                ),
                 radius: 18,
               ),
               const SizedBox(width: 8),
@@ -922,7 +926,10 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 Container(
                   decoration: BoxDecoration(
                     image: DecorationImage(
-                      image: NetworkImage(widget.userImage),
+                      image: InterceptedImageProvider(
+                        originalProvider: NetworkImage(widget.userImage),
+                        hideImages: config.hideImages,
+                      ),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -1078,7 +1085,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               _isRecording ? Icons.stop : Icons.mic,
               color: _isRecording
                   ? Colors.red
-                  : Provider.of<ThemeProvider>(context).isDarkMode
+                  : Provider.of<ConfigProvider>(context).isDarkMode
                       ? Colors.white
                       : Colors.black,
             ),
@@ -1409,7 +1416,7 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
 
   Widget _buildAudio() {
     return Container(
-      width: 250,
+      width: 200,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.black12,

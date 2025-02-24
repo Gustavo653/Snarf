@@ -12,7 +12,7 @@ import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/pages/account/register_page.dart';
 import 'package:snarf/pages/home_page.dart';
-import 'package:snarf/providers/theme_provider.dart';
+import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -46,7 +46,7 @@ class _InitialPageState extends State<InitialPage> {
   void _performLogout() async {
     await ApiService.logout();
     await SignalRManager().stopConnection();
-    Provider.of<ThemeProvider>(context, listen: false).setDarkTheme();
+    Provider.of<ConfigProvider>(context, listen: false).setDarkTheme();
   }
 
   void _shuffleImages() {

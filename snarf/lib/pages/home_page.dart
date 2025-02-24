@@ -14,7 +14,8 @@ import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
-import 'package:snarf/providers/theme_provider.dart';
+import 'package:snarf/providers/config_provider.dart';
+import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/show_snackbar.dart';
@@ -163,7 +164,10 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             child: CircleAvatar(
-              backgroundImage: NetworkImage(userImage),
+              backgroundImage: InterceptedImageProvider(
+                originalProvider: NetworkImage(userImage),
+                hideImages: false,
+              ),
               radius: 25,
             ),
           ),
@@ -240,6 +244,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _handleReceiveLocation(Map<String, dynamic> data) {
+    final config = Provider.of<ConfigProvider>(context);
     final userId = data['userId'];
     final latitude = data['Latitude'];
     final longitude = data['Longitude'];
@@ -266,7 +271,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 child: CircleAvatar(
-                  backgroundImage: NetworkImage(userImage),
+                  backgroundImage: InterceptedImageProvider(
+                    originalProvider: userImage,
+                    hideImages: config.hideImages,
+                  ),
                   radius: 25,
                 ),
               ),
@@ -348,7 +356,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _getMapUrl(BuildContext context) {
-    final isDarkMode = Provider.of<ThemeProvider>(context).isDarkMode;
+    final isDarkMode = Provider.of<ConfigProvider>(context).isDarkMode;
     return isDarkMode
         ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
         : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
@@ -468,7 +476,7 @@ class _HomePageState extends State<HomePage> {
         splashColor: Colors.transparent,
         elevation: 0,
         child: Icon(icon,
-            color: Provider.of<ThemeProvider>(context).isDarkMode
+            color: Provider.of<ConfigProvider>(context).isDarkMode
                 ? Colors.white
                 : Colors.black,
             size: 24),
@@ -492,7 +500,7 @@ class _HomePageState extends State<HomePage> {
           title: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Provider.of<ThemeProvider>(context).isDarkMode
+              Provider.of<ConfigProvider>(context).isDarkMode
                   ? Image.asset(
                       'assets/images/logo-black.png',
                       height: 30,

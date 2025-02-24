@@ -2,8 +2,11 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
+import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
+import 'package:snarf/providers/config_provider.dart';
+import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
@@ -287,6 +290,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
     final userLatitude = message['latitude'] as double?;
     final userLongitude = message['longitude'] as double?;
     final senderImage = message['userImage'] as String? ?? '';
+    final config = Provider.of<ConfigProvider>(context);
 
     return isMine
         ? Row(
@@ -350,7 +354,10 @@ class _PublicChatPageState extends State<PublicChatPage> {
                         height: 50,
                         decoration: BoxDecoration(
                           image: DecorationImage(
-                            image: NetworkImage(senderImage),
+                            image: InterceptedImageProvider(
+                              originalProvider: NetworkImage(senderImage),
+                              hideImages: config.hideImages,
+                            ),
                             fit: BoxFit.cover,
                           ),
                           borderRadius: BorderRadius.only(

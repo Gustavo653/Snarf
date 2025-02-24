@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:snarf/components/toggle_theme_component.dart';
+import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 
@@ -215,7 +216,10 @@ class _EditUserPageState extends State<EditUserPage> {
               )
             : (_userImageUrl != null)
                 ? DecorationImage(
-                    image: NetworkImage(_userImageUrl!),
+                    image: InterceptedImageProvider(
+                      originalProvider: NetworkImage(_userImageUrl!),
+                      hideImages: false,
+                    ),
                     fit: BoxFit.cover,
                   )
                 : const DecorationImage(
@@ -244,7 +248,10 @@ class _EditUserPageState extends State<EditUserPage> {
             return ListTile(
               leading: CircleAvatar(
                 backgroundImage: (user['imageUrl'] != null)
-                    ? NetworkImage(user['imageUrl'])
+                    ? InterceptedImageProvider(
+                        originalProvider: NetworkImage(user['imageUrl']),
+                        hideImages: false,
+                      )
                     : const AssetImage('assets/images/user_anonymous.png')
                         as ImageProvider,
               ),

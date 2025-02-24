@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class ThemeProvider with ChangeNotifier {
+class ConfigProvider with ChangeNotifier {
   bool _isDarkMode = true;
 
   bool get isDarkMode => _isDarkMode;
@@ -17,6 +17,15 @@ class ThemeProvider with ChangeNotifier {
 
   void setDarkTheme() {
     _isDarkMode = true;
+    notifyListeners();
+  }
+
+  bool _hideImages = true;
+
+  bool get hideImages => _hideImages;
+
+  void toggleHideImages() {
+    _hideImages = !_hideImages;
     notifyListeners();
   }
 }
