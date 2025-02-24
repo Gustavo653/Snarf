@@ -75,7 +75,7 @@ Future<void> main() async {
 void configureApiConstants() {
   const isRelease = bool.fromEnvironment('dart.vm.product');
   ApiConstants.baseUrl =
-      !isRelease ? "https://snarf.inovitech.inf.br/api" : ApiConstants.baseUrl;
+      isRelease ? "https://snarf.inovitech.inf.br/api" : ApiConstants.baseUrl;
 }
 
 class SnarfApp extends StatelessWidget {
