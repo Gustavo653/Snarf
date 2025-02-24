@@ -491,49 +491,49 @@ class _HomePageState extends State<HomePage> {
           value: 'config',
           child: Row(
             children: [
-              Icon(Icons.settings, color: configProvider.iconColor),
+              Icon(Icons.person, color: configProvider.iconColor),
               const SizedBox(width: 10),
               Text(
-                "Configurações",
+                "Meu Perfil",
                 style: TextStyle(fontSize: 16, color: configProvider.textColor),
               ),
             ],
           ),
         ),
         PopupMenuItem(
-          value: 'toggle_theme',
-          child: Row(
-            children: [
-              Icon(
-                Icons.brightness_6,
-                color: configProvider.iconColor,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                configProvider.isDarkMode ? "Tema Claro" : "Tema Escuro",
-                style: TextStyle(fontSize: 16, color: configProvider.textColor),
-              ),
-            ],
+          enabled: false,
+          child: SwitchListTile(
+            title: Text(
+              "Modo Noturno",
+              style: TextStyle(fontSize: 16, color: configProvider.textColor),
+            ),
+            secondary:
+                Icon(Icons.brightness_6, color: configProvider.iconColor),
+            value: configProvider.isDarkMode,
+            onChanged: (bool value) {
+              Navigator.pop(context);
+              configProvider.toggleTheme();
+            },
           ),
         ),
         PopupMenuItem(
-          value: 'toggle_images',
-          child: Row(
-            children: [
-              Icon(
-                configProvider.hideImages
-                    ? Icons.image_not_supported
-                    : Icons.image,
-                color: configProvider.iconColor,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                configProvider.hideImages
-                    ? 'Exibir Imagens'
-                    : 'Ocultar Imagens',
-                style: TextStyle(fontSize: 16, color: configProvider.textColor),
-              ),
-            ],
+          enabled: false,
+          child: SwitchListTile(
+            title: Text(
+              "Modo Vanilla",
+              style: TextStyle(fontSize: 16, color: configProvider.textColor),
+            ),
+            secondary: Icon(
+              configProvider.hideImages
+                  ? Icons.image_not_supported
+                  : Icons.image,
+              color: configProvider.iconColor,
+            ),
+            value: !configProvider.hideImages,
+            onChanged: (bool value) {
+              Navigator.pop(context);
+              configProvider.toggleHideImages();
+            },
           ),
         ),
         PopupMenuItem(
@@ -557,10 +557,6 @@ class _HomePageState extends State<HomePage> {
           context,
           MaterialPageRoute(builder: (context) => const EditUserPage()),
         );
-      } else if (value == 'toggle_theme') {
-        configProvider.toggleTheme();
-      } else if (value == 'toggle_images') {
-        configProvider.toggleHideImages();
       } else if (value == 'logout') {
         Navigator.pushReplacement(
           context,
