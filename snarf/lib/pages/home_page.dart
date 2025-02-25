@@ -529,7 +529,7 @@ class _HomePageState extends State<HomePage> {
                   : Icons.image,
               color: configProvider.iconColor,
             ),
-            value: !configProvider.hideImages,
+            value: configProvider.hideImages,
             onChanged: (bool value) {
               Navigator.pop(context);
               configProvider.toggleHideImages();

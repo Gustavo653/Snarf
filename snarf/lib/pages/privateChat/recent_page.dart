@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
+import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
@@ -218,15 +219,13 @@ class _RecentChatPageState extends State<RecentPage> {
                                 child: SizedBox(
                                   width: double.infinity,
                                   height: double.infinity,
-                                  child: Image.network(
-                                    chat['UserImage'],
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (ctx, error, stack) {
-                                      return Image.asset(
-                                        'assets/images/user_anonymous.png',
-                                        fit: BoxFit.cover,
-                                      );
-                                    },
+                                  child: CircleAvatar(
+                                    backgroundImage: InterceptedImageProvider(
+                                      originalProvider:
+                                          NetworkImage(chat['UserImage']),
+                                      hideImages: configProvider.hideImages,
+                                    ),
+                                    radius: 18,
                                   ),
                                 ),
                               ),
