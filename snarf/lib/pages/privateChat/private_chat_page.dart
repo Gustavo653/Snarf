@@ -363,17 +363,46 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) {
+        final configProvider = Provider.of<ConfigProvider>(ctx, listen: false);
         return AlertDialog(
-          title: const Text("Excluir conversa"),
-          content: const Text("Deseja realmente excluir todo o chat?"),
+          backgroundColor: configProvider.primaryColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: configProvider.secondaryColor,
+              width: 2,
+            ),
+          ),
+          title: Text(
+            "Excluir conversa",
+            style: TextStyle(
+              color: configProvider.textColor,
+            ),
+          ),
+          content: Text(
+            "Deseja realmente excluir todo o chat?",
+            style: TextStyle(
+              color: configProvider.textColor,
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text("Cancelar"),
+              child: Text(
+                "Cancelar",
+                style: TextStyle(
+                  color: configProvider.textColor,
+                ),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text("Excluir"),
+              child: Text(
+                "Excluir",
+                style: TextStyle(
+                  color: configProvider.textColor,
+                ),
+              ),
             ),
           ],
         );
@@ -735,30 +764,15 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   void _openEmojiPicker(String messageId) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
     showModalBottomSheet(
       context: context,
+      backgroundColor: configProvider.primaryColor,
       builder: (ctx) {
-        return SizedBox(
+        return Container(
+          color: configProvider.primaryColor,
           height: 300,
           child: EmojiPicker(
-            config: Config(
-              categoryViewConfig: CategoryViewConfig(
-                backgroundColor: Color(0xFF0b0951),
-                iconColor: Colors.white,
-              ),
-              emojiViewConfig: EmojiViewConfig(
-                backgroundColor: Color(0xFF0b0951),
-              ),
-              searchViewConfig: SearchViewConfig(
-                backgroundColor: Color(0xFF0b0951),
-                buttonIconColor: Colors.white,
-              ),
-              bottomActionBarConfig: BottomActionBarConfig(
-                backgroundColor: Color(0xFF0b0951),
-                buttonIconColor: Colors.white,
-                buttonColor: Color(0xFF0b0951),
-              ),
-            ),
             onBackspacePressed: () {
               _sendReaction(messageId, '');
               Navigator.pop(ctx);
@@ -768,6 +782,25 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               _sendReaction(messageId, selectedEmoji);
               Navigator.pop(ctx);
             },
+            config: Config(
+              categoryViewConfig: CategoryViewConfig(
+                backgroundColor: configProvider.primaryColor,
+                iconColor: configProvider.iconColor,
+                iconColorSelected: configProvider.secondaryColor,
+              ),
+              emojiViewConfig: EmojiViewConfig(
+                backgroundColor: configProvider.primaryColor,
+              ),
+              searchViewConfig: SearchViewConfig(
+                backgroundColor: configProvider.primaryColor,
+                buttonIconColor: configProvider.iconColor,
+              ),
+              bottomActionBarConfig: BottomActionBarConfig(
+                backgroundColor: configProvider.primaryColor,
+                buttonIconColor: configProvider.iconColor,
+                buttonColor: configProvider.secondaryColor,
+              ),
+            ),
           ),
         );
       },
@@ -794,7 +827,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     super.dispose();
   }
 
-  Widget _buildOnlineStatusBar() {
+  Widget _buildOnlineStatusBar(ConfigProvider configProvider) {
     String distanceInfo = '';
     if (_myLatitude != null &&
         _myLongitude != null &&
@@ -810,13 +843,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
     return Container(
       width: double.infinity,
-      color: Color(0xff090737),
+      color: configProvider.primaryColor.withOpacity(0.7),
       padding: const EdgeInsets.all(8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           PopupMenuButton<int>(
-            color: Color(0xFF0b0951),
+            color: configProvider.primaryColor,
+            icon: Icon(Icons.more_horiz, color: configProvider.iconColor),
             onSelected: (value) {
               if (value == 0) {
                 _deleteEntireChat();
@@ -827,26 +861,44 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 0,
-                child: Text('Excluir todo o chat'),
+                child: Text(
+                  'Excluir todo o chat',
+                  style: TextStyle(
+                    color: configProvider.textColor,
+                  ),
+                ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 1,
-                child: Text('Denunciar'),
+                child: Text(
+                  'Denunciar',
+                  style: TextStyle(
+                    color: configProvider.textColor,
+                  ),
+                ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 2,
-                child: Text('Bloquear'),
+                child: Text(
+                  'Bloquear',
+                  style: TextStyle(
+                    color: configProvider.textColor,
+                  ),
+                ),
               ),
             ],
-            child: Icon(Icons.more_horiz),
           ),
-          Text(_isOnline
-              ? 'Conectado'
-              : (_lastActivity != null
-                  ? DateJSONUtils.formatRelativeTime(_lastActivity!.toString())
-                  : 'Offline')),
+          Text(
+            _isOnline
+                ? 'Conectado'
+                : (_lastActivity != null
+                    ? DateJSONUtils.formatRelativeTime(
+                        _lastActivity!.toString())
+                    : 'Offline'),
+            style: TextStyle(color: configProvider.textColor),
+          ),
           InkWell(
             onTap: distanceInfo.isNotEmpty
                 ? () {
@@ -864,8 +916,18 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.my_location, size: 14, color: Colors.blue),
-                Text(distanceInfo, style: const TextStyle(color: Colors.blue)),
+                Icon(
+                  Icons.my_location,
+                  size: 14,
+                  color: Colors.blue,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  distanceInfo,
+                  style: TextStyle(
+                    color: Colors.blue,
+                  ),
+                ),
               ],
             ),
           ),
@@ -876,10 +938,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final config = Provider.of<ConfigProvider>(context);
+    final configProvider = Provider.of<ConfigProvider>(context);
 
     return Scaffold(
+      backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
+        backgroundColor: configProvider.primaryColor,
+        iconTheme: IconThemeData(color: configProvider.iconColor),
         title: InkWell(
           onTap: () {
             Navigator.push(
@@ -894,7 +959,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
               CircleAvatar(
                 backgroundImage: InterceptedImageProvider(
                   originalProvider: NetworkImage(widget.userImage),
-                  hideImages: config.hideImages,
+                  hideImages: configProvider.hideImages,
                 ),
                 radius: 18,
               ),
@@ -903,6 +968,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                 child: Text(
                   widget.userName,
                   overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: configProvider.textColor),
                 ),
               ),
             ],
@@ -910,17 +976,25 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         ),
         actions: [
           IconButton(
-            icon: Icon(_isFavorite ? Icons.star : Icons.star_border),
+            icon: Icon(
+              _isFavorite ? Icons.star : Icons.star_border,
+              color: configProvider.iconColor,
+            ),
             onPressed: _toggleFavorite,
           ),
           IconButton(
-            icon: const Icon(Icons.videocam),
             onPressed: () => _initiateCall(widget.userId),
+            icon: Icon(
+              Icons.videocam,
+              color: configProvider.iconColor,
+            ),
           ),
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(color: configProvider.iconColor),
+            )
           : Stack(
               children: [
                 Container(
@@ -928,7 +1002,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     image: DecorationImage(
                       image: InterceptedImageProvider(
                         originalProvider: NetworkImage(widget.userImage),
-                        hideImages: config.hideImages,
+                        hideImages: configProvider.hideImages,
                       ),
                       fit: BoxFit.cover,
                     ),
@@ -939,8 +1013,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     gradient: RadialGradient(
                       center: Alignment.center,
                       radius: 0.9,
-                      colors: [Colors.transparent, Colors.black87],
-                      stops: const [0.6, 1.0],
+                      colors: [
+                        Colors.transparent,
+                        configProvider.primaryColor.withOpacity(0.8),
+                      ],
+                      stops: const [0.5, 1.0],
                     ),
                   ),
                 ),
@@ -961,17 +1038,19 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                               message.createdAt.toString(),
                             );
                             return _buildMessageRow(
+                              context,
                               message: message,
                               isMine: isMine,
                               time: time,
+                              configProvider: configProvider,
                             );
                           },
                         ),
                       ),
                     ),
-                    _buildReplyBanner(),
-                    _buildBottomBar(),
-                    _buildOnlineStatusBar(),
+                    _buildReplyBanner(configProvider),
+                    _buildBottomBar(configProvider),
+                    _buildOnlineStatusBar(configProvider),
                   ],
                 ),
                 if (_isSendingMedia)
@@ -986,17 +1065,17 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  Widget _buildReplyBanner() {
+  Widget _buildReplyBanner(ConfigProvider configProvider) {
     if (_replyingToMessage == null) return const SizedBox();
     final originalText = _replyingToMessage!.message;
     final isMedia = originalText.startsWith('https://');
     return Container(
-      color: Color(0xFF0b0951),
+      color: configProvider.primaryColor,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            const Icon(Icons.reply, size: 20),
+            Icon(Icons.reply, size: 20, color: configProvider.iconColor),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -1005,13 +1084,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     : 'Respondendo: $originalText',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: configProvider.textColor),
               ),
             ),
             IconButton(
               onPressed: () {
                 setState(() => _replyingToMessage = null);
               },
-              icon: const Icon(Icons.close),
+              icon: Icon(Icons.close, color: configProvider.iconColor),
             ),
           ],
         ),
@@ -1019,49 +1099,78 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(ConfigProvider configProvider) {
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: configProvider.primaryColor,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         children: [
           PopupMenuButton<String>(
-            color: Color(0xFF0b0951),
-            icon: const Icon(Icons.add_circle, size: 28),
+            color: configProvider.primaryColor,
+            icon: Icon(
+              Icons.add_circle,
+              size: 28,
+              color: configProvider.iconColor,
+            ),
             onSelected: (value) {
               if (value == 'gallery') _pickImage();
               if (value == 'camera') _takePhoto();
               if (value == 'video_gallery') _pickVideo();
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'gallery',
-                child: Text('Foto da Galeria'),
+                child: Text(
+                  'Foto da Galeria',
+                  style: TextStyle(
+                    color: configProvider.textColor,
+                  ),
+                ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'camera',
-                child: Text('Tirar Foto'),
+                child: Text(
+                  'Tirar Foto',
+                  style: TextStyle(
+                    color: configProvider.textColor,
+                  ),
+                ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'video_gallery',
-                child: Text('Vídeo da Galeria'),
+                child: Text(
+                  'Vídeo da Galeria',
+                  style: TextStyle(
+                    color: configProvider.textColor,
+                  ),
+                ),
               ),
             ],
           ),
           Expanded(
             child: TextField(
               controller: _messageController,
+              style: TextStyle(color: configProvider.textColor),
               decoration: InputDecoration(
                 hintText: "Digite sua mensagem...",
+                hintStyle:
+                    TextStyle(color: configProvider.textColor.withOpacity(0.7)),
+                fillColor: configProvider.secondaryColor.withOpacity(0.15),
+                filled: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: configProvider.secondaryColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: configProvider.secondaryColor),
                 ),
               ),
               maxLines: null,
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.send),
+            icon: Icon(Icons.send, color: configProvider.iconColor),
             onPressed: () {
               final text = _messageController.text.trim();
               if (text.isEmpty) return;
@@ -1075,19 +1184,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.camera_alt),
-            onPressed: () {
-              _recordVideo();
-            },
+            icon: Icon(Icons.camera_alt, color: configProvider.iconColor),
+            onPressed: () => _recordVideo(),
           ),
           IconButton(
             icon: Icon(
               _isRecording ? Icons.stop : Icons.mic,
-              color: _isRecording
-                  ? Colors.red
-                  : Provider.of<ConfigProvider>(context).isDarkMode
-                      ? Colors.white
-                      : Colors.black,
+              color: _isRecording ? Colors.red : configProvider.iconColor,
             ),
             onPressed: _isRecording ? _stopRecording : _startRecording,
           ),
@@ -1096,10 +1199,12 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  Widget _buildMessageRow({
+  Widget _buildMessageRow(
+    BuildContext context, {
     required PrivateChatMessageModel message,
     required bool isMine,
     required String time,
+    required ConfigProvider configProvider,
   }) {
     return Container(
       margin: EdgeInsets.only(
@@ -1114,20 +1219,22 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         children: [
           Text(
             time,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontStyle: FontStyle.italic,
+              color: configProvider.textColor.withOpacity(0.8),
             ),
           ),
-          _buildMessageBubble(message, isMine),
+          _buildMessageBubble(message, isMine, configProvider),
           if (_selectedMessageId == message.id)
-            _buildActionsBar(message, isMine),
+            _buildActionsBar(message, isMine, configProvider),
         ],
       ),
     );
   }
 
-  Widget _buildActionsBar(PrivateChatMessageModel message, bool isMine) {
+  Widget _buildActionsBar(PrivateChatMessageModel message, bool isMine,
+      ConfigProvider configProvider) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1136,11 +1243,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           IconButton(
-            icon: const Icon(Icons.mood),
+            icon: Icon(Icons.mood, color: configProvider.iconColor),
             onPressed: () => _openEmojiPicker(message.id),
           ),
           IconButton(
-            icon: const Icon(Icons.reply),
+            icon: Icon(Icons.reply, color: configProvider.iconColor),
             onPressed: () {
               setState(() {
                 _replyingToMessage = message;
@@ -1150,7 +1257,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
           ),
           if (isMine && message.message != 'Mensagem excluída')
             IconButton(
-              icon: const Icon(Icons.delete),
+              icon: Icon(Icons.delete, color: configProvider.iconColor),
               onPressed: () => _deleteMessage(message.id),
             ),
         ],
@@ -1158,7 +1265,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     );
   }
 
-  Widget _buildMessageBubble(PrivateChatMessageModel message, bool isMine) {
+  Widget _buildMessageBubble(PrivateChatMessageModel message, bool isMine,
+      ConfigProvider configProvider) {
     final isDeleted = message.message == 'Mensagem excluída';
     final content = message.message;
     final lower = content.toLowerCase();
@@ -1176,7 +1284,11 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
             ),
           )
         : null;
-    final bubbleColor = const Color(0xFFE8ECEF);
+
+    final bubbleColor = isMine
+        ? configProvider.secondaryColor.withOpacity(0.8)
+        : configProvider.secondaryColor.withOpacity(0.6);
+
     final borderRadius = BorderRadius.only(
       topLeft: const Radius.circular(16),
       topRight: const Radius.circular(16),
@@ -1205,23 +1317,23 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     padding: const EdgeInsets.all(8),
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
-                      color: Colors.black26,
+                      color: configProvider.primaryColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       "Em resposta: ${replyToMsg.message.startsWith('https://') ? '(Mídia)' : replyToMsg.message}",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontStyle: FontStyle.italic,
-                        color: Colors.black,
+                        color: configProvider.textColor,
                       ),
                     ),
                   ),
                 if (isDeleted)
-                  const Text(
+                  Text(
                     "Mensagem excluída",
                     style: TextStyle(
                       fontStyle: FontStyle.italic,
-                      color: Colors.black,
+                      color: configProvider.textColor,
                     ),
                   )
                 else if (isImage || isVideo || isAudio)
@@ -1230,11 +1342,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
                     isImage: isImage,
                     isVideo: isVideo,
                     isAudio: isAudio,
+                    textColor: configProvider.textColor,
                   )
                 else
                   Text(
                     content,
-                    style: const TextStyle(fontSize: 16, color: Colors.black),
+                    style: TextStyle(
+                        fontSize: 16, color: configProvider.textColor),
                   ),
                 if (message.reactions.isNotEmpty)
                   Wrap(
@@ -1280,11 +1394,14 @@ class _InlineMediaWidget extends StatefulWidget {
   final bool isVideo;
   final bool isAudio;
 
+  final Color textColor;
+
   const _InlineMediaWidget({
     required this.mediaUrl,
     required this.isImage,
     required this.isVideo,
     required this.isAudio,
+    required this.textColor,
   });
 
   @override
@@ -1415,6 +1532,8 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
   }
 
   Widget _buildAudio() {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return Container(
       width: 200,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -1430,11 +1549,12 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
               IconButton(
                 icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
                 onPressed: _togglePlayPause,
-                color: Colors.black,
+                color: configProvider.iconColor,
               ),
               Expanded(
                 child: Slider(
-                  activeColor: Colors.black,
+                  activeColor: configProvider.iconColor,
+                  inactiveColor: configProvider.iconColor,
                   min: 0,
                   max: _totalDuration.inMilliseconds.toDouble(),
                   value: _currentPosition.inMilliseconds
@@ -1453,11 +1573,15 @@ class _InlineMediaWidgetState extends State<_InlineMediaWidget> {
             children: [
               Text(
                 _formatDuration(_currentPosition),
-                style: TextStyle(color: Colors.black),
+                style: TextStyle(
+                  color: configProvider.iconColor,
+                ),
               ),
               Text(
                 _formatDuration(_totalDuration),
-                style: TextStyle(color: Colors.black),
+                style: TextStyle(
+                  color: configProvider.iconColor,
+                ),
               ),
             ],
           )

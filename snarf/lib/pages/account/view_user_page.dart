@@ -35,6 +35,12 @@ class _ViewUserPageState extends State<ViewUserPage> {
   double? _myLongitude;
   bool _isFavorite = false;
 
+  bool get _isOnline {
+    if (_lastActivity == null) return false;
+    final difference = DateTime.now().difference(_lastActivity!);
+    return difference.inMinutes < 1;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,31 +54,26 @@ class _ViewUserPageState extends State<ViewUserPage> {
     _myLongitude = position.longitude;
   }
 
-  Future<void> _toggleFavorite() async {
-    try {
-      if (_isFavorite) {
-        await SignalRManager().sendSignalRMessage(
-          SignalREventType.PrivateChatRemoveFavorite,
-          {'ChatUserId': widget.userId},
-        );
-      } else {
-        await SignalRManager().sendSignalRMessage(
-          SignalREventType.PrivateChatAddFavorite,
-          {'ChatUserId': widget.userId},
-        );
-      }
-      setState(() {
-        _isFavorite = !_isFavorite;
-      });
-    } catch (e) {
-      showSnackbar(context, "Erro ao alterar favorito: $e");
-    }
-  }
+  Future<void> _loadUserInfo() async {
+    await _initLocation();
 
-  bool get _isOnline {
-    if (_lastActivity == null) return false;
-    final difference = DateTime.now().difference(_lastActivity!);
-    return difference.inMinutes < 1;
+    SignalRManager().listenToEvent("ReceiveMessage", _handleSignalRMessage);
+
+    final userInfo = await ApiService.getUserInfoById(widget.userId);
+    if (userInfo != null) {
+      setState(() {
+        _userName = userInfo['name'];
+        _userEmail = userInfo['email'];
+        _userImageUrl = userInfo['imageUrl'];
+        _lastActivity = DateTime.parse(userInfo['lastActivity']).toLocal();
+        _latitude = (userInfo['lastLatitude'] as num).toDouble();
+        _longitude = (userInfo['lastLongitude'] as num).toDouble();
+        _isLoading = false;
+      });
+    } else {
+      showSnackbar(context, 'Erro ao carregar informações do usuário');
+      setState(() => _isLoading = false);
+    }
   }
 
   void _handleSignalRMessage(List<Object?>? args) {
@@ -99,25 +100,44 @@ class _ViewUserPageState extends State<ViewUserPage> {
         final String userId = mapData['userId'];
         if (userId == widget.userId) {
           setState(() {
-            _lastActivity = DateTime.now().add(Duration(days: -1));
+            _lastActivity = DateTime.now().subtract(const Duration(days: 1));
           });
-        } else if (eventType ==
-            SignalREventType.PrivateChatReceiveFavorites.toString()
-                .split('.')
-                .last) {
-          final List<dynamic> favorites = data['Data'] as List<dynamic>;
-          for (var item in favorites) {
-            if (item is Map<String, dynamic> && item['Id'] == widget.userId) {
-              setState(() {
-                _isFavorite = true;
-              });
-              break;
-            }
+        }
+      } else if (eventType ==
+          SignalREventType.PrivateChatReceiveFavorites.toString()
+              .split('.')
+              .last) {
+        final List<dynamic> favorites = data['Data'] as List<dynamic>;
+        for (var item in favorites) {
+          if (item is Map<String, dynamic> && item['Id'] == widget.userId) {
+            setState(() {
+              _isFavorite = true;
+            });
+            break;
           }
         }
       }
     } catch (e) {
       showSnackbar(context, "Erro ao processar favoritos: $e");
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    try {
+      if (_isFavorite) {
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PrivateChatRemoveFavorite,
+          {'ChatUserId': widget.userId},
+        );
+      } else {
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PrivateChatAddFavorite,
+          {'ChatUserId': widget.userId},
+        );
+      }
+      setState(() => _isFavorite = !_isFavorite);
+    } catch (e) {
+      showSnackbar(context, "Erro ao alterar favorito: $e");
     }
   }
 
@@ -130,36 +150,15 @@ class _ViewUserPageState extends State<ViewUserPage> {
     }
   }
 
-  Future<void> _loadUserInfo() async {
-    await _initLocation();
-    final userInfo = await ApiService.getUserInfoById(widget.userId);
-
-    SignalRManager().listenToEvent("ReceiveMessage", _handleSignalRMessage);
-
-    if (userInfo != null) {
-      setState(() {
-        _userName = userInfo['name'];
-        _userEmail = userInfo['email'];
-        _userImageUrl = userInfo['imageUrl'];
-        _lastActivity = DateTime.parse(userInfo['lastActivity']).toLocal();
-        _latitude = (userInfo['lastLatitude'] as num).toDouble();
-        _longitude = (userInfo['lastLongitude'] as num).toDouble();
-        _isLoading = false;
-      });
-    } else {
-      showSnackbar(context, 'Erro ao carregar informações do usuário');
-    }
-  }
-
   Widget _buildUserImage() {
-    final config = Provider.of<ConfigProvider>(context);
+    final config = Provider.of<ConfigProvider>(context, listen: false);
 
     return Container(
       width: 120,
       height: 120,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.grey.shade300, width: 2),
+        border: Border.all(color: config.secondaryColor, width: 2),
         image: _userImageUrl != null
             ? DecorationImage(
                 image: InterceptedImageProvider(
@@ -178,22 +177,35 @@ class _ViewUserPageState extends State<ViewUserPage> {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<ConfigProvider>(context);
+
     return Scaffold(
+      backgroundColor: config.primaryColor,
       appBar: AppBar(
-        title: const Text('Perfil do Usuário'),
+        backgroundColor: config.primaryColor,
+        iconTheme: IconThemeData(color: config.iconColor),
+        title: Text(
+          'Perfil do Usuário',
+          style: TextStyle(color: config.textColor),
+        ),
         actions: [
           IconButton(
-            icon: Icon(_isFavorite ? Icons.star : Icons.star_border),
+            icon: Icon(
+              _isFavorite ? Icons.star : Icons.star_border,
+              color: config.iconColor,
+            ),
             onPressed: _toggleFavorite,
           ),
           IconButton(
-            icon: const Icon(Icons.videocam),
+            icon: Icon(Icons.videocam, color: config.iconColor),
             onPressed: () => _initiateCall(widget.userId),
           )
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(color: config.iconColor),
+            )
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: SingleChildScrollView(
@@ -205,40 +217,57 @@ class _ViewUserPageState extends State<ViewUserPage> {
                       const SizedBox(height: 20),
                       Text(
                         _userName ?? 'Nome não disponível',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
+                          color: config.textColor,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Text(
                         _userEmail ?? 'E-mail não disponível',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
-                          color: Colors.grey,
+                          color: config.textColor.withOpacity(0.6),
                         ),
                       ),
                       const SizedBox(height: 10),
                       if (_latitude != null && _longitude != null) ...[
-                        Text('Distância: ${DistanceUtils.calculateDistance(
-                          _myLatitude!,
-                          _myLongitude!,
-                          _latitude!,
-                          _longitude!,
-                        ).toStringAsFixed(2)} km')
+                        Text(
+                          'Distância: ${DistanceUtils.calculateDistance(
+                            _myLatitude!,
+                            _myLongitude!,
+                            _latitude!,
+                            _longitude!,
+                          ).toStringAsFixed(2)} km',
+                          style: TextStyle(
+                            color: config.textColor,
+                          ),
+                        ),
                       ] else ...[
-                        const Text('Distância indisponível'),
+                        Text(
+                          'Distância indisponível',
+                          style: TextStyle(color: config.textColor),
+                        ),
                       ],
                       const SizedBox(height: 10),
                       Text(
                         _isOnline ? 'Online' : 'Offline',
                         style: TextStyle(
-                          color: _isOnline ? Colors.green : Colors.red,
+                          color: _isOnline
+                              ? config.customGreen
+                              : config.customOrange,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 10),
                       ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: config.secondaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
                         onPressed: _userName != null && _userImageUrl != null
                             ? () {
                                 Navigator.push(
@@ -253,10 +282,10 @@ class _ViewUserPageState extends State<ViewUserPage> {
                                 );
                               }
                             : null,
-                        child: const Text(
+                        child: Text(
                           'Iniciar Chat Privado',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: config.textColor,
                           ),
                         ),
                       ),
