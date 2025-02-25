@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:snarf/pages/privateChat/locations_page.dart';
 import 'package:snarf/pages/privateChat/parties_page.dart';
 import 'package:snarf/pages/privateChat/recent_page.dart';
+import 'package:snarf/providers/config_provider.dart';
 
 class PrivateChatNavigationPage extends StatefulWidget {
   final ScrollController scrollController;
@@ -49,13 +51,25 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
   }
 
   void showPrivacyPolicyDialog() {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Color(0xFF0b0951),
-          title: const Text("Conscientização de Fraude"),
-          content: const SingleChildScrollView(
+          backgroundColor: configProvider.primaryColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: configProvider.secondaryColor,
+              width: 2,
+            ),
+          ),
+          title: Text(
+            "Conscientização de Fraude",
+            style: TextStyle(color: configProvider.textColor),
+          ),
+          content: SingleChildScrollView(
             child: Text(
               "Proteja-se contra extorsão, roubo de identidade e fraude de cartão de crédito.\n\n"
               "O Snarf possui várias ferramentas para deter golpistas, mas também precisamos da sua ajuda.\n\n"
@@ -77,15 +91,25 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
               "O que fazer se identificar um golpe?\n"
               "Se alguém te enviar mensagens usando qualquer uma dessas estratégias, é melhor não responder e bloquear ou denunciar o perfil imediatamente.\n\n"
               "O Snarf possui várias ferramentas para ajudar a combater spam e contas falsas, mas também precisamos da sua ajuda. Spammers só ficam por perto se conseguirem o que procuram.",
+              style: TextStyle(color: configProvider.textColor),
               textAlign: TextAlign.justify,
             ),
           ),
           actions: [
             OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: configProvider.secondaryColor,
+                  width: 1,
+                ),
+              ),
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text("Fechar"),
+              child: Text(
+                "Fechar",
+                style: TextStyle(color: configProvider.textColor),
+              ),
             )
           ],
         );
@@ -95,19 +119,49 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
 
   @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return PopScope(
       child: Scaffold(
+        backgroundColor: configProvider.primaryColor,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          title: Text(_titles[_tabController.index]),
+          backgroundColor: configProvider.primaryColor,
+          iconTheme: IconThemeData(color: configProvider.iconColor),
+          title: Text(
+            _titles[_tabController.index],
+            style: TextStyle(color: configProvider.textColor),
+          ),
           automaticallyImplyLeading: false,
           bottom: TabBar(
             controller: _tabController,
+            labelColor: configProvider.iconColor,
+            unselectedLabelColor: configProvider.textColor.withOpacity(0.7),
+            indicatorColor: configProvider.secondaryColor,
             tabs: [
-              Tab(icon: Icon(Icons.chat_bubble)),
-              Tab(icon: Icon(Icons.push_pin)),
-              Tab(icon: Icon(Icons.location_on)),
-              Tab(icon: Icon(Icons.people)),
+              Tab(
+                icon: Icon(
+                  Icons.chat_bubble,
+                  color: configProvider.iconColor,
+                ),
+              ),
+              Tab(
+                icon: Icon(
+                  Icons.push_pin,
+                  color: configProvider.iconColor,
+                ),
+              ),
+              Tab(
+                icon: Icon(
+                  Icons.location_on,
+                  color: configProvider.iconColor,
+                ),
+              ),
+              Tab(
+                icon: Icon(
+                  Icons.people,
+                  color: configProvider.iconColor,
+                ),
+              ),
             ],
           ),
         ),
@@ -118,7 +172,7 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
         bottomNavigationBar: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Divider(),
+            Divider(color: configProvider.secondaryColor),
             Container(
               padding: const EdgeInsets.fromLTRB(0, 6, 0, 25),
               child: GestureDetector(
@@ -126,9 +180,17 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.shield_outlined),
+                    Icon(
+                      Icons.shield_outlined,
+                      color: configProvider.iconColor,
+                    ),
                     const SizedBox(width: 4),
-                    const Text("Proteja-se"),
+                    Text(
+                      "Proteja-se",
+                      style: TextStyle(
+                        color: configProvider.textColor,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

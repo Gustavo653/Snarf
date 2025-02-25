@@ -249,7 +249,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                // Data
                                 Text(
                                   DateJSONUtils.formatRelativeTime(
                                     createdAt.toString(),
