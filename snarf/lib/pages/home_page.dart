@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer';
-
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -44,12 +43,19 @@ class _HomePageState extends State<HomePage> {
   late Timer _timer;
   String? _fcmToken;
 
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
     _initializeApp();
     _startOpacityAnimation();
+
+    _analytics.logScreenView(
+      screenName: 'HomePage',
+      screenClass: 'HomePage',
+    );
   }
 
   void _startOpacityAnimation() {
@@ -65,13 +71,26 @@ class _HomePageState extends State<HomePage> {
     await _getFcmToken();
     await _initializeLocation();
     await _setupSignalRConnection();
+
+    await _analytics.logEvent(
+      name: 'app_initialized',
+      parameters: {
+        'screen': 'HomePage',
+      },
+    );
   }
 
   Future<void> _getFcmToken() async {
     final fcmToken = await FirebaseMessaging.instance.getToken();
     if (fcmToken != null) {
-      log("FCM Token: $fcmToken");
       _fcmToken = fcmToken;
+
+      await _analytics.logEvent(
+        name: 'fcm_token_received',
+        parameters: {
+          'token_length': fcmToken.length,
+        },
+      );
     }
   }
 
@@ -79,6 +98,13 @@ class _HomePageState extends State<HomePage> {
     final userId = await ApiService.getUserIdFromToken();
     if (userId == null) {
       showSnackbar(context, 'Não foi possível obter ID do token');
+
+      await _analytics.logEvent(
+        name: 'error',
+        parameters: {
+          'message': 'Falha ao obter ID do token',
+        },
+      );
       return;
     }
 
@@ -87,6 +113,14 @@ class _HomePageState extends State<HomePage> {
       userImage = userInfo['imageUrl'];
     } else {
       showSnackbar(context, 'Erro ao carregar informações do usuário');
+
+      await _analytics.logEvent(
+        name: 'error',
+        parameters: {
+          'message': 'Falha ao carregar informações do usuário',
+          'user_id': userId,
+        },
+      );
     }
   }
 
@@ -101,13 +135,23 @@ class _HomePageState extends State<HomePage> {
     bool serviceEnabled = await _location.serviceEnabled();
     if (!serviceEnabled) {
       serviceEnabled = await _location.requestService();
-      if (!serviceEnabled) return false;
+      if (!serviceEnabled) {
+        await _analytics.logEvent(
+          name: 'location_service_disabled',
+        );
+        return false;
+      }
     }
 
     PermissionStatus permissionGranted = await _location.hasPermission();
     if (permissionGranted == PermissionStatus.denied) {
       permissionGranted = await _location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) return false;
+      if (permissionGranted != PermissionStatus.granted) {
+        await _analytics.logEvent(
+          name: 'location_permission_denied',
+        );
+        return false;
+      }
     }
     return true;
   }
@@ -122,10 +166,23 @@ class _HomePageState extends State<HomePage> {
           _currentLocation.longitude!,
         );
       });
-      log('Localização atual recuperada: $_currentLocation');
+
+      await _analytics.logEvent(
+        name: 'location_obtained',
+        parameters: {
+          'latitude': _currentLocation.latitude!,
+          'longitude': _currentLocation.longitude!,
+        },
+      );
     } catch (err) {
-      log('Erro ao recuperar localização: $err');
       showSnackbar(context, "Erro ao recuperar localização: $err");
+
+      await _analytics.logEvent(
+        name: 'location_error',
+        parameters: {
+          'error': err.toString(),
+        },
+      );
     }
   }
 
@@ -133,23 +190,27 @@ class _HomePageState extends State<HomePage> {
     _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
 
     _locationSubscription =
-        _location.onLocationChanged.listen((LocationData newLocation) {
+        _location.onLocationChanged.listen((LocationData newLocation) async {
       setState(() {
         _currentLocation = newLocation;
         _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
       });
       if (_currentLocation.longitude != null &&
           _currentLocation.latitude != null) {
-        _sendLocationUpdate();
+        await _sendLocationUpdate();
       }
     });
   }
 
   Future<void> _setupSignalRConnection() async {
     SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
+
+    await _analytics.logEvent(
+      name: 'signalr_connection_initialized',
+    );
   }
 
-  void _onReceiveMessage(List<Object?>? args) {
+  void _onReceiveMessage(List<Object?>? args) async {
     if (args == null || args.isEmpty) return;
 
     try {
@@ -162,6 +223,13 @@ class _HomePageState extends State<HomePage> {
 
       final dynamic data = message['Data'];
 
+      await _analytics.logEvent(
+        name: 'signalr_message_received',
+        parameters: {
+          'type': message['Type'],
+        },
+      );
+
       switch (type) {
         case SignalREventType.MapReceiveLocation:
           _handleReceiveLocation(data);
@@ -170,10 +238,20 @@ class _HomePageState extends State<HomePage> {
           _handleUserDisconnected(data);
           break;
         default:
-          log("Evento não reconhecido: ${message['Type']}");
+          await _analytics.logEvent(
+            name: 'signalr_unrecognized_event',
+            parameters: {
+              'type': message['Type'],
+            },
+          );
       }
     } catch (e) {
-      log("Erro ao processar mensagem SignalR: $e");
+      await _analytics.logEvent(
+        name: 'signalr_process_error',
+        parameters: {
+          'error': e.toString(),
+        },
+      );
     }
   }
 
@@ -182,7 +260,7 @@ class _HomePageState extends State<HomePage> {
     final userId = data['userId'];
     final latitude = data['Latitude'];
     final longitude = data['Longitude'];
-    final userImage = data['userImage'];
+    final userImg = data['userImage'];
 
     setState(() {
       _userMarkers[userId] = Marker(
@@ -206,7 +284,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 child: CircleAvatar(
                   backgroundImage: InterceptedImageProvider(
-                    originalProvider: NetworkImage(userImage),
+                    originalProvider: NetworkImage(userImg),
                     hideImages: config.hideImages,
                   ),
                   radius: 25,
@@ -251,16 +329,20 @@ class _HomePageState extends State<HomePage> {
         ),
       );
     });
-
-    log("Localização recebida: $userId - ($latitude, $longitude)");
   }
 
-  void _handleUserDisconnected(Map<String, dynamic> data) {
+  void _handleUserDisconnected(Map<String, dynamic> data) async {
     final userId = data['userId'];
     setState(() {
       _userMarkers.remove(userId);
     });
-    log("Usuário desconectado: $userId");
+
+    await _analytics.logEvent(
+      name: 'user_disconnected',
+      parameters: {
+        'user_id': userId,
+      },
+    );
   }
 
   Future<void> _sendLocationUpdate() async {
@@ -271,8 +353,21 @@ class _HomePageState extends State<HomePage> {
         "Longitude": _currentLocation.longitude,
         "FcmToken": _fcmToken,
       });
+
+      await _analytics.logEvent(
+        name: 'location_update_sent',
+        parameters: {
+          'latitude': _currentLocation.latitude!,
+          'longitude': _currentLocation.longitude!,
+        },
+      );
     } catch (e) {
-      log('Erro ao enviar localização: $e');
+      await _analytics.logEvent(
+        name: 'location_update_failed',
+        parameters: {
+          'error': e.toString(),
+        },
+      );
     }
   }
 
@@ -342,7 +437,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _recenterMap() {
+  void _recenterMap() async {
     if (_isLocationLoaded) {
       _mapController.move(
         LatLng(
@@ -351,7 +446,14 @@ class _HomePageState extends State<HomePage> {
         ),
         15.0,
       );
-      log('Mapa recentralizado para localização atual');
+
+      await _analytics.logEvent(
+        name: 'map_recentering',
+        parameters: {
+          'latitude': _currentLocation.latitude!,
+          'longitude': _currentLocation.longitude!,
+        },
+      );
     }
   }
 
@@ -362,7 +464,14 @@ class _HomePageState extends State<HomePage> {
         : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
   }
 
-  void _openProfile(String userId) {
+  void _openProfile(String userId) async {
+    await _analytics.logEvent(
+      name: 'open_other_user_profile',
+      parameters: {
+        'user_id': userId,
+      },
+    );
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -371,7 +480,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openPrivateChat(BuildContext context) {
+  void _openPrivateChat(BuildContext context) async {
+    await _analytics.logEvent(
+      name: 'open_private_chat',
+    );
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -420,7 +533,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openPublicChat(BuildContext context) {
+  void _openPublicChat(BuildContext context) async {
+    await _analytics.logEvent(
+      name: 'open_public_chat',
+    );
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -510,8 +627,14 @@ class _HomePageState extends State<HomePage> {
             secondary:
                 Icon(Icons.brightness_6, color: configProvider.iconColor),
             value: configProvider.isDarkMode,
-            onChanged: (bool value) {
+            onChanged: (bool value) async {
               Navigator.pop(context);
+
+              await _analytics.logEvent(
+                name: 'toggle_dark_mode',
+                parameters: {'value': value},
+              );
+
               configProvider.toggleTheme();
             },
           ),
@@ -530,8 +653,14 @@ class _HomePageState extends State<HomePage> {
               color: configProvider.iconColor,
             ),
             value: configProvider.hideImages,
-            onChanged: (bool value) {
+            onChanged: (bool value) async {
               Navigator.pop(context);
+
+              await _analytics.logEvent(
+                name: 'toggle_hide_images',
+                parameters: {'value': value},
+              );
+
               configProvider.toggleHideImages();
             },
           ),
@@ -551,13 +680,16 @@ class _HomePageState extends State<HomePage> {
         ),
       ],
       elevation: 8.0,
-    ).then((value) {
+    ).then((value) async {
       if (value == 'config') {
+        await _analytics.logEvent(name: 'open_profile_edit');
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const EditUserPage()),
         );
       } else if (value == 'logout') {
+        await _analytics.logEvent(name: 'logout');
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const InitialPage()),
@@ -624,8 +756,8 @@ class _HomePageState extends State<HomePage> {
             Icons.filter_list_rounded,
             color: configProvider.iconColor,
           ),
-          onPressed: () {
-            log("Botão de menu pressionado");
+          onPressed: () async {
+            await _analytics.logEvent(name: 'menu_button_pressed');
           },
         ),
         actions: [
@@ -717,16 +849,18 @@ class _HomePageState extends State<HomePage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildFloatingButton(Icons.flight, () {
-              log("Botão avião pressionado");
+            _buildFloatingButton(Icons.flight, () async {
+              await _analytics.logEvent(name: 'flight_button_pressed');
             }),
-            _buildFloatingButton(Icons.remove_red_eye, () {
-              log("Botão olho pressionado");
+            _buildFloatingButton(Icons.remove_red_eye, () async {
+              await _analytics.logEvent(name: 'eye_button_pressed');
             }),
-            _buildFloatingButton(Icons.crop_free, () {
-              log("Botão moldura pressionada");
+            _buildFloatingButton(Icons.crop_free, () async {
+              await _analytics.logEvent(name: 'moldura_button_pressed');
             }),
-            _buildFloatingButton(Icons.my_location, _recenterMap),
+            _buildFloatingButton(Icons.my_location, () {
+              _recenterMap();
+            }),
           ],
         ),
       ),

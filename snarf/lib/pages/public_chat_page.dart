@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'dart:developer';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
+
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/config_provider.dart';
@@ -27,6 +28,8 @@ class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
 
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+
   String? _userId;
   bool _isLoading = true;
   double? _myLatitude;
@@ -36,6 +39,12 @@ class _PublicChatPageState extends State<PublicChatPage> {
   @override
   void initState() {
     super.initState();
+
+    _analytics.logScreenView(
+      screenName: 'PublicChatPage',
+      screenClass: 'PublicChatPage',
+    );
+
     _setupSignalRConnection();
   }
 
@@ -51,18 +60,32 @@ class _PublicChatPageState extends State<PublicChatPage> {
     var position = await location.getLocation();
     _myLatitude = position.latitude;
     _myLongitude = position.longitude;
+
+    await _analytics.logEvent(
+      name: 'public_chat_location_obtained',
+      parameters: {
+        'latitude': _myLatitude!,
+        'longitude': _myLongitude!,
+      },
+    );
   }
 
   Future<void> _setupSignalRConnection() async {
     await _loadUserId();
     await _initLocation();
+
     SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
     await SignalRManager()
         .sendSignalRMessage(SignalREventType.PublicChatGetPreviousMessages, {});
+
     setState(() => _isLoading = false);
+
+    await _analytics.logEvent(
+      name: 'public_chat_signalr_initialized',
+    );
   }
 
-  void _onReceiveMessage(List<Object?>? args) {
+  void _onReceiveMessage(List<Object?>? args) async {
     if (args == null || args.isEmpty) return;
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
@@ -72,6 +95,13 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
       final dynamic data = message['Data'];
 
+      await _analytics.logEvent(
+        name: 'public_chat_signalr_message_received',
+        parameters: {
+          'type': message['Type'],
+        },
+      );
+
       switch (type) {
         case SignalREventType.PublicChatReceiveMessage:
           _handleReceiveMessage(data);
@@ -80,10 +110,20 @@ class _PublicChatPageState extends State<PublicChatPage> {
           _handleMessageDeleted(data);
           break;
         default:
-          log("Evento não reconhecido: ${message['Type']}");
+          await _analytics.logEvent(
+            name: 'public_chat_unrecognized_event',
+            parameters: {
+              'event_type': message['Type'],
+            },
+          );
       }
     } catch (e) {
-      log("Erro ao processar mensagem SignalR: $e");
+      await _analytics.logEvent(
+        name: 'public_chat_process_error',
+        parameters: {
+          'error': e.toString(),
+        },
+      );
     }
   }
 
@@ -126,6 +166,14 @@ class _PublicChatPageState extends State<PublicChatPage> {
         SignalREventType.PublicChatSendMessage,
         {"Message": messageText},
       );
+
+      await _analytics.logEvent(
+        name: 'public_chat_message_sent',
+        parameters: {
+          'message_length': messageText.length,
+        },
+      );
+
       setState(() => _messageController.clear());
       _scrollToBottom();
     }
@@ -137,8 +185,23 @@ class _PublicChatPageState extends State<PublicChatPage> {
         SignalREventType.PublicChatDeleteMessage,
         {"MessageId": messageId},
       );
+
+      await _analytics.logEvent(
+        name: 'public_chat_message_deleted',
+        parameters: {
+          'message_id': messageId,
+        },
+      );
     } catch (e) {
       showSnackbar(context, "Erro ao excluir a mensagem: $e");
+
+      await _analytics.logEvent(
+        name: 'public_chat_delete_message_error',
+        parameters: {
+          'error': e.toString(),
+          'message_id': messageId,
+        },
+      );
     }
   }
 
@@ -194,10 +257,17 @@ class _PublicChatPageState extends State<PublicChatPage> {
               ),
             ),
             icon: Icon(Icons.sort, color: configProvider.iconColor),
-            onSelected: (value) {
+            onSelected: (value) async {
               setState(() {
                 _sortByDate = (value == 'date');
               });
+
+              await _analytics.logEvent(
+                name: 'public_chat_sort_changed',
+                parameters: {
+                  'sort_by': _sortByDate ? 'date' : 'distance',
+                },
+              );
             },
             itemBuilder: (context) => [
               PopupMenuItem(
@@ -431,6 +501,14 @@ class _PublicChatPageState extends State<PublicChatPage> {
               IconButton(
                 icon: Icon(Icons.my_location, color: configProvider.iconColor),
                 onPressed: () {
+                  _analytics.logEvent(
+                    name: 'public_chat_open_map',
+                    parameters: {
+                      'latitude': userLatitude,
+                      'longitude': userLongitude,
+                    },
+                  );
+
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(
                       builder: (context) => HomePage(
@@ -617,6 +695,13 @@ class ChatMessageOptions extends StatelessWidget {
   }
 
   Future<void> _blockUser(BuildContext context) async {
+    await FirebaseAnalytics.instance.logEvent(
+      name: 'public_chat_block_user_attempt',
+      parameters: {
+        'blocked_user_id': senderId,
+      },
+    );
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -666,13 +751,35 @@ class ChatMessageOptions extends StatelessWidget {
           'Usuário bloqueado com sucesso.',
           color: Colors.green,
         );
+
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'public_chat_block_user_success',
+          parameters: {
+            'blocked_user_id': senderId,
+          },
+        );
       } else {
         showSnackbar(context, 'Erro ao bloquear usuário: $response');
+
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'public_chat_block_user_error',
+          parameters: {
+            'blocked_user_id': senderId,
+            'error': response,
+          },
+        );
       }
     }
   }
 
   Future<void> _reportMessage(BuildContext context, String messageId) async {
+    await FirebaseAnalytics.instance.logEvent(
+      name: 'public_chat_report_message_attempt',
+      parameters: {
+        'message_id': messageId,
+      },
+    );
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -722,8 +829,23 @@ class ChatMessageOptions extends StatelessWidget {
           'Mensagem denunciada com sucesso.',
           color: Colors.green,
         );
+
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'public_chat_report_message_success',
+          parameters: {
+            'message_id': messageId,
+          },
+        );
       } else {
         showSnackbar(context, 'Erro ao denunciar mensagem: $response');
+
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'public_chat_report_message_error',
+          parameters: {
+            'message_id': messageId,
+            'error': response,
+          },
+        );
       }
     }
   }
