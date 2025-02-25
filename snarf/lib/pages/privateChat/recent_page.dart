@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
+import 'package:snarf/providers/config_provider.dart';
 
 class RecentPage extends StatefulWidget {
   final bool showFavorites;
@@ -170,14 +172,24 @@ class _RecentChatPageState extends State<RecentPage> {
 
   @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return Scaffold(
+      backgroundColor: configProvider.primaryColor,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(
+                color: configProvider.iconColor,
+              ),
+            )
           : _filteredChats.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
                     'Nenhuma conversa encontrada.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: configProvider.textColor,
+                    ),
                   ),
                 )
               : ListView.builder(
@@ -197,8 +209,9 @@ class _RecentChatPageState extends State<RecentPage> {
                         children: [
                           CircleAvatar(
                             radius: 30,
-                            backgroundColor:
-                                isOnline ? Colors.green : Colors.transparent,
+                            backgroundColor: isOnline
+                                ? configProvider.customGreen
+                                : Colors.transparent,
                             child: Padding(
                               padding: const EdgeInsets.all(4),
                               child: ClipOval(
@@ -227,10 +240,10 @@ class _RecentChatPageState extends State<RecentPage> {
                                 width: 12,
                                 height: 12,
                                 decoration: BoxDecoration(
-                                  color: Colors.green,
+                                  color: configProvider.customGreen,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: Colors.black,
+                                    color: configProvider.primaryColor,
                                     width: 2,
                                   ),
                                 ),
@@ -240,25 +253,20 @@ class _RecentChatPageState extends State<RecentPage> {
                       ),
                       title: Text(
                         chat['UserName'],
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
+                          color: configProvider.textColor,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            chat['LastMessage']
-                                    .toString()
-                                    .startsWith('https://')
-                                ? 'Arquivo'
-                                : chat['LastMessage'],
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                      subtitle: Text(
+                        chat['LastMessage'].toString().startsWith('https://')
+                            ? 'Arquivo'
+                            : chat['LastMessage'],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: configProvider.textColor),
                       ),
                       trailing: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -267,12 +275,14 @@ class _RecentChatPageState extends State<RecentPage> {
                           Text(
                             DateJSONUtils.formatRelativeTime(
                                 chat['LastMessageDate'].toString()),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey,
+                              color: configProvider.textColor.withOpacity(0.7),
                               fontStyle: FontStyle.italic,
                             ),
                           ),
+                          if (chat['UnreadCount'] > 0)
+                            const SizedBox(height: 4),
                           if (chat['UnreadCount'] > 0)
                             Stack(
                               alignment: Alignment.center,
@@ -281,7 +291,7 @@ class _RecentChatPageState extends State<RecentPage> {
                                   width: 24,
                                   height: 24,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF2A120),
+                                    color: configProvider.customOrange,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -291,8 +301,8 @@ class _RecentChatPageState extends State<RecentPage> {
                                     padding: const EdgeInsets.only(right: 10),
                                     child: Text(
                                       '${chat['UnreadCount']}',
-                                      style: const TextStyle(
-                                        color: Colors.black,
+                                      style: TextStyle(
+                                        color: configProvider.textColor,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),

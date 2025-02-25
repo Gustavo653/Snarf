@@ -25,12 +25,10 @@ class PublicChatPage extends StatefulWidget {
 
 class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
-
   final List<Map<String, dynamic>> _messages = [];
 
   String? _userId;
   bool _isLoading = true;
-
   double? _myLatitude;
   double? _myLongitude;
   bool _sortByDate = true;
@@ -66,7 +64,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
 
   void _onReceiveMessage(List<Object?>? args) {
     if (args == null || args.isEmpty) return;
-
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
       final SignalREventType type = SignalREventType.values.firstWhere(
@@ -110,7 +107,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
         ),
       });
     });
-
     _scrollToBottom();
   }
 
@@ -127,7 +123,9 @@ class _PublicChatPageState extends State<PublicChatPage> {
     final messageText = _messageController.text.trim();
     if (messageText.isNotEmpty) {
       await SignalRManager().sendSignalRMessage(
-          SignalREventType.PublicChatSendMessage, {"Message": messageText});
+        SignalREventType.PublicChatSendMessage,
+        {"Message": messageText},
+      );
       setState(() => _messageController.clear());
       _scrollToBottom();
     }
@@ -136,7 +134,9 @@ class _PublicChatPageState extends State<PublicChatPage> {
   void _deleteMessage(String messageId) async {
     try {
       await SignalRManager().sendSignalRMessage(
-          SignalREventType.PublicChatDeleteMessage, {"MessageId": messageId});
+        SignalREventType.PublicChatDeleteMessage,
+        {"MessageId": messageId},
+      );
     } catch (e) {
       showSnackbar(context, "Erro ao excluir a mensagem: $e");
     }
@@ -155,12 +155,8 @@ class _PublicChatPageState extends State<PublicChatPage> {
   }
 
   @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
     final sortedMessages = List<Map<String, dynamic>>.from(_messages);
 
     if (_sortByDate) {
@@ -178,35 +174,55 @@ class _PublicChatPageState extends State<PublicChatPage> {
     }
 
     return Scaffold(
+      backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
-        title: const Text('Feed'),
-        backgroundColor: Colors.transparent,
+        backgroundColor: configProvider.primaryColor,
+        iconTheme: IconThemeData(color: configProvider.iconColor),
+        title: Text(
+          'Feed',
+          style: TextStyle(color: configProvider.textColor),
+        ),
         automaticallyImplyLeading: false,
         actions: [
           PopupMenuButton<String>(
-            color: Color(0xFF0b0951),
+            color: configProvider.primaryColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: configProvider.secondaryColor,
+                width: 2,
+              ),
+            ),
+            icon: Icon(Icons.sort, color: configProvider.iconColor),
             onSelected: (value) {
               setState(() {
                 _sortByDate = (value == 'date');
               });
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'date',
-                child: Text('Ordenar por data'),
+                child: Text(
+                  'Ordenar por data',
+                  style: TextStyle(color: configProvider.textColor),
+                ),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'distance',
-                child: Text('Ordenar por distância'),
+                child: Text(
+                  'Ordenar por distância',
+                  style: TextStyle(color: configProvider.textColor),
+                ),
               ),
             ],
-            icon: const Icon(Icons.sort),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
+          ? Center(
+              child: CircularProgressIndicator(
+                color: configProvider.iconColor,
+              ),
             )
           : Column(
               children: [
@@ -217,10 +233,8 @@ class _PublicChatPageState extends State<PublicChatPage> {
                     itemBuilder: (context, index) {
                       final msg = sortedMessages[index];
                       final isMine = msg['isMine'] as bool;
-                      final senderName = msg['userName'] as String;
                       final createdAt = msg['createdAt'] as DateTime;
                       final distance = msg['distance'] ?? 0.0;
-                      final color = Color(0xFF392ea3);
 
                       return Column(
                         crossAxisAlignment: isMine
@@ -235,22 +249,25 @@ class _PublicChatPageState extends State<PublicChatPage> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                // Data
                                 Text(
                                   DateJSONUtils.formatRelativeTime(
                                     createdAt.toString(),
                                   ),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10,
                                     fontStyle: FontStyle.italic,
+                                    color: configProvider.textColor,
                                   ),
                                 ),
                                 Text(
                                   !isMine
                                       ? '${distance?.toStringAsFixed(2)} km'
                                       : '',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 10,
                                     fontStyle: FontStyle.italic,
+                                    color: configProvider.textColor,
                                   ),
                                 ),
                               ],
@@ -261,10 +278,10 @@ class _PublicChatPageState extends State<PublicChatPage> {
                                 ? Alignment.centerRight
                                 : Alignment.centerLeft,
                             child: _buildMessageWidget(
+                              context,
                               message: msg,
                               isMine: isMine,
-                              messageColor: color,
-                              distance: distance,
+                              messageColor: configProvider.secondaryColor,
                             ),
                           ),
                         ],
@@ -272,32 +289,112 @@ class _PublicChatPageState extends State<PublicChatPage> {
                     },
                   ),
                 ),
-                _buildMessageInput(),
+                _buildMessageInput(context),
               ],
             ),
     );
   }
 
-  Widget _buildMessageWidget({
+  Widget _buildMessageWidget(
+    BuildContext context, {
     required Map<String, dynamic> message,
     required bool isMine,
-    required Color? messageColor,
-    required double? distance,
+    required Color messageColor,
   }) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
     final msgText = message['message'] as String? ?? '';
     final msgId = message['id'] as String?;
     final userId = message['userId'] as String?;
     final userLatitude = message['latitude'] as double?;
     final userLongitude = message['longitude'] as double?;
     final senderImage = message['userImage'] as String? ?? '';
-    final config = Provider.of<ConfigProvider>(context);
 
-    return isMine
-        ? Row(
+    if (isMine) {
+      return Row(
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: messageColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.zero,
+                ),
+              ),
+              child: Text(
+                msgText,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: configProvider.textColor,
+                ),
+              ),
+            ),
+          ),
+          if (msgText != "Mensagem excluída")
+            IconButton(
+              icon: Icon(
+                Icons.delete,
+                size: 18,
+                color: configProvider.iconColor,
+              ),
+              onPressed: () {
+                if (msgId != null) {
+                  _deleteMessage(msgId);
+                }
+              },
+            ),
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.max,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: Row(
             mainAxisSize: MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              GestureDetector(
+                onTap: () {
+                  if (userId == null) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ViewUserPage(userId: userId),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(5),
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                    image: DecorationImage(
+                      image: InterceptedImageProvider(
+                        originalProvider: NetworkImage(senderImage),
+                        hideImages: configProvider.hideImages,
+                      ),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Flexible(
                 child: Container(
                   margin:
@@ -306,151 +403,104 @@ class _PublicChatPageState extends State<PublicChatPage> {
                       const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                   decoration: BoxDecoration(
                     color: messageColor,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(12),
-                      topRight: const Radius.circular(12),
-                      bottomLeft: const Radius.circular(12),
-                      bottomRight: Radius.zero,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                      bottomLeft: Radius.zero,
+                      bottomRight: Radius.circular(12),
                     ),
                   ),
                   child: Text(
                     msgText,
-                    style: const TextStyle(fontSize: 14),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: configProvider.textColor,
+                    ),
+                    softWrap: true,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 3,
                   ),
                 ),
               ),
-              if (msgText != "Mensagem excluída")
-                IconButton(
-                  icon: const Icon(Icons.delete, size: 18),
-                  onPressed: () {
-                    if (msgId != null) {
-                      _deleteMessage(msgId);
-                    }
-                  },
-                ),
             ],
-          )
-        : Row(
-            mainAxisSize: MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  mainAxisSize: MainAxisSize.max,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        if (userId == null) return;
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ViewUserPage(userId: userId),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: InterceptedImageProvider(
-                              originalProvider: NetworkImage(senderImage),
-                              hideImages: config.hideImages,
-                            ),
-                            fit: BoxFit.cover,
-                          ),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(30),
-                            topRight: Radius.circular(5),
-                            bottomLeft: Radius.circular(30),
-                            bottomRight: Radius.circular(30),
-                          ),
-                        ),
+          ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (userLatitude != null && userLongitude != null)
+              IconButton(
+                icon: Icon(Icons.my_location, color: configProvider.iconColor),
+                onPressed: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => HomePage(
+                        initialLatitude: userLatitude,
+                        initialLongitude: userLongitude,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(
-                            vertical: 4, horizontal: 8),
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: messageColor,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(12),
-                            topRight: const Radius.circular(12),
-                            bottomLeft: Radius.zero,
-                            bottomRight: const Radius.circular(12),
-                          ),
-                        ),
-                        child: Text(
-                          msgText,
-                          style: const TextStyle(fontSize: 14),
-                          softWrap: true,
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 3,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                    (Route<dynamic> route) => false,
+                  );
+                },
               ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (userLatitude != null && userLongitude != null)
-                    IconButton(
-                      icon: const Icon(Icons.my_location),
-                      onPressed: () {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => HomePage(
-                              initialLatitude: userLatitude,
-                              initialLongitude: userLongitude,
-                            ),
-                          ),
-                          (Route<dynamic> route) => false,
-                        );
-                      },
-                    ),
-                  ChatMessageOptions(
-                    senderId: userId!,
-                    messageId: msgId!,
-                    mainContext: context,
-                  )
-                ],
-              ),
-            ],
-          );
+            ChatMessageOptions(
+              senderId: userId!,
+              messageId: msgId!,
+              mainContext: context,
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
-  Widget _buildMessageInput() {
+  Widget _buildMessageInput(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: configProvider.primaryColor,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 25),
       child: Row(
         children: [
           Expanded(
             child: TextField(
               controller: _messageController,
+              style: TextStyle(color: configProvider.textColor),
               decoration: InputDecoration(
                 hintText: "Digite uma atualização",
+                hintStyle:
+                    TextStyle(color: configProvider.textColor.withOpacity(0.6)),
+                fillColor: configProvider.secondaryColor.withOpacity(0.1),
+                filled: true,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(
+                    color: configProvider.secondaryColor,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(
+                    color: configProvider.secondaryColor,
+                  ),
                 ),
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.send),
+            icon: Icon(Icons.send, color: configProvider.iconColor),
             onPressed: _sendMessage,
             iconSize: 30,
           ),
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
   }
 }
 
@@ -468,20 +518,28 @@ class ChatMessageOptions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
     return IconButton(
-      icon: const Icon(Icons.more_horiz),
+      icon: Icon(Icons.more_horiz, color: configProvider.iconColor),
       onPressed: () => _showBlockReportDialog(context),
     );
   }
 
   void _showBlockReportDialog(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Color(0xFF0b0951),
+          backgroundColor: configProvider.primaryColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: configProvider.secondaryColor,
+              width: 2,
+            ),
           ),
           contentPadding: const EdgeInsets.all(16),
           content: Column(
@@ -492,18 +550,18 @@ class ChatMessageOptions extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        elevation: 10,
-                        backgroundColor: Color(0xFF4c2a85),
-                        iconColor: Colors.white,
+                        elevation: 5,
+                        backgroundColor: configProvider.secondaryColor,
+                        iconColor: configProvider.iconColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       icon: const Icon(Icons.block),
-                      label: const Text(
+                      label: Text(
                         "Bloquear Usuário",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: configProvider.textColor,
                         ),
                       ),
                       onPressed: () {
@@ -520,18 +578,18 @@ class ChatMessageOptions extends StatelessWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        elevation: 10,
-                        backgroundColor: Color(0xFF4c2a85),
-                        iconColor: Colors.white,
+                        elevation: 5,
+                        backgroundColor: configProvider.secondaryColor,
+                        iconColor: configProvider.iconColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       icon: const Icon(Icons.flag),
-                      label: const Text(
+                      label: Text(
                         "Denunciar Publicação",
                         style: TextStyle(
-                          color: Colors.white,
+                          color: configProvider.textColor,
                         ),
                       ),
                       onPressed: () {
@@ -544,10 +602,10 @@ class ChatMessageOptions extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               TextButton(
-                child: const Text(
+                child: Text(
                   "Cancelar",
                   style: TextStyle(
-                    color: Colors.white,
+                    color: configProvider.textColor,
                   ),
                 ),
                 onPressed: () => Navigator.pop(context),
@@ -563,22 +621,38 @@ class ChatMessageOptions extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
+        final configProvider = Provider.of<ConfigProvider>(context);
         return AlertDialog(
-          title: const Text('Confirmar Bloqueio'),
-          content:
-              const Text('Tem certeza de que deseja bloquear este usuário?'),
+          backgroundColor: configProvider.primaryColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: configProvider.secondaryColor,
+              width: 2,
+            ),
+          ),
+          title: Text(
+            'Confirmar Bloqueio',
+            style: TextStyle(color: configProvider.textColor),
+          ),
+          content: Text(
+            'Tem certeza de que deseja bloquear este usuário?',
+            style: TextStyle(color: configProvider.textColor),
+          ),
           actions: <Widget>[
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('Cancelar'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancelar',
+                style: TextStyle(color: configProvider.textColor),
+              ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              child: const Text('Bloquear'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(
+                'Bloquear',
+                style: TextStyle(color: configProvider.textColor),
+              ),
             ),
           ],
         );
@@ -603,22 +677,38 @@ class ChatMessageOptions extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
+        final configProvider = Provider.of<ConfigProvider>(context);
         return AlertDialog(
-          title: const Text('Confirmar denúncia'),
-          content:
-              const Text('Tem certeza de que deseja denunciar esta mensagem?'),
+          backgroundColor: configProvider.primaryColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: configProvider.secondaryColor,
+              width: 2,
+            ),
+          ),
+          title: Text(
+            'Confirmar denúncia',
+            style: TextStyle(color: configProvider.textColor),
+          ),
+          content: Text(
+            'Tem certeza de que deseja denunciar esta mensagem?',
+            style: TextStyle(color: configProvider.textColor),
+          ),
           actions: <Widget>[
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('Cancelar'),
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancelar',
+                style: TextStyle(color: configProvider.textColor),
+              ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              child: const Text('Denunciar'),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(
+                'Denunciar',
+                style: TextStyle(color: configProvider.textColor),
+              ),
             ),
           ],
         );
