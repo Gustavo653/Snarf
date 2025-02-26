@@ -627,15 +627,15 @@ class _HomePageState extends State<HomePage> {
             secondary:
                 Icon(Icons.brightness_6, color: configProvider.iconColor),
             value: configProvider.isDarkMode,
-            onChanged: (bool value) async {
+            onChanged: (_) async {
               Navigator.pop(context);
+
+              configProvider.toggleTheme();
 
               await _analytics.logEvent(
                 name: 'toggle_dark_mode',
-                parameters: {'value': value},
+                parameters: {'value': configProvider.isDarkMode},
               );
-
-              configProvider.toggleTheme();
             },
           ),
         ),
@@ -653,15 +653,15 @@ class _HomePageState extends State<HomePage> {
               color: configProvider.iconColor,
             ),
             value: configProvider.hideImages,
-            onChanged: (bool value) async {
+            onChanged: (_) async {
               Navigator.pop(context);
+
+              configProvider.toggleHideImages();
 
               await _analytics.logEvent(
                 name: 'toggle_hide_images',
-                parameters: {'value': value},
+                parameters: {'value': configProvider.hideImages},
               );
-
-              configProvider.toggleHideImages();
             },
           ),
         ),

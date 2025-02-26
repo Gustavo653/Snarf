@@ -667,6 +667,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<File?> _resizeVideo(File inputFile) async {
+    return inputFile;
     final String outputPath = '${inputFile.path}_square.mp4';
 
     final String inPath = "'${inputFile.path}'";
