@@ -12,11 +12,12 @@ import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/pages/account/register_page.dart';
 import 'package:snarf/pages/home_page.dart';
-import 'package:snarf/providers/theme_provider.dart';
+import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 class InitialPage extends StatefulWidget {
   const InitialPage({super.key});
@@ -36,35 +37,61 @@ class _InitialPageState extends State<InitialPage> {
     'assets/images/snarf-bg003.jpg'
   ];
 
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+
   @override
   void initState() {
     super.initState();
+
+    _analytics.logScreenView(
+      screenName: 'InitialPage',
+      screenClass: 'InitialPage',
+    );
+
     _performLogout();
     _shuffleImages();
   }
 
   void _performLogout() async {
+    await _analytics.logEvent(name: 'perform_logout');
+
     await ApiService.logout();
     await SignalRManager().stopConnection();
-    Provider.of<ThemeProvider>(context, listen: false).setDarkTheme();
+    Provider.of<ConfigProvider>(context, listen: false).setDarkTheme();
   }
 
   void _shuffleImages() {
+    _analytics.logEvent(name: 'shuffle_background_images');
     _imagePaths.shuffle();
   }
 
   Future<int?> _showAgeConfirmationDialog(BuildContext context) async {
+    await _analytics.logEvent(name: 'show_age_confirmation_dialog');
     return showDialog(
       context: context,
-      builder: (context) => AgeConfirmationDialog(),
+      builder: (context) => const AgeConfirmationDialog(),
     );
   }
 
   Future<void> _createAnonymousAccount(BuildContext context) async {
+    await _analytics.logEvent(name: 'attempt_anonymous_registration');
+
     final birthYear = await _showAgeConfirmationDialog(context);
     if (birthYear == null) return;
 
-    String uniqueId = Uuid().v4();
+    final currentYear = DateTime.now().year;
+    final isAdult = (currentYear - birthYear) >= 18;
+
+    await _analytics.logEvent(
+      name: 'age_confirmation_result',
+      parameters: {'birth_year': birthYear, 'is_adult': isAdult},
+    );
+
+    if (!isAdult) {
+      return;
+    }
+
+    String uniqueId = const Uuid().v4();
     String email = '$uniqueId@anonimo.com';
     String name = 'anon_$uniqueId';
 
@@ -91,17 +118,33 @@ class _InitialPageState extends State<InitialPage> {
         await _secureStorage.write(key: 'email', value: email);
         await _secureStorage.write(key: 'password', value: 'Senha@123');
         if (loginResponse == null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomePage()),
-          );
+          await _analytics.logEvent(name: 'anonymous_registration_success');
+          // Navega para HomePage
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomePage()),
+            );
+          }
         } else {
+          await _analytics.logEvent(
+            name: 'anonymous_registration_login_error',
+            parameters: {'error': loginResponse},
+          );
           _showErrorDialog(context, 'Erro ao criar conta anônima');
         }
       } else {
+        await _analytics.logEvent(
+          name: 'anonymous_registration_error',
+          parameters: {'error': errorMessage},
+        );
         _showErrorDialog(context, 'Erro ao registrar conta: $errorMessage');
       }
     } catch (e) {
+      await _analytics.logEvent(
+        name: 'anonymous_registration_exception',
+        parameters: {'exception': e.toString()},
+      );
       _showErrorDialog(context, 'Erro: $e');
     } finally {
       setState(() {
@@ -119,7 +162,9 @@ class _InitialPageState extends State<InitialPage> {
     return file;
   }
 
-  void _showLoginModal(BuildContext context) {
+  void _showLoginModal(BuildContext context) async {
+    await _analytics.logEvent(name: 'show_login_modal');
+
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.5),
@@ -132,22 +177,6 @@ class _InitialPageState extends State<InitialPage> {
     );
   }
 
-  void _showModal(BuildContext context, String title, String content) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fechar'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showErrorDialog(BuildContext context, String message) {
     showDialog(
       context: context,
@@ -155,7 +184,7 @@ class _InitialPageState extends State<InitialPage> {
         title: 'Erro',
         content: Text(
           message,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 16.0,
           ),
         ),
@@ -205,9 +234,10 @@ class _InitialPageState extends State<InitialPage> {
                   const Text(
                     'Ou',
                     style: TextStyle(
-                        fontSize: 20,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold),
+                      fontSize: 20,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   FractionallySizedBox(
@@ -222,7 +252,7 @@ class _InitialPageState extends State<InitialPage> {
               ),
             ),
           ),
-          Positioned(
+          const Positioned(
             bottom: 30,
             left: 15,
             right: 15,
@@ -478,7 +508,7 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
 void showForgotPasswordModal(BuildContext context) {
   showDialog(
     context: context,
-    builder: (context) => ForgotPasswordModal(),
+    builder: (context) => const ForgotPasswordModal(),
   );
 }
 
@@ -550,15 +580,15 @@ class _ForgotPasswordModalState extends State<ForgotPasswordModal> {
             decoration: InputDecoration(
               labelText: 'E-mail',
               fillColor: Colors.black,
-              labelStyle: TextStyle(color: Colors.black),
-              prefixIconColor: Color(0xFF0b0951),
+              labelStyle: const TextStyle(color: Colors.black),
+              prefixIconColor: const Color(0xFF0b0951),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
               prefixIcon: const Icon(Icons.email),
             ),
             keyboardType: TextInputType.emailAddress,
-            style: TextStyle(color: Colors.black),
+            style: const TextStyle(color: Colors.black),
           ),
           if (_errorMessage != null) ...[
             const SizedBox(height: 16),
@@ -654,12 +684,12 @@ class _ResetPasswordModalState extends State<ResetPasswordModal> {
           const Text('Insira o código recebido por e-mail e sua nova senha.'),
           const SizedBox(height: 16),
           TextField(
-            style: TextStyle(color: Colors.black),
+            style: const TextStyle(color: Colors.black),
             controller: _codeController,
             decoration: InputDecoration(
               labelText: 'Código',
-              labelStyle: TextStyle(color: Colors.black),
-              prefixIconColor: Color(0xFF0b0951),
+              labelStyle: const TextStyle(color: Colors.black),
+              prefixIconColor: const Color(0xFF0b0951),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
@@ -668,12 +698,12 @@ class _ResetPasswordModalState extends State<ResetPasswordModal> {
           ),
           const SizedBox(height: 16),
           TextField(
-            style: TextStyle(color: Colors.black),
+            style: const TextStyle(color: Colors.black),
             controller: _passwordController,
             decoration: InputDecoration(
               labelText: 'Nova Senha',
-              labelStyle: TextStyle(color: Colors.black),
-              prefixIconColor: Color(0xFF0b0951),
+              labelStyle: const TextStyle(color: Colors.black),
+              prefixIconColor: const Color(0xFF0b0951),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
               ),
@@ -716,6 +746,8 @@ class _LoginModalState extends State<LoginModal> {
   bool isLoading = false;
   String? errorMessage;
 
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+
   Future<void> login() async {
     final String email = emailController.text.trim();
     final String password = passwordController.text.trim();
@@ -734,16 +766,44 @@ class _LoginModalState extends State<LoginModal> {
 
     try {
       final loginResponse = await ApiService.login(email, password);
+
+      await _analytics.logEvent(
+        name: 'login_attempt',
+        parameters: {
+          'email': email,
+        },
+      );
+
       await _secureStorage.write(key: 'email', value: email);
       await _secureStorage.write(key: 'password', value: password);
+
       if (loginResponse == null) {
+        await _analytics.logEvent(
+          name: 'login_success',
+          parameters: {
+            'email': email,
+          },
+        );
         widget.onLoginSuccess();
       } else {
+        await _analytics.logEvent(
+          name: 'login_failure',
+          parameters: {
+            'email': email,
+            'error': loginResponse,
+          },
+        );
         setState(() {
           errorMessage = loginResponse;
         });
       }
     } catch (e) {
+      await _analytics.logEvent(
+        name: 'login_exception',
+        parameters: {
+          'error': e.toString(),
+        },
+      );
       setState(() {
         errorMessage = 'Ocorreu um erro: $e';
       });
@@ -756,6 +816,11 @@ class _LoginModalState extends State<LoginModal> {
 
   @override
   Widget build(BuildContext context) {
+    _analytics.logScreenView(
+      screenName: 'LoginModal',
+      screenClass: 'LoginModal',
+    );
+
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
       child: CustomModal(
@@ -766,11 +831,11 @@ class _LoginModalState extends State<LoginModal> {
               const SizedBox(height: 10),
               TextField(
                 controller: emailController,
-                style: TextStyle(color: Colors.black),
+                style: const TextStyle(color: Colors.black),
                 decoration: InputDecoration(
                   labelText: 'E-mail',
-                  labelStyle: TextStyle(color: Colors.black),
-                  prefixIconColor: Color(0xFF0b0951),
+                  labelStyle: const TextStyle(color: Colors.black),
+                  prefixIconColor: const Color(0xFF0b0951),
                   prefixIcon: const Icon(Icons.email),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
@@ -784,18 +849,18 @@ class _LoginModalState extends State<LoginModal> {
                 builder: (context, isVisible, child) {
                   return TextField(
                     controller: passwordController,
-                    style: TextStyle(color: Colors.black),
+                    style: const TextStyle(color: Colors.black),
                     decoration: InputDecoration(
                       labelText: 'Senha',
-                      labelStyle: TextStyle(color: Colors.black),
-                      prefixIconColor: Color(0xFF0b0951),
+                      labelStyle: const TextStyle(color: Colors.black),
+                      prefixIconColor: const Color(0xFF0b0951),
                       suffixIconColor: Colors.black,
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
                         icon: Icon(
                           isVisible ? Icons.visibility : Icons.visibility_off,
                         ),
-                        color: Color(0xFF0b0951),
+                        color: const Color(0xFF0b0951),
                         onPressed: () {
                           isPasswordVisible.value = !isVisible;
                         },

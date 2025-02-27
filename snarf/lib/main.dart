@@ -5,14 +5,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_update_checker/flutter_update_checker.dart';
+import 'package:in_app_update/in_app_update.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/call_manager.dart';
+import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/signalr_manager.dart';
 
 import 'pages/account/initial_page.dart';
 import 'pages/home_page.dart';
-import 'providers/theme_provider.dart';
 import 'services/api_service.dart';
 import 'utils/api_constants.dart';
 import 'utils/app_themes.dart';
@@ -27,28 +27,32 @@ Future<void> main() async {
   await Firebase.initializeApp();
 
   FlutterError.onError = (errorDetails) {
+    FirebaseCrashlytics.instance.recordFlutterError(errorDetails);
+  };
+
+  FlutterError.onError = (errorDetails) {
     FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
   };
   PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    FirebaseCrashlytics.instance.recordError(error, stack);
     return true;
   };
 
-  final updateChecker = UpdateStoreChecker(
-      androidGooglePlayPackage: 'com.snarf.snarf',
-      androidAppGalleryId: 'com.snarf.snarf',
-      androidAppGalleryPackageName: 'com.snarf.snarf');
-
-  bool isUpdateAvailable = await updateChecker.checkUpdate();
-  if (isUpdateAvailable) {
-    log("Atualização disponível!");
-    await updateChecker.update();
-  } else {
-    log("Você está usando a última versão.");
-  }
-
-  String storeVersion = await updateChecker.getStoreVersion();
-  log("Última versão na loja: $storeVersion");
+  InAppUpdate.checkForUpdate().then((updateInfo) {
+    if (updateInfo.updateAvailability == UpdateAvailability.updateAvailable) {
+      if (updateInfo.immediateUpdateAllowed) {
+        InAppUpdate.performImmediateUpdate().then((appUpdateResult) {
+          if (appUpdateResult == AppUpdateResult.success) {}
+        });
+      } else if (updateInfo.flexibleUpdateAllowed) {
+        InAppUpdate.startFlexibleUpdate().then((appUpdateResult) {
+          if (appUpdateResult == AppUpdateResult.success) {
+            InAppUpdate.completeFlexibleUpdate();
+          }
+        });
+      }
+    }
+  });
 
   await FirebaseMessaging.instance.requestPermission(provisional: true);
 
@@ -63,8 +67,8 @@ Future<void> main() async {
         ChangeNotifierProvider<CallManager>(
           create: (_) => CallManager(),
         ),
-        ChangeNotifierProvider<ThemeProvider>(
-          create: (_) => ThemeProvider(),
+        ChangeNotifierProvider<ConfigProvider>(
+          create: (_) => ConfigProvider(),
         ),
       ],
       child: const SnarfApp(),
@@ -83,7 +87,7 @@ class SnarfApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
+    final themeProvider = Provider.of<ConfigProvider>(context);
 
     return MaterialApp(
       title: 'snarf',

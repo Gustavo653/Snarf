@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:snarf/components/toggle_theme_component.dart';
+import 'package:provider/provider.dart';
+import 'package:snarf/providers/config_provider.dart';
+import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 class EditUserPage extends StatefulWidget {
   const EditUserPage({super.key});
@@ -20,41 +22,39 @@ class _EditUserPageState extends State<EditUserPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   String? _userId;
   String? _userImageUrl;
   int favoritedByCount = 0;
   int blockedByCount = 0;
   bool _isLoading = true;
-
   File? _pickedFile;
   final String _defaultImagePath = 'assets/images/user_anonymous.png';
-
   List<dynamic> _blockedUsers = [];
-  List<dynamic> _favoriteUsers = [];
 
   @override
   void initState() {
     super.initState();
+    _analytics.logScreenView(
+        screenName: 'EditUserPage', screenClass: 'EditUserPage');
     _loadUserInfo();
   }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
     if (pickedFile != null) {
       setState(() {
         _pickedFile = File(pickedFile.path);
         _userImageUrl = null;
       });
+      await _analytics.logEvent(name: 'edit_user_pick_image');
     }
   }
 
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
     final userInfo = await ApiService.getUserInfoById(userId!);
-
     if (userInfo != null) {
       setState(() {
         _nameController.text = userInfo['name'];
@@ -63,43 +63,41 @@ class _EditUserPageState extends State<EditUserPage> {
         _userImageUrl = userInfo['imageUrl'];
         _blockedUsers = userInfo['blockedUsers'] ?? [];
         blockedByCount = userInfo['blockedBy'] ?? 0;
-        _favoriteUsers = userInfo['favoriteChats'] ?? [];
         favoritedByCount = userInfo['favoritedBy'] ?? 0;
         _isLoading = false;
       });
+      await _analytics.logEvent(name: 'edit_user_info_loaded');
     } else {
       showSnackbar(context, 'Erro ao carregar informações do usuário');
+      await _analytics.logEvent(name: 'edit_user_info_error');
     }
   }
 
   Future<String?> _getBase64Image() async {
     if (_pickedFile != null) {
       final compressedImage = await FlutterImageCompress.compressWithFile(
-        _pickedFile!.absolute.path,
-        quality: 50,
-      );
+          _pickedFile!.absolute.path,
+          quality: 50);
       if (compressedImage == null) return null;
       return base64Encode(compressedImage);
     } else {
       final byteData = await rootBundle.load(_defaultImagePath);
       final imageBytes = byteData.buffer.asUint8List();
-      final compressedBytes = await FlutterImageCompress.compressWithList(
-        imageBytes,
-        quality: 50,
-      );
+      final compressedBytes =
+          await FlutterImageCompress.compressWithList(imageBytes, quality: 50);
       return base64Encode(compressedBytes);
     }
   }
 
   Future<void> _saveChanges() async {
     if (_userId == null) return;
-
     final base64Image = await _getBase64Image();
     if (base64Image == null) {
       showSnackbar(context, 'Não foi possível gerar a imagem em Base64');
+      await _analytics.logEvent(
+          name: 'edit_user_save_error', parameters: {'message': 'image_null'});
       return;
     }
-
     final result = await ApiService.editUser(
       _userId!,
       _nameController.text,
@@ -107,29 +105,29 @@ class _EditUserPageState extends State<EditUserPage> {
       _passwordController.text.isEmpty ? null : _passwordController.text,
       base64Image,
     );
-
     if (result == null) {
-      showSnackbar(
-        context,
-        'Usuário atualizado com sucesso',
-        color: Colors.green,
-      );
+      showSnackbar(context, 'Usuário atualizado com sucesso',
+          color: Colors.green);
+      await _analytics.logEvent(name: 'edit_user_save_success');
       Navigator.of(context).pop();
     } else {
       showSnackbar(context, result);
+      await _analytics.logEvent(
+          name: 'edit_user_save_error', parameters: {'message': result});
     }
   }
 
-  void _deleteImage() {
+  void _deleteImage() async {
     setState(() {
       _pickedFile = null;
       _userImageUrl = null;
     });
+    await _analytics.logEvent(name: 'edit_user_delete_image');
   }
 
   Future<void> _deleteAccount() async {
     if (_userId == null) return;
-
+    await _analytics.logEvent(name: 'edit_user_delete_account_attempt');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -139,31 +137,33 @@ class _EditUserPageState extends State<EditUserPage> {
               'Tem certeza de que deseja excluir sua conta? Esta ação não pode ser desfeita.'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
-            ),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar')),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Excluir'),
-            ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Excluir')),
           ],
         );
       },
     );
-
     if (confirm == true) {
+      await _analytics.logEvent(name: 'edit_user_delete_account_confirmed');
       final result = await ApiService.deleteUser(_userId!);
-
       if (result == null) {
         showSnackbar(context, 'Usuário deletado com sucesso');
+        await _analytics.logEvent(name: 'edit_user_delete_account_success');
         Navigator.pop(context);
       } else {
         showSnackbar(context, result);
+        await _analytics.logEvent(
+            name: 'edit_user_delete_account_error',
+            parameters: {'message': result});
       }
     }
   }
 
   Future<void> _unblockUser(String blockedUserId) async {
+    await _analytics.logEvent(name: 'edit_user_unblock_user_attempt');
     final confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -173,30 +173,28 @@ class _EditUserPageState extends State<EditUserPage> {
               const Text('Tem certeza de que deseja desbloquear este usuário?'),
           actions: <Widget>[
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('Cancelar'),
-            ),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar')),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              child: const Text('Desbloquear'),
-            ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Desbloquear')),
           ],
         );
       },
     );
-
     if (confirm == true) {
+      await _analytics.logEvent(name: 'edit_user_unblock_user_confirmed');
       final result = await ApiService.unblockUser(blockedUserId);
       if (result == null) {
         showSnackbar(context, 'Usuário desbloqueado com sucesso',
             color: Colors.green);
+        await _analytics.logEvent(name: 'edit_user_unblock_user_success');
         _loadUserInfo();
       } else {
         showSnackbar(context, result);
+        await _analytics.logEvent(
+            name: 'edit_user_unblock_user_error',
+            parameters: {'message': result});
       }
     }
   }
@@ -209,31 +207,27 @@ class _EditUserPageState extends State<EditUserPage> {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.grey.shade300, width: 2),
         image: (_pickedFile != null)
-            ? DecorationImage(
-                image: FileImage(_pickedFile!),
-                fit: BoxFit.cover,
-              )
+            ? DecorationImage(image: FileImage(_pickedFile!), fit: BoxFit.cover)
             : (_userImageUrl != null)
                 ? DecorationImage(
-                    image: NetworkImage(_userImageUrl!),
+                    image: InterceptedImageProvider(
+                        originalProvider: NetworkImage(_userImageUrl!),
+                        hideImages: false),
                     fit: BoxFit.cover,
                   )
                 : const DecorationImage(
                     image: AssetImage('assets/images/user_anonymous.png'),
-                    fit: BoxFit.cover,
-                  ),
+                    fit: BoxFit.cover),
       ),
     );
   }
 
-  Widget _buildUserList(String title, List<dynamic> users, bool isBlockedList) {
+  Widget _buildUserList(String title, List<dynamic> users) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
+        Text(title,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         ListView.builder(
           shrinkWrap: true,
@@ -244,17 +238,17 @@ class _EditUserPageState extends State<EditUserPage> {
             return ListTile(
               leading: CircleAvatar(
                 backgroundImage: (user['imageUrl'] != null)
-                    ? NetworkImage(user['imageUrl'])
+                    ? InterceptedImageProvider(
+                        originalProvider: NetworkImage(user['imageUrl']),
+                        hideImages: false)
                     : const AssetImage('assets/images/user_anonymous.png')
                         as ImageProvider,
               ),
               title: Text(user['name'] ?? 'Usuário'),
-              trailing: isBlockedList
-                  ? IconButton(
-                      icon: const Icon(Icons.lock_open, color: Colors.green),
-                      onPressed: () => _unblockUser(user['id']),
-                    )
-                  : null,
+              trailing: IconButton(
+                icon: const Icon(Icons.lock_open, color: Colors.green),
+                onPressed: () => _unblockUser(user['id']),
+              ),
             );
           },
         ),
@@ -270,23 +264,21 @@ class _EditUserPageState extends State<EditUserPage> {
         Column(
           children: [
             const Text('Favoritado por'),
-            Text(
-              '$favoritedByCount',
-              style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green),
-            ),
+            Text('$favoritedByCount',
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green)),
           ],
         ),
         Column(
           children: [
             const Text('Bloqueado por'),
-            Text(
-              '$blockedByCount',
-              style: const TextStyle(
-                  fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red),
-            ),
+            Text('$blockedByCount',
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red)),
           ],
         ),
       ],
@@ -294,32 +286,33 @@ class _EditUserPageState extends State<EditUserPage> {
   }
 
   Widget _buildActionButtons() {
+    final configProvider = Provider.of<ConfigProvider>(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         ElevatedButton.icon(
           onPressed: _pickImage,
-          icon: const Icon(Icons.photo_camera, color: Colors.white),
-          label: const Text(
-            'Upload',
-            style: TextStyle(color: Colors.white),
-          ),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: configProvider.secondaryColor),
+          icon: Icon(Icons.photo_camera, color: configProvider.iconColor),
+          label:
+              Text('Upload', style: TextStyle(color: configProvider.textColor)),
         ),
         ElevatedButton.icon(
           onPressed: _saveChanges,
-          icon: const Icon(Icons.save, color: Colors.white),
-          label: const Text(
-            'Salvar',
-            style: TextStyle(color: Colors.white),
-          ),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: configProvider.secondaryColor),
+          icon: Icon(Icons.save, color: configProvider.iconColor),
+          label:
+              Text('Salvar', style: TextStyle(color: configProvider.textColor)),
         ),
         ElevatedButton.icon(
           onPressed: _deleteAccount,
-          icon: const Icon(Icons.delete_forever, color: Colors.white),
-          label: const Text(
-            'Excluir',
-            style: TextStyle(color: Colors.white),
-          ),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: configProvider.secondaryColor),
+          icon: Icon(Icons.delete_forever, color: configProvider.iconColor),
+          label: Text('Excluir',
+              style: TextStyle(color: configProvider.textColor)),
         ),
       ],
     );
@@ -327,13 +320,12 @@ class _EditUserPageState extends State<EditUserPage> {
 
   @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Editar Usuário'),
-        actions: const [
-          ThemeToggle(),
-        ],
-      ),
+          title: const Text('Editar Usuário'),
+          backgroundColor: configProvider.primaryColor),
+      backgroundColor: configProvider.primaryColor,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
@@ -346,11 +338,12 @@ class _EditUserPageState extends State<EditUserPage> {
                     if (_pickedFile != null || _userImageUrl != null)
                       TextButton.icon(
                         onPressed: _deleteImage,
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        label: const Text(
-                          'Remover Foto',
-                          style: TextStyle(color: Colors.red),
-                        ),
+                        icon:
+                            Icon(Icons.delete, color: configProvider.iconColor),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: configProvider.secondaryColor),
+                        label: Text('Remover Foto',
+                            style: TextStyle(color: configProvider.textColor)),
                       ),
                     const SizedBox(height: 20),
                     _buildCounters(),
@@ -360,8 +353,7 @@ class _EditUserPageState extends State<EditUserPage> {
                       decoration: InputDecoration(
                         labelText: 'E-mail',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                       enabled: false,
                     ),
@@ -371,8 +363,7 @@ class _EditUserPageState extends State<EditUserPage> {
                       decoration: InputDecoration(
                         labelText: 'Nome',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                     const SizedBox(height: 15),
@@ -381,16 +372,14 @@ class _EditUserPageState extends State<EditUserPage> {
                       decoration: InputDecoration(
                         labelText: 'Senha (opcional)',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                       obscureText: true,
                     ),
                     const SizedBox(height: 20),
                     _buildActionButtons(),
                     const SizedBox(height: 30),
-                    _buildUserList('Usuários Bloqueados', _blockedUsers, true),
-                    // _buildUserList('Usuários Favoritos', _favoriteUsers, false),
+                    _buildUserList('Usuários Bloqueados', _blockedUsers),
                   ],
                 ),
               ),

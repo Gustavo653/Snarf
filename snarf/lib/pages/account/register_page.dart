@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -8,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/services/api_service.dart';
 import '../home_page.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -23,6 +23,14 @@ class _RegisterPageState extends State<RegisterPage> {
   final String _defaultImagePath = 'assets/images/user_anonymous.png';
   bool _isLoading = false;
   String? _errorMessage;
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _analytics.logScreenView(
+        screenName: 'RegisterPage', screenClass: 'RegisterPage');
+  }
 
   Future<File> getAssetFile(String assetPath) async {
     final byteData = await rootBundle.load(assetPath);
@@ -34,57 +42,60 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _register() async {
-    final String email = _emailController.text.trim();
-    final String name = _nameController.text.trim();
-    final String password = _passwordController.text.trim();
-
+    final email = _emailController.text.trim();
+    final name = _nameController.text.trim();
+    final password = _passwordController.text.trim();
     if (email.isEmpty || name.isEmpty || password.isEmpty) {
       setState(() {
         _errorMessage = 'Por favor, preencha todos os campos.';
       });
       return;
     }
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     try {
+      await _analytics.logEvent(name: 'register_attempt');
       final pickedFile = await getAssetFile(_defaultImagePath);
       String base64Image = '';
       final compressedImage = await FlutterImageCompress.compressWithFile(
-        pickedFile.absolute.path,
-        quality: 50,
-      );
-
+          pickedFile.absolute.path,
+          quality: 50);
       if (compressedImage != null) {
         base64Image = base64Encode(compressedImage);
       }
-
-      final createResponse = await ApiService.register(email, name, password, base64Image);
-
+      final createResponse =
+          await ApiService.register(email, name, password, base64Image);
       if (createResponse == null) {
         final loginResponse = await ApiService.login(email, password);
         if (loginResponse == null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomePage()),
-          );
+          await _analytics.logEvent(name: 'register_success');
+          if (mounted) {
+            Navigator.pushReplacement(context,
+                MaterialPageRoute(builder: (context) => const HomePage()));
+          }
         } else {
           setState(() {
             _errorMessage = 'Erro ao fazer login após cadastro.';
           });
+          await _analytics.logEvent(
+              name: 'register_login_error',
+              parameters: {'message': _errorMessage!});
         }
       } else {
         setState(() {
           _errorMessage = createResponse;
         });
+        await _analytics.logEvent(
+            name: 'register_failure', parameters: {'error': createResponse});
       }
     } catch (e) {
       setState(() {
         _errorMessage = 'Ocorreu um erro: $e';
       });
+      await _analytics.logEvent(
+          name: 'register_exception', parameters: {'error': e.toString()});
     } finally {
       setState(() {
         _isLoading = false;
@@ -103,18 +114,16 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'Crie sua conta',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
+                const Text('Crie sua conta',
+                    style:
+                        TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 32),
                 TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
                     labelText: 'E-mail',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
+                        borderRadius: BorderRadius.circular(12.0)),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.1),
                     prefixIcon: const Icon(Icons.email),
@@ -127,8 +136,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   decoration: InputDecoration(
                     labelText: 'Nome',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
+                        borderRadius: BorderRadius.circular(12.0)),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.1),
                     prefixIcon: const Icon(Icons.person),
@@ -140,8 +148,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   decoration: InputDecoration(
                     labelText: 'Senha',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
+                        borderRadius: BorderRadius.circular(12.0)),
                     filled: true,
                     fillColor: Colors.white.withOpacity(0.1),
                     prefixIcon: const Icon(Icons.lock),
@@ -150,10 +157,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 const SizedBox(height: 24),
                 if (_errorMessage != null)
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red),
-                  ),
+                  Text(_errorMessage!,
+                      style: const TextStyle(color: Colors.red)),
                 const SizedBox(height: 16),
                 LoadingElevatedButton(
                   text: 'Cadastrar',
