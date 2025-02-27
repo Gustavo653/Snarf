@@ -52,4 +52,13 @@ class ConfigProvider with ChangeNotifier {
     _hideImages = !_hideImages;
     notifyListeners();
   }
+
+  //#449 - Criação da opção "Disponível parfa vídeo chamadas"
+  bool _hideVideoCall = false;
+  bool get hideVideoCall => _hideVideoCall;
+
+  void toggleVideoCall() {
+    _hideVideoCall = !_hideVideoCall;
+    notifyListeners();
+  }
 }

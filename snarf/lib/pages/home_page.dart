@@ -347,11 +347,14 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sendLocationUpdate() async {
     try {
+      final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
       await SignalRManager()
           .sendSignalRMessage(SignalREventType.MapUpdateLocation, {
         "Latitude": _currentLocation.latitude,
         "Longitude": _currentLocation.longitude,
         "FcmToken": _fcmToken,
+        "VideoCall": configProvider.hideVideoCall,
       });
 
       await _analytics.logEvent(
