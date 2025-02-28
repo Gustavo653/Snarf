@@ -202,31 +202,50 @@ class _CallOverlay extends StatelessWidget {
   }
 }
 
-class AuthChecker extends StatelessWidget {
+class AuthChecker extends StatefulWidget {
   const AuthChecker({super.key});
 
   @override
+  _AuthCheckerState createState() => _AuthCheckerState();
+}
+
+class _AuthCheckerState extends State<AuthChecker> {
+  String? token;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuth();
+  }
+
+  Future<void> _checkAuth() async {
+    try {
+      final result = await ApiService.getToken();
+      setState(() {
+        token = result;
+        isLoading = false;
+      });
+    } catch (error) {
+      await FirebaseCrashlytics.instance.log("check_auth_error");
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: ApiService.getToken(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        } else if (snapshot.hasError) {
-          debugPrint('Erro ao obter token: ${snapshot.error}');
-          return const Scaffold(
-            body: Center(
-              child: Text('Ocorreu um erro. Tente novamente mais tarde.'),
-            ),
-          );
-        } else if (snapshot.hasData && snapshot.data != null) {
-          return const HomePage();
-        } else {
-          return const InitialPage();
-        }
-      },
-    );
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (token != null) {
+      return const HomePage();
+    } else {
+      return const InitialPage();
+    }
   }
 }
