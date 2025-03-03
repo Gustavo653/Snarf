@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/subscriptiob_base_plan_details.dart';
 
 const List<String> _kSubscriptionIds = <String>[
@@ -20,6 +23,7 @@ class SubscriptionPlanPage extends StatefulWidget {
 class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   late StreamSubscription<List<PurchaseDetails>> _subscription;
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
   bool _isStoreAvailable = false;
   bool _isLoading = true;
@@ -41,6 +45,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
   }
 
   Future<void> _initialize() async {
+    _analytics.logEvent(name: 'initialize_store');
     final purchaseUpdated = _inAppPurchase.purchaseStream;
     _subscription = purchaseUpdated.listen(
       _onPurchaseUpdate,
@@ -56,6 +61,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
     });
 
     if (!isAvailable) {
+      _analytics.logEvent(name: 'store_unavailable');
       setState(() {
         _isLoading = false;
       });
@@ -71,10 +77,14 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
 
     if (response.error != null) {
       debugPrint('Erro ao consultar produtos: ${response.error}');
+      FirebaseCrashlytics.instance.recordError(response.error, null);
     }
 
     if (response.notFoundIDs.isNotEmpty) {
       debugPrint('IDs não encontrados: ${response.notFoundIDs}');
+      _analytics.logEvent(name: 'product_not_found', parameters: {
+        'ids': response.notFoundIDs.join(', '),
+      });
     }
 
     final subscriptionProducts = response.productDetails
@@ -94,10 +104,20 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
 
   void _onPurchaseUpdate(List<PurchaseDetails> purchaseDetailsList) {
     for (final purchase in purchaseDetailsList) {
+      _analytics.logEvent(name: 'purchase_updated', parameters: {
+        'product_id': purchase.productID,
+        'status': purchase.status.toString(),
+      });
+
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
         log('Compra/assinatura aprovada: ${purchase.productID}');
+
+        if (purchase.productID == _kConsumableId) {
+          _handleExtraMinutesPurchase(purchase);
+        }
       }
+
       if (purchase.pendingCompletePurchase) {
         _inAppPurchase.completePurchase(purchase);
       }
@@ -108,7 +128,33 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
     });
   }
 
+  Future<void> _handleExtraMinutesPurchase(PurchaseDetails purchase) async {
+    try {
+      final purchasedMinutes = 5;
+      final result = await ApiService.addExtraMinutes(
+        minutes: purchasedMinutes,
+        subscriptionId: purchase.productID,
+        tokenFromPurchase: purchase.verificationData.serverVerificationData,
+      );
+
+      if (result == null) {
+        log('Minutos adicionados com sucesso no servidor.');
+        _analytics.logEvent(name: 'extra_minutes_added', parameters: {
+          'product_id': purchase.productID,
+          'minutes': purchasedMinutes,
+        });
+      } else {
+        log('Falha ao adicionar minutos: $result');
+      }
+    } catch (e, stackTrace) {
+      FirebaseCrashlytics.instance.recordError(e, stackTrace);
+    }
+  }
+
   void _buySubscription(SubscriptionBasePlanDetails plan) {
+    _analytics.logEvent(name: 'purchase_attempt', parameters: {
+      'product_id': plan.productDetails.id,
+    });
     final purchaseParam = PurchaseParam(
       productDetails: plan.productDetails,
     );
@@ -116,6 +162,9 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
   }
 
   void _buyConsumable(ProductDetails productDetails) {
+    _analytics.logEvent(name: 'purchase_attempt', parameters: {
+      'product_id': productDetails.id,
+    });
     final purchaseParam = PurchaseParam(productDetails: productDetails);
     _inAppPurchase.buyConsumable(purchaseParam: purchaseParam);
   }

@@ -11,6 +11,7 @@ namespace Snarf.Persistence
         public DbSet<PublicChatMessage> PublicChatMessages { get; set; }
         public DbSet<FavoriteChat> FavoriteChats { get; set; }
         public DbSet<BlockedUser> BlockedUsers { get; set; }
+        public DbSet<VideoCallLog> VideoCallLogs { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

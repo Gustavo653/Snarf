@@ -13,6 +13,7 @@ namespace Snarf.Domain.Base
         public double? LastLongitude { get; set; }
         public string? FcmToken { get; set; }
         public required RoleName Role { get; set; }
+        public int ExtraVideoCallMinutes { get; set; }
 
         public virtual IList<BlockedUser> BlockedUsers { get; set; } = [];
         public virtual IList<BlockedUser> BlockedBy { get; set; } = [];

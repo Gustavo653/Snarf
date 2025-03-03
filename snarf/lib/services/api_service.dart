@@ -368,6 +368,66 @@ class ApiService {
     }
   }
 
+  static Future<String?> addExtraMinutes({
+    required int minutes,
+    String? subscriptionId,
+    String? tokenFromPurchase,
+  }) async {
+    final userJwtToken = await getToken();
+    final url = Uri.parse('${ApiConstants.baseUrl}/Account/AddExtraMinutes');
+    final headers = {
+      'accept': '*/*',
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $userJwtToken',
+    };
+
+    final body = jsonEncode({
+      "subscriptionId": subscriptionId ?? "string",
+      "token": tokenFromPurchase ?? "string",
+      "minutes": minutes,
+    });
+
+    try {
+      await _analytics.logEvent(
+        name: 'api_add_extra_minutes_attempt',
+        parameters: {
+          'minutes': minutes,
+        },
+      );
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        await _analytics.logEvent(
+          name: 'api_add_extra_minutes_success',
+          parameters: {
+            'minutes': minutes,
+          },
+        );
+        return null;
+      } else {
+        await _analytics.logEvent(
+          name: 'api_add_extra_minutes_failure',
+          parameters: {
+            'minutes': minutes,
+            'statusCode': response.statusCode,
+            'error': response.body,
+          },
+        );
+        return 'Erro: ${response.body}';
+      }
+    } catch (e) {
+      await _analytics.logEvent(
+        name: 'api_add_extra_minutes_exception',
+        parameters: {
+          'minutes': minutes,
+          'error': e.toString(),
+        },
+      );
+      return 'Exceção: $e';
+    }
+  }
+
   static Future<String?> getToken() async {
     return await _secureStorage.read(key: 'token');
   }

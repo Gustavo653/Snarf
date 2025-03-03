@@ -70,6 +70,15 @@ namespace Snarf.API.Controllers
             return StatusCode(user.Code, user);
         }
 
+        [HttpPost("AddExtraMinutes")]
+        public async Task<IActionResult> AddExtraMinutes([FromBody] AddExtraMinutesDTO addExtraMinutesDTO)
+        {
+            addExtraMinutesDTO.UserId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var user = await accountService.AddExtraMinutes(addExtraMinutesDTO);
+            return StatusCode(user.Code, user);
+        }
+
+
         [HttpPost("")]
         [AllowAnonymous]
         public async Task<IActionResult> CreateUser([FromBody] UserDTO userDTO)
