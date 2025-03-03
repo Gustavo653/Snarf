@@ -1,17 +1,17 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:snarf/utils/subscriptiob_base_plan_details.dart';
 
 const List<String> _kSubscriptionIds = <String>[
   'snarf_plus',
 ];
 
-const String _kConsumableId = 'video_chamada';
+const String _kConsumableId = '5_minutos_video_chamada';
 
 class SubscriptionPlanPage extends StatefulWidget {
-  const SubscriptionPlanPage({Key? key}) : super(key: key);
+  const SubscriptionPlanPage({super.key});
 
   @override
   State<SubscriptionPlanPage> createState() => _SubscriptionPlanPageState();
@@ -25,6 +25,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
   bool _isLoading = true;
 
   List<ProductDetails> _products = [];
+  List<SubscriptionBasePlanDetails> _subscriptionBasePlans = [];
   List<PurchaseDetails> _purchases = [];
 
   @override
@@ -76,8 +77,17 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
       debugPrint('IDs não encontrados: ${response.notFoundIDs}');
     }
 
+    final subscriptionProducts = response.productDetails
+        .where((product) => _kSubscriptionIds.contains(product.id))
+        .toList();
+
+    final subscriptionBasePlans = subscriptionProducts
+        .map((product) => SubscriptionBasePlanDetails(product))
+        .toList();
+
     setState(() {
       _products = response.productDetails;
+      _subscriptionBasePlans = subscriptionBasePlans;
       _isLoading = false;
     });
   }
@@ -86,9 +96,8 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
     for (final purchase in purchaseDetailsList) {
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
-        debugPrint('Compra/assinatura aprovada: ${purchase.productID}');
+        log('Compra/assinatura aprovada: ${purchase.productID}');
       }
-
       if (purchase.pendingCompletePurchase) {
         _inAppPurchase.completePurchase(purchase);
       }
@@ -99,8 +108,10 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
     });
   }
 
-  void _buySubscription(ProductDetails productDetails) {
-    final purchaseParam = PurchaseParam(productDetails: productDetails);
+  void _buySubscription(SubscriptionBasePlanDetails plan) {
+    final purchaseParam = PurchaseParam(
+      productDetails: plan.productDetails,
+    );
     _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
   }
 
@@ -129,8 +140,6 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
       );
     }
 
-    final subscriptionProducts =
-        _products.where((p) => _kSubscriptionIds.contains(p.id)).toList();
     final consumableProducts =
         _products.where((p) => p.id == _kConsumableId).toList();
 
@@ -144,19 +153,22 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Assinaturas Snarf Plus',
+              'Assinaturas',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          if (subscriptionProducts.isNotEmpty)
-            ...subscriptionProducts.map((product) {
+          if (_subscriptionBasePlans.isNotEmpty)
+            ..._subscriptionBasePlans.map((plan) {
               return Card(
                 margin: const EdgeInsets.all(8.0),
                 child: ListTile(
-                  title: Text(product.title),
-                  subtitle: Text(product.description),
-                  trailing: Text(product.price),
-                  onTap: () => _buySubscription(product),
+                  title: Text(plan.basePlanId ?? plan.subscriptionId),
+                  subtitle: Text(
+                    'Duração: ${plan.basePlanLength?.name ?? 'Indefinida'}\n'
+                    'Trial: ${plan.isFreeTrialAvailable! ? 'Sim' : 'Não'}',
+                  ),
+                  trailing: Text(plan.formattedPrice),
+                  onTap: () => _buySubscription(plan),
                 ),
               );
             })
@@ -174,7 +186,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Produto Avulso',
+              'Produtos',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
@@ -195,7 +207,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
               child: Padding(
                 padding: EdgeInsets.all(16.0),
                 child: Text(
-                  'Nenhum produto encontrado.',
+                  'Nenhum produto avulso encontrado.',
                   style: TextStyle(fontSize: 16),
                 ),
               ),
