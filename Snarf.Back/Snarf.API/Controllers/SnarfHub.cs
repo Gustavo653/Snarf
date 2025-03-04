@@ -150,7 +150,8 @@ namespace Snarf.API.Controllers
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,
                 user.Name,
-                userImage = user.ImageUrl
+                userImage = user.ImageUrl,
+                videoCall = location.VideoCall//#450 - Compartilhar a variável videoCall
             });
 
             await Clients.Others.SendAsync("ReceiveMessage", jsonResponse);
@@ -896,6 +897,8 @@ namespace Snarf.API.Controllers
             public double Latitude { get; set; }
             public double Longitude { get; set; }
             public string FcmToken { get; set; }
+            //#450
+            public bool VideoCall { get; set; }
         }
 
         #endregion

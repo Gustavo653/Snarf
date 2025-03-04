@@ -2,30 +2,36 @@ import 'package:flutter/material.dart';
 
 class ConfigProvider with ChangeNotifier {
   bool _isDarkMode = true;
+
   bool get isDarkMode => _isDarkMode;
 
-  Color get primaryColor =>
-      _isDarkMode ? darkPrimaryColor : lightPrimaryColor;
+  Color get primaryColor => _isDarkMode ? darkPrimaryColor : lightPrimaryColor;
 
   Color get darkPrimaryColor => const Color(0xFF0b0951);
+
   Color get lightPrimaryColor => const Color(0xFFFFEBFA);
 
   Color get secondaryColor =>
       _isDarkMode ? darkSecondaryColor : lightSecondaryColor;
 
   Color get darkSecondaryColor => const Color(0xFF4c2a85);
+
   Color get lightSecondaryColor => const Color(0xFFEC38BC);
 
-  Color get textColor =>
-      _isDarkMode ? darkTextColor : lightTextColor;
+  Color get textColor => _isDarkMode ? darkTextColor : lightTextColor;
 
   Color get darkTextColor => Colors.white;
+
   Color get lightTextColor => Colors.black;
 
   Color get customGreen => const Color(0xFF008000);
+
   Color get customOrange => const Color(0xFFFFA500);
+
   Color get customWhite => const Color(0xFFFFFFFF);
+
   Color get customBlue => const Color(0xFF0000FF);
+
   Color get customRed => const Color(0xFFFF0000);
 
   Color get iconColor => isDarkMode ? Colors.white : Colors.black;
@@ -46,6 +52,7 @@ class ConfigProvider with ChangeNotifier {
   }
 
   bool _hideImages = false;
+
   bool get hideImages => _hideImages;
 
   void toggleHideImages() {
@@ -53,8 +60,9 @@ class ConfigProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  //#449 - Criação da opção "Disponível parfa vídeo chamadas"
+  //#449 - Criação da opção "Disponível para vídeo chamadas"
   bool _hideVideoCall = false;
+
   bool get hideVideoCall => _hideVideoCall;
 
   void toggleVideoCall() {

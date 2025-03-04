@@ -261,6 +261,7 @@ class _HomePageState extends State<HomePage> {
     final latitude = data['Latitude'];
     final longitude = data['Longitude'];
     final userImg = data['userImage'];
+    final videoCall = data['videoCall'];
 
     setState(() {
       _userMarkers[userId] = Marker(
@@ -290,23 +291,25 @@ class _HomePageState extends State<HomePage> {
                   radius: 25,
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                child: Container(
-                  width: 25,
-                  height: 25,
-                  decoration: BoxDecoration(
-                    color: config.customOrange,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.videocam,
-                    color: config.customWhite,
-                    size: 14,
+              //#452 - Fica visível a imagem da câmera conforme o parâmetro "Disponível para vídeo chamadas"
+              if (videoCall)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  child: Container(
+                    width: 25,
+                    height: 25,
+                    decoration: BoxDecoration(
+                      color: config.customOrange,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.videocam,
+                      color: config.customWhite,
+                      size: 14,
+                    ),
                   ),
                 ),
-              ),
               Positioned(
                 top: 0,
                 right: 0,
@@ -347,14 +350,15 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sendLocationUpdate() async {
     try {
-      final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+      final configProvider =
+          Provider.of<ConfigProvider>(context, listen: false);
 
       await SignalRManager()
           .sendSignalRMessage(SignalREventType.MapUpdateLocation, {
         "Latitude": _currentLocation.latitude,
         "Longitude": _currentLocation.longitude,
         "FcmToken": _fcmToken,
-        "VideoCall": configProvider.hideVideoCall,
+        "VideoCall": configProvider.hideVideoCall, //#449
       });
 
       await _analytics.logEvent(
@@ -362,6 +366,7 @@ class _HomePageState extends State<HomePage> {
         parameters: {
           'latitude': _currentLocation.latitude!,
           'longitude': _currentLocation.longitude!,
+          "VideoCall": configProvider.hideVideoCall, //#449
         },
       );
     } catch (e) {
@@ -401,23 +406,25 @@ class _HomePageState extends State<HomePage> {
               radius: 25,
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Container(
-              width: 25,
-              height: 25,
-              decoration: BoxDecoration(
-                color: config.customOrange,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.videocam,
-                color: config.customWhite,
-                size: 20,
+          //#452 - Fica visível a imagem da câmera conforme o parâmetro "Disponível para vídeo chamadas"
+          if (config.hideVideoCall)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              child: Container(
+                width: 25,
+                height: 25,
+                decoration: BoxDecoration(
+                  color: config.customOrange,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.videocam,
+                  color: config.customWhite,
+                  size: 20,
+                ),
               ),
             ),
-          ),
           Positioned(
             top: 0,
             right: 0,
@@ -664,6 +671,31 @@ class _HomePageState extends State<HomePage> {
               await _analytics.logEvent(
                 name: 'toggle_hide_images',
                 parameters: {'value': configProvider.hideImages},
+              );
+            },
+          ),
+        ),
+        //#449 - Criação da opção "Disponível para vídeo chamadas"
+        PopupMenuItem(
+          enabled: false,
+          child: SwitchListTile(
+            title: Text(
+              "Disponível para vídeo chamadas",
+              style: TextStyle(fontSize: 16, color: configProvider.textColor),
+            ),
+            secondary: Icon(
+              Icons.video_call,
+              color: configProvider.iconColor,
+            ),
+            value: configProvider.hideVideoCall,
+            onChanged: (bool value) async {
+              Navigator.pop(context);
+
+              configProvider.toggleVideoCall();
+
+              await _analytics.logEvent(
+                name: 'toggle_video_call',
+                parameters: {'value': configProvider.hideVideoCall},
               );
             },
           ),
