@@ -60,7 +60,6 @@ class ConfigProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  //#449 - Criação da opção "Disponível para vídeo chamadas"
   bool _hideVideoCall = false;
 
   bool get hideVideoCall => _hideVideoCall;

@@ -291,7 +291,6 @@ class _HomePageState extends State<HomePage> {
                   radius: 25,
                 ),
               ),
-              //#452 - Fica visível a imagem da câmera conforme o parâmetro "Disponível para vídeo chamadas"
               if (videoCall)
                 Positioned(
                   bottom: 0,
@@ -358,7 +357,7 @@ class _HomePageState extends State<HomePage> {
         "Latitude": _currentLocation.latitude,
         "Longitude": _currentLocation.longitude,
         "FcmToken": _fcmToken,
-        "VideoCall": configProvider.hideVideoCall, //#449
+        "VideoCall": configProvider.hideVideoCall,
       });
 
       await _analytics.logEvent(
@@ -366,7 +365,7 @@ class _HomePageState extends State<HomePage> {
         parameters: {
           'latitude': _currentLocation.latitude!,
           'longitude': _currentLocation.longitude!,
-          "VideoCall": configProvider.hideVideoCall, //#449
+          "VideoCall": configProvider.hideVideoCall,
         },
       );
     } catch (e) {
@@ -406,7 +405,6 @@ class _HomePageState extends State<HomePage> {
               radius: 25,
             ),
           ),
-          //#452 - Fica visível a imagem da câmera conforme o parâmetro "Disponível para vídeo chamadas"
           if (config.hideVideoCall)
             Positioned(
               bottom: 0,
@@ -675,7 +673,6 @@ class _HomePageState extends State<HomePage> {
             },
           ),
         ),
-        //#449 - Criação da opção "Disponível para vídeo chamadas"
         PopupMenuItem(
           enabled: false,
           child: SwitchListTile(
