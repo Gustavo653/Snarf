@@ -126,8 +126,16 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initializeLocation() async {
     if (await _checkLocationPermissions()) {
-      _getCurrentLocation();
-      _startLocationUpdates();
+      await _getCurrentLocation();
+
+      if (_currentLocation.latitude != null &&
+          _currentLocation.longitude != null) {
+        await _sendLocationUpdate();
+      }
+
+      Timer(const Duration(seconds: 60), () {
+        _startLocationUpdates();
+      });
     }
   }
 
@@ -187,7 +195,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
+    _location.changeSettings(
+      accuracy: LocationAccuracy.high,
+      interval: 60000,
+    );
 
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) async {
@@ -195,6 +206,7 @@ class _HomePageState extends State<HomePage> {
         _currentLocation = newLocation;
         _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
       });
+
       if (_currentLocation.longitude != null &&
           _currentLocation.latitude != null) {
         await _sendLocationUpdate();
