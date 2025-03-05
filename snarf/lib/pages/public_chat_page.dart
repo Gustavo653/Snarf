@@ -159,8 +159,81 @@ class _PublicChatPageState extends State<PublicChatPage> {
     });
   }
 
+  void _showSensitiveDataDialog(BuildContext context){
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
+    showDialog(
+      context: context,
+      builder: (context){
+        return AlertDialog(
+          backgroundColor: configProvider.primaryColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: configProvider.secondaryColor,
+              width: 2,
+            )
+          ),
+          contentPadding: const EdgeInsets.all(16),
+          title: Text(
+            "⚠️ Dados Sensíveis Detectados",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: configProvider.textColor,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "A mensagem contém dados sensíveis e não pode ser enviada.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: configProvider.textColor,
+                ),
+              ),
+              const SizedBox(height: 16), // Espaçamento entre o texto e o botão
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        elevation: 5,
+                        backgroundColor: configProvider.secondaryColor,
+                        iconColor: configProvider.iconColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      label: Text(
+                        "Entendi",
+                        style: TextStyle(
+                          color: configProvider.textColor,
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        );
+      });
+  }
+
   void _sendMessage() async {
     final messageText = _messageController.text.trim();
+    if(_hasSensitiveData(messageText)){
+      _showSensitiveDataDialog(context);
+      return;
+    }
+
     if (messageText.isNotEmpty) {
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PublicChatSendMessage,
@@ -572,6 +645,22 @@ class _PublicChatPageState extends State<PublicChatPage> {
         ],
       ),
     );
+  }
+
+  bool _hasSensitiveData(String message) {
+
+  final regexCpf = RegExp(r'\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b\d{11}\b');
+
+  final regexCnpj = RegExp(r'\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b|\b\d{14}\b');
+
+  final regexTelefone = RegExp(r'\b(\(?\d{2}\)?\s?)?9?\d{4}-?\d{4}\b|\b\d{11}\b|\b\d{10}\b');
+
+  final regexEmail = RegExp(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b');
+
+  return regexCpf.hasMatch(message) || 
+         regexCnpj.hasMatch(message) || 
+         regexTelefone.hasMatch(message) ||
+         regexEmail.hasMatch(message);
   }
 
   @override
