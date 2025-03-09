@@ -502,7 +502,7 @@ class _HomePageState extends State<HomePage> {
                 border: Border.symmetric(
                   horizontal: BorderSide(
                     color: Provider.of<ConfigProvider>(context, listen: false)
-                        .darkSecondaryColor,
+                        .secondaryColor,
                     width: 5,
                   ),
                 ),
@@ -555,7 +555,7 @@ class _HomePageState extends State<HomePage> {
                 border: Border.symmetric(
                   horizontal: BorderSide(
                     color: Provider.of<ConfigProvider>(context, listen: false)
-                        .darkSecondaryColor,
+                        .secondaryColor,
                     width: 5,
                   ),
                 ),
@@ -599,7 +599,7 @@ class _HomePageState extends State<HomePage> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(30),
         side: BorderSide(
-          color: configProvider.darkSecondaryColor,
+          color: configProvider.secondaryColor,
           width: 3,
         ),
       ),
