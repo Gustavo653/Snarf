@@ -15,8 +15,7 @@ class ConfigProvider with ChangeNotifier {
       _isDarkMode ? darkSecondaryColor : lightSecondaryColor;
 
   Color get darkSecondaryColor => const Color(0xFF4c2a85);
-
-  Color get lightSecondaryColor => const Color(0xFFEC38BC);
+  Color get lightSecondaryColor => const Color(0xFF6260F3);
 
   Color get textColor => _isDarkMode ? darkTextColor : lightTextColor;
 
