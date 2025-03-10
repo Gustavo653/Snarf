@@ -110,9 +110,10 @@ class SnarfApp extends StatelessWidget {
 class _CallOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
     return Consumer<CallManager>(
       builder: (context, callManager, child) {
-        if (callManager.isCallOverlayVisible && !callManager.isInCall) {
+        if (callManager.isCallOverlayVisible) {
           return AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             top: kToolbarHeight + 16,
@@ -123,7 +124,7 @@ class _CallOverlay extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.blueGrey[800],
+                  color: config.primaryColor,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
@@ -139,10 +140,11 @@ class _CallOverlay extends StatelessWidget {
                     Text(
                       "Chamada recebida de ${callManager.incomingCallerName}",
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: config.textColor,
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
+                        decoration: TextDecoration.none,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -157,14 +159,14 @@ class _CallOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.call,
-                            color: Colors.white,
+                            color: config.iconColor,
                           ),
-                          label: const Text(
+                          label: Text(
                             "Atender",
                             style: TextStyle(
-                              color: Colors.white,
+                              color: config.iconColor,
                             ),
                           ),
                         ),
@@ -176,18 +178,90 @@ class _CallOverlay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.call_end,
-                            color: Colors.white,
+                            color: config.iconColor,
                           ),
-                          label: const Text(
+                          label: Text(
                             "Recusar",
                             style: TextStyle(
-                              color: Colors.white,
+                              color: config.iconColor,
                             ),
                           ),
                         ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (callManager.isCallRejectedOverlayVisible) {
+          return AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            bottom: kToolbarHeight + 16,
+            left: 16,
+            right: 16,
+            child: SafeArea(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: config.primaryColor,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Chamada rejeitada",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: config.textColor,
+                        fontSize: 16,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      callManager.callRejectionReason,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: config.textColor,
+                        fontSize: 16,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        callManager.closeRejectionOverlay();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: config.customRed,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      icon: Icon(
+                        Icons.close,
+                        color: config.iconColor,
+                      ),
+                      label: Text(
+                        "OK",
+                        style: TextStyle(
+                          color: config.iconColor,
+                        ),
+                      ),
                     ),
                   ],
                 ),

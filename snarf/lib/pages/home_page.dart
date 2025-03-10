@@ -7,12 +7,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
-
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
+import 'package:snarf/pages/subscription_plan_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -126,8 +126,16 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initializeLocation() async {
     if (await _checkLocationPermissions()) {
-      _getCurrentLocation();
-      _startLocationUpdates();
+      await _getCurrentLocation();
+
+      if (_currentLocation.latitude != null &&
+          _currentLocation.longitude != null) {
+        await _sendLocationUpdate();
+      }
+
+      Timer(const Duration(seconds: 60), () {
+        _startLocationUpdates();
+      });
     }
   }
 
@@ -187,7 +195,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
+    _location.changeSettings(
+      accuracy: LocationAccuracy.high,
+      interval: 60000,
+    );
 
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) async {
@@ -195,6 +206,7 @@ class _HomePageState extends State<HomePage> {
         _currentLocation = newLocation;
         _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
       });
+
       if (_currentLocation.longitude != null &&
           _currentLocation.latitude != null) {
         await _sendLocationUpdate();
@@ -261,6 +273,7 @@ class _HomePageState extends State<HomePage> {
     final latitude = data['Latitude'];
     final longitude = data['Longitude'];
     final userImg = data['userImage'];
+    final videoCall = data['videoCall'];
 
     setState(() {
       _userMarkers[userId] = Marker(
@@ -290,23 +303,24 @@ class _HomePageState extends State<HomePage> {
                   radius: 25,
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                child: Container(
-                  width: 25,
-                  height: 25,
-                  decoration: BoxDecoration(
-                    color: config.customOrange,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.videocam,
-                    color: config.customWhite,
-                    size: 14,
+              if (videoCall)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  child: Container(
+                    width: 25,
+                    height: 25,
+                    decoration: BoxDecoration(
+                      color: config.customOrange,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.videocam,
+                      color: config.customWhite,
+                      size: 14,
+                    ),
                   ),
                 ),
-              ),
               Positioned(
                 top: 0,
                 right: 0,
@@ -347,11 +361,15 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sendLocationUpdate() async {
     try {
+      final configProvider =
+          Provider.of<ConfigProvider>(context, listen: false);
+
       await SignalRManager()
           .sendSignalRMessage(SignalREventType.MapUpdateLocation, {
         "Latitude": _currentLocation.latitude,
         "Longitude": _currentLocation.longitude,
         "FcmToken": _fcmToken,
+        "VideoCall": configProvider.hideVideoCall,
       });
 
       await _analytics.logEvent(
@@ -359,6 +377,7 @@ class _HomePageState extends State<HomePage> {
         parameters: {
           'latitude': _currentLocation.latitude!,
           'longitude': _currentLocation.longitude!,
+          "VideoCall": configProvider.hideVideoCall,
         },
       );
     } catch (e) {
@@ -398,23 +417,24 @@ class _HomePageState extends State<HomePage> {
               radius: 25,
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Container(
-              width: 25,
-              height: 25,
-              decoration: BoxDecoration(
-                color: config.customOrange,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.videocam,
-                color: config.customWhite,
-                size: 20,
+          if (config.hideVideoCall)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              child: Container(
+                width: 25,
+                height: 25,
+                decoration: BoxDecoration(
+                  color: config.customOrange,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.videocam,
+                  color: config.customWhite,
+                  size: 20,
+                ),
               ),
             ),
-          ),
           Positioned(
             top: 0,
             right: 0,
@@ -666,6 +686,30 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
+          enabled: false,
+          child: SwitchListTile(
+            title: Text(
+              "Disponível para vídeo chamadas",
+              style: TextStyle(fontSize: 16, color: configProvider.textColor),
+            ),
+            secondary: Icon(
+              Icons.video_call,
+              color: configProvider.iconColor,
+            ),
+            value: configProvider.hideVideoCall,
+            onChanged: (bool value) async {
+              Navigator.pop(context);
+
+              configProvider.toggleVideoCall();
+
+              await _analytics.logEvent(
+                name: 'toggle_video_call',
+                parameters: {'value': configProvider.hideVideoCall},
+              );
+            },
+          ),
+        ),
+        PopupMenuItem(
           value: 'logout',
           child: Row(
             children: [
@@ -874,12 +918,22 @@ class _HomePageState extends State<HomePage> {
           if (index == 0) {
             _openPrivateChat(context);
           } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const SubscriptionPlanPage()),
+            );
+          } else if (index == 2) {
             _openPublicChat(context);
           }
         },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.chat),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.workspace_premium),
             label: '',
           ),
           BottomNavigationBarItem(

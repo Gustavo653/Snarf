@@ -402,5 +402,27 @@ namespace Snarf.Service
             }
             return responseDTO;
         }
+
+        public async Task<ResponseDTO> AddExtraMinutes(AddExtraMinutesDTO addExtraMinutesDTO)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var user = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == addExtraMinutesDTO.UserId.ToString());
+                if (user == null)
+                {
+                    responseDTO.SetBadInput("Usuário não encontrado!");
+                    return responseDTO;
+                }
+                Log.Information($"Adicionando {addExtraMinutesDTO.Minutes} minutos ao usuário {user.Id} ID assinatura:{addExtraMinutesDTO.SubscriptionId} Token:{addExtraMinutesDTO.Token}");
+                user.ExtraVideoCallMinutes += addExtraMinutesDTO.Minutes;
+                await userRepository.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
     }
 }
