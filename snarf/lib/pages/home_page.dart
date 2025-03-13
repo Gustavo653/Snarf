@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/config_profile_page.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
@@ -638,18 +639,29 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
+          value: 'profile_settings',
+          child: Row(
+            children: [
+              Icon(Icons.settings, color: configProvider.iconColor),
+              const SizedBox(width: 10),
+              Text(
+                "Configurações de Perfil",
+                style: TextStyle(fontSize: 16, color: configProvider.textColor),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
           enabled: false,
           child: SwitchListTile(
             title: Text(
               "Modo Noturno",
               style: TextStyle(fontSize: 16, color: configProvider.textColor),
             ),
-            secondary:
-                Icon(Icons.brightness_6, color: configProvider.iconColor),
+            secondary: Icon(Icons.brightness_6, color: configProvider.iconColor),
             value: configProvider.isDarkMode,
             onChanged: (_) async {
               Navigator.pop(context);
-
               configProvider.toggleTheme();
 
               await _analytics.logEvent(
@@ -667,44 +679,17 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(fontSize: 16, color: configProvider.textColor),
             ),
             secondary: Icon(
-              configProvider.hideImages
-                  ? Icons.image_not_supported
-                  : Icons.image,
+              configProvider.hideImages ? Icons.image_not_supported : Icons.image,
               color: configProvider.iconColor,
             ),
             value: configProvider.hideImages,
             onChanged: (_) async {
               Navigator.pop(context);
-
               configProvider.toggleHideImages();
 
               await _analytics.logEvent(
                 name: 'toggle_hide_images',
                 parameters: {'value': configProvider.hideImages},
-              );
-            },
-          ),
-        ),
-        PopupMenuItem(
-          enabled: false,
-          child: SwitchListTile(
-            title: Text(
-              "Disponível para vídeo chamadas",
-              style: TextStyle(fontSize: 16, color: configProvider.textColor),
-            ),
-            secondary: Icon(
-              Icons.video_call,
-              color: configProvider.iconColor,
-            ),
-            value: configProvider.hideVideoCall,
-            onChanged: (bool value) async {
-              Navigator.pop(context);
-
-              configProvider.toggleVideoCall();
-
-              await _analytics.logEvent(
-                name: 'toggle_video_call',
-                parameters: {'value': configProvider.hideVideoCall},
               );
             },
           ),
@@ -730,6 +715,12 @@ class _HomePageState extends State<HomePage> {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const EditUserPage()),
+        );
+      } else if (value == 'profile_settings') {
+        await _analytics.logEvent(name: 'open_profile_settings');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ConfigProfilePage()),
         );
       } else if (value == 'logout') {
         await _analytics.logEvent(name: 'logout');
