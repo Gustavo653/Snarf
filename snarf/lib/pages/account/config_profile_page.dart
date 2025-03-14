@@ -1,8 +1,9 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:snarf/pages/account/change_email_page.dart';
-import 'package:snarf/pages/account/change_password_page.dart';
+import 'package:snarf/components/custom_modal.dart';
+import 'package:snarf/pages/account/change_email_modal.dart';
+import 'package:snarf/pages/account/change_password_modal.dart';
 import 'package:snarf/providers/config_provider.dart';
 
 class ConfigProfilePage extends StatefulWidget {
@@ -34,22 +35,26 @@ class _ConfigProfilePageState extends State<ConfigProfilePage> {
       body: ListView(
         children: [
           _buildSectionTitle("Conta"),
-          _buildListTile("Endereço de email", Icons.email, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ChangeEmailPage(),
-              ),
-            );
-          }),
-          _buildListTile("Senha", Icons.lock, () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ChangePasswordPage(),
-              ),
-            );
-          }),
+          _buildListTile(
+            "Endereço de email",
+            Icons.email,
+            () {
+              showDialog(
+                context: context,
+                builder: (_) => const ChangeEmailModal(),
+              );
+            },
+          ),
+          _buildListTile(
+            "Senha",
+            Icons.lock,
+            () {
+              showDialog(
+                context: context,
+                builder: (_) => const ChangePasswordModal(),
+              );
+            },
+          ),
           _buildSectionTitle("Configurações"),
           _buildSwitchTile(
             "Disponível para vídeo chamadas",
@@ -108,7 +113,11 @@ class _ConfigProfilePageState extends State<ConfigProfilePage> {
   }
 
   Widget _buildSwitchTile(
-      String title, IconData icon, bool value, ValueChanged<bool> onChanged) {
+    String title,
+    IconData icon,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
     final configProvider = Provider.of<ConfigProvider>(context);
 
     return SwitchListTile(
@@ -124,8 +133,10 @@ class _ConfigProfilePageState extends State<ConfigProfilePage> {
 
   Widget _buildDivider() {
     final configProvider = Provider.of<ConfigProvider>(context);
-
     return Divider(
-        height: 1, thickness: 1, color: configProvider.secondaryColor);
+      height: 1,
+      thickness: 1,
+      color: configProvider.secondaryColor,
+    );
   }
 }
