@@ -424,5 +424,86 @@ namespace Snarf.Service
             }
             return responseDTO;
         }
+
+        public async Task<ResponseDTO> ChangeEmail(Guid userId, string newEmail, string currentPassword)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var user = await userRepository.GetTrackedEntities()
+                                               .FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (user == null)
+                {
+                    responseDTO.SetBadInput("Usuário não encontrado!");
+                    return responseDTO;
+                }
+
+                var signInResult = await signInManager.CheckPasswordSignInAsync(user, currentPassword, false);
+                if (!signInResult.Succeeded)
+                {
+                    responseDTO.SetBadInput("Senha atual incorreta!");
+                    return responseDTO;
+                }
+
+                var existingUser = await userManager.FindByEmailAsync(newEmail);
+                if (existingUser != null && existingUser.Id != user.Id)
+                {
+                    responseDTO.SetBadInput("Já existe um usuário com este email!");
+                    return responseDTO;
+                }
+
+                user.Email = newEmail;
+                user.NormalizedEmail = newEmail.ToUpper();
+                user.UserName = newEmail;
+                user.NormalizedUserName = newEmail.ToUpper();
+
+                await userManager.UpdateSecurityStampAsync(user);
+                await userRepository.SaveChangesAsync();
+
+                responseDTO.Message = "Email alterado com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> ChangePassword(Guid userId, string oldPassword, string newPassword)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var user = await userRepository.GetTrackedEntities()
+                                               .FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (user == null)
+                {
+                    responseDTO.SetBadInput("Usuário não encontrado!");
+                    return responseDTO;
+                }
+
+                var signInResult = await signInManager.CheckPasswordSignInAsync(user, oldPassword, false);
+                if (!signInResult.Succeeded)
+                {
+                    responseDTO.SetBadInput("Senha antiga incorreta!");
+                    return responseDTO;
+                }
+
+                user.PasswordHash = userManager.PasswordHasher.HashPassword(user, newPassword);
+
+                await userManager.UpdateSecurityStampAsync(user);
+                await userRepository.SaveChangesAsync();
+
+                responseDTO.Message = "Senha alterada com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
+
     }
 }

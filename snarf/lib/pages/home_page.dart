@@ -98,7 +98,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
     if (userId == null) {
-      showSnackbar(context, 'Não foi possível obter ID do token');
+      showErrorSnackbar(context, 'Não foi possível obter ID do token');
 
       await _analytics.logEvent(
         name: 'error',
@@ -113,7 +113,7 @@ class _HomePageState extends State<HomePage> {
     if (userInfo != null) {
       userImage = userInfo['imageUrl'];
     } else {
-      showSnackbar(context, 'Erro ao carregar informações do usuário');
+      showErrorSnackbar(context, 'Erro ao carregar informações do usuário');
 
       await _analytics.logEvent(
         name: 'error',
@@ -122,6 +122,8 @@ class _HomePageState extends State<HomePage> {
           'user_id': userId,
         },
       );
+
+      await _logout(context);
     }
   }
 
@@ -184,7 +186,7 @@ class _HomePageState extends State<HomePage> {
         },
       );
     } catch (err) {
-      showSnackbar(context, "Erro ao recuperar localização: $err");
+      showErrorSnackbar(context, "Erro ao recuperar localização: $err");
 
       await _analytics.logEvent(
         name: 'location_error',
@@ -658,7 +660,8 @@ class _HomePageState extends State<HomePage> {
               "Modo Noturno",
               style: TextStyle(fontSize: 16, color: configProvider.textColor),
             ),
-            secondary: Icon(Icons.brightness_6, color: configProvider.iconColor),
+            secondary:
+                Icon(Icons.brightness_6, color: configProvider.iconColor),
             value: configProvider.isDarkMode,
             onChanged: (_) async {
               Navigator.pop(context);
@@ -679,7 +682,9 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(fontSize: 16, color: configProvider.textColor),
             ),
             secondary: Icon(
-              configProvider.hideImages ? Icons.image_not_supported : Icons.image,
+              configProvider.hideImages
+                  ? Icons.image_not_supported
+                  : Icons.image,
               color: configProvider.iconColor,
             ),
             value: configProvider.hideImages,
@@ -723,14 +728,18 @@ class _HomePageState extends State<HomePage> {
           MaterialPageRoute(builder: (context) => const ConfigProfilePage()),
         );
       } else if (value == 'logout') {
-        await _analytics.logEvent(name: 'logout');
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const InitialPage()),
-        );
+        await _logout(context);
       }
     });
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    await _analytics.logEvent(name: 'logout');
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const InitialPage()),
+    );
   }
 
   Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {

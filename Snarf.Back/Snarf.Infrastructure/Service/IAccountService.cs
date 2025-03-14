@@ -17,5 +17,7 @@ namespace Snarf.Infrastructure.Service
         Task<ResponseDTO> UnblockUser(Guid blockerUserId, Guid blockedUserId);
         Task<ResponseDTO> ReportUserPublicMessage(Guid messageId);
         Task<ResponseDTO> ReportUser(Guid userId);
+        Task<ResponseDTO> ChangeEmail(Guid userId, string newEmail, string currentPassword);
+        Task<ResponseDTO> ChangePassword(Guid userId, string oldPassword, string newPassword);
     }
 }

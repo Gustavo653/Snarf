@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/config_provider.dart';
+import 'package:snarf/services/api_service.dart';
+import 'package:snarf/utils/show_snackbar.dart';
 
 class ChangeEmailPage extends StatefulWidget {
   const ChangeEmailPage({Key? key}) : super(key: key);
@@ -12,7 +14,8 @@ class ChangeEmailPage extends StatefulWidget {
 class _ChangeEmailPageState extends State<ChangeEmailPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _newEmailController = TextEditingController();
-  final TextEditingController _currentPasswordController = TextEditingController();
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
 
   bool _isLoading = false;
 
@@ -27,23 +30,19 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
     final currentPassword = _currentPasswordController.text;
 
     try {
-      // final result = await ApiService.changeEmail(
-      //   newEmail: newEmail,
-      //   currentPassword: currentPassword,
-      // );
+      final result = await ApiService.changeEmail(
+        newEmail: newEmail,
+        currentPassword: currentPassword,
+      );
 
-      // if (result.success) {
-      //   showSnackbar(context, 'Email alterado com sucesso!');
-      //   Navigator.pop(context);
-      // } else {
-      //   showSnackbar(context, result.errorMessage ?? 'Erro ao alterar email');
-      // }
-
-      await Future.delayed(const Duration(seconds: 2));
-      Navigator.pop(context);
-      // showSnackbar(context, 'Email alterado com sucesso!');
+      if (result == null) {
+        showSuccessSnackbar(context, 'Email alterado com sucesso!');
+        Navigator.pop(context);
+      } else {
+        showErrorSnackbar(context, result);
+      }
     } catch (e) {
-      // showSnackbar(context, 'Erro: $e');
+      showErrorSnackbar(context, 'Erro: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -72,44 +71,45 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _newEmailController,
-                decoration: const InputDecoration(labelText: 'Novo Email'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Digite o novo email';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _currentPasswordController,
-                decoration:
-                const InputDecoration(labelText: 'Senha Atual'),
-                obscureText: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Digite sua senha atual';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: configProvider.secondaryColor,
-                  foregroundColor: configProvider.textColor,
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _newEmailController,
+                      decoration:
+                          const InputDecoration(labelText: 'Novo Email'),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Digite o novo email';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _currentPasswordController,
+                      decoration:
+                          const InputDecoration(labelText: 'Senha Atual'),
+                      obscureText: true,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Digite sua senha atual';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: configProvider.secondaryColor,
+                        foregroundColor: configProvider.textColor,
+                      ),
+                      onPressed: _changeEmail,
+                      child: const Text('Confirmar'),
+                    ),
+                  ],
                 ),
-                onPressed: _changeEmail,
-                child: const Text('Confirmar'),
               ),
-            ],
-          ),
-        ),
       ),
     );
   }

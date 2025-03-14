@@ -68,7 +68,7 @@ class _EditUserPageState extends State<EditUserPage> {
       });
       await _analytics.logEvent(name: 'edit_user_info_loaded');
     } else {
-      showSnackbar(context, 'Erro ao carregar informações do usuário');
+      showErrorSnackbar(context, 'Erro ao carregar informações do usuário');
       await _analytics.logEvent(name: 'edit_user_info_error');
     }
   }
@@ -93,7 +93,7 @@ class _EditUserPageState extends State<EditUserPage> {
     if (_userId == null) return;
     final base64Image = await _getBase64Image();
     if (base64Image == null) {
-      showSnackbar(context, 'Não foi possível gerar a imagem em Base64');
+      showErrorSnackbar(context, 'Não foi possível gerar a imagem em Base64');
       await _analytics.logEvent(
           name: 'edit_user_save_error', parameters: {'message': 'image_null'});
       return;
@@ -106,12 +106,12 @@ class _EditUserPageState extends State<EditUserPage> {
       base64Image,
     );
     if (result == null) {
-      showSnackbar(context, 'Usuário atualizado com sucesso',
+      showSuccessSnackbar(context, 'Usuário atualizado com sucesso',
           color: Colors.green);
       await _analytics.logEvent(name: 'edit_user_save_success');
       Navigator.of(context).pop();
     } else {
-      showSnackbar(context, result);
+      showErrorSnackbar(context, result);
       await _analytics.logEvent(
           name: 'edit_user_save_error', parameters: {'message': result});
     }
@@ -150,11 +150,11 @@ class _EditUserPageState extends State<EditUserPage> {
       await _analytics.logEvent(name: 'edit_user_delete_account_confirmed');
       final result = await ApiService.deleteUser(_userId!);
       if (result == null) {
-        showSnackbar(context, 'Usuário deletado com sucesso');
+        showSuccessSnackbar(context, 'Usuário deletado com sucesso');
         await _analytics.logEvent(name: 'edit_user_delete_account_success');
         Navigator.pop(context);
       } else {
-        showSnackbar(context, result);
+        showErrorSnackbar(context, result);
         await _analytics.logEvent(
             name: 'edit_user_delete_account_error',
             parameters: {'message': result});
@@ -186,12 +186,12 @@ class _EditUserPageState extends State<EditUserPage> {
       await _analytics.logEvent(name: 'edit_user_unblock_user_confirmed');
       final result = await ApiService.unblockUser(blockedUserId);
       if (result == null) {
-        showSnackbar(context, 'Usuário desbloqueado com sucesso',
+        showSuccessSnackbar(context, 'Usuário desbloqueado com sucesso',
             color: Colors.green);
         await _analytics.logEvent(name: 'edit_user_unblock_user_success');
         _loadUserInfo();
       } else {
-        showSnackbar(context, result);
+        showErrorSnackbar(context, result);
         await _analytics.logEvent(
             name: 'edit_user_unblock_user_error',
             parameters: {'message': result});
