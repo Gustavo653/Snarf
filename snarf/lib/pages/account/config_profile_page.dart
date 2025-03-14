@@ -31,69 +31,101 @@ class _ConfigProfilePageState extends State<ConfigProfilePage> {
         ),
       ),
       backgroundColor: configProvider.primaryColor,
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            SwitchListTile(
-              title: Text(
-                "Disponível para vídeo chamadas",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: configProvider.textColor,
-                ),
+      body: ListView(
+        children: [
+          _buildSectionTitle("Conta"),
+          _buildListTile("Endereço de email", Icons.email, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ChangeEmailPage(),
               ),
-              secondary: Icon(
-                Icons.video_call,
-                color: configProvider.iconColor,
+            );
+          }),
+          _buildListTile("Senha", Icons.lock, () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ChangePasswordPage(),
               ),
-              value: configProvider.hideVideoCall,
-              onChanged: (bool value) async {
-                setState(() {
-                  configProvider.toggleVideoCall();
-                });
-                await _analytics.logEvent(
-                  name: 'toggle_video_call',
-                  parameters: {'value': configProvider.hideVideoCall},
-                );
-              },
-            ),
-            const SizedBox(height: 24),
+            );
+          }),
+          _buildSectionTitle("Configurações"),
+          _buildSwitchTile(
+            "Disponível para vídeo chamadas",
+            Icons.video_call,
+            configProvider.hideVideoCall,
+            (bool value) async {
+              setState(() {
+                configProvider.toggleVideoCall();
+              });
+              await _analytics.logEvent(
+                name: 'toggle_video_call',
+                parameters: {'value': configProvider.hideVideoCall},
+              );
+            },
+          ),
+          _buildDivider(),
+        ],
+      ),
+    );
+  }
 
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: configProvider.secondaryColor,
-                foregroundColor: configProvider.textColor,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ChangeEmailPage()),
-                );
-              },
-              child: const Text('Mudar Email'),
-            ),
-            const SizedBox(height: 16),
+  Widget _buildSectionTitle(String title) {
+    final configProvider = Provider.of<ConfigProvider>(context);
 
-            // BOTÃO: Mudar Senha
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: configProvider.secondaryColor,
-                foregroundColor: configProvider.textColor,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ChangePasswordPage()),
-                );
-              },
-              child: const Text('Mudar Senha'),
-            ),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: configProvider.secondaryColor,
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
         ),
       ),
     );
+  }
+
+  Widget _buildListTile(String title, IconData icon, VoidCallback onTap) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(icon, color: configProvider.iconColor),
+          title: Text(
+            title,
+            style: TextStyle(fontSize: 16, color: configProvider.iconColor),
+          ),
+          trailing: Icon(Icons.chevron_right, color: configProvider.iconColor),
+          onTap: onTap,
+        ),
+        _buildDivider(),
+      ],
+    );
+  }
+
+  Widget _buildSwitchTile(
+      String title, IconData icon, bool value, ValueChanged<bool> onChanged) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
+    return SwitchListTile(
+      title: Text(
+        title,
+        style: TextStyle(fontSize: 16, color: configProvider.iconColor),
+      ),
+      secondary: Icon(icon, color: configProvider.iconColor),
+      value: value,
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildDivider() {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
+    return Divider(
+        height: 1, thickness: 1, color: configProvider.secondaryColor);
   }
 }

@@ -654,7 +654,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
-          enabled: false,
+          enabled: true,
           child: SwitchListTile(
             title: Text(
               "Modo Noturno",
@@ -675,7 +675,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
-          enabled: false,
+          enabled: true,
           child: SwitchListTile(
             title: Text(
               "Modo Vanilla",
