@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/modals/change_email_modal.dart';
 import 'package:snarf/modals/change_password_modal.dart';
-import 'package:snarf/pages/account/subscription_plan_page.dart';
+import 'package:snarf/pages/account/buy_subscription_page.dart';
+import 'package:snarf/pages/account/status_subscription_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 
 class ConfigProfilePage extends StatefulWidget {
@@ -60,9 +61,17 @@ class _ConfigProfilePageState extends State<ConfigProfilePage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => const SubscriptionPlanPage()),
+                  builder: (context) => const BuySubscriptionPage()),
             );
           }),
+          _buildListTile("Status Assinatura", Icons.workspace_premium,
+                  () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const StatusSubscriptionPage()),
+                );
+              }),
           _buildSectionTitle("Configurações"),
           _buildSwitchTile(
             "Disponível para vídeo chamadas",

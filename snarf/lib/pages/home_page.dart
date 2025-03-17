@@ -14,7 +14,6 @@ import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
-import 'package:snarf/pages/account/subscription_plan_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -905,7 +904,7 @@ class _HomePageState extends State<HomePage> {
               await _analytics.logEvent(name: 'eye_button_pressed');
             }),
             _buildFloatingButton(Icons.crop_free, () async {
-              await _analytics.logEvent(name: 'moldura_button_pressed');
+              await _analytics.logEvent(name: 'crop_button_pressed');
             }),
             _buildFloatingButton(Icons.my_location, () {
               _recenterMap();

@@ -106,6 +106,7 @@ namespace Snarf.Service
                                                               BlockedBy = showSensitiveInfo ? x.BlockedBy.Count : 0,
                                                               FavoriteChats = showSensitiveInfo ? x.FavoriteChats.Select(x => new { x.ChatUser.Name, x.ChatUser.ImageUrl }) : null,
                                                               FavoritedBy = showSensitiveInfo ? x.FavoritedBy.Count : 0,
+                                                              ExtraVideoCallMinutes = showSensitiveInfo ? x.ExtraVideoCallMinutes : 0
                                                           })
                                                           .FirstOrDefaultAsync(x => x.Id == id.ToString());
                 var a = JsonSerializer.Serialize(data);

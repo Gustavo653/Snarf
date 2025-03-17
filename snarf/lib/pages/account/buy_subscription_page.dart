@@ -5,22 +5,18 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:snarf/services/api_service.dart';
-import 'package:snarf/utils/subscriptiob_base_plan_details.dart';
+import 'package:snarf/utils/api_constants.dart';
+import 'package:snarf/utils/subscription_base_plan_details.dart';
 
-const List<String> _kSubscriptionIds = <String>[
-  'snarf_plus',
-];
-
-const String _kConsumableId = '5_minutos_video_chamada';
-
-class SubscriptionPlanPage extends StatefulWidget {
-  const SubscriptionPlanPage({super.key});
+class BuySubscriptionPage extends StatefulWidget {
+  const BuySubscriptionPage({super.key});
 
   @override
-  State<SubscriptionPlanPage> createState() => _SubscriptionPlanPageState();
+  State<BuySubscriptionPage> createState() =>
+      _BuySubscriptionPageState();
 }
 
-class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
+class _BuySubscriptionPageState extends State<BuySubscriptionPage> {
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   late StreamSubscription<List<PurchaseDetails>> _subscription;
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
@@ -30,7 +26,6 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
 
   List<ProductDetails> _products = [];
   List<SubscriptionBasePlanDetails> _subscriptionBasePlans = [];
-  List<PurchaseDetails> _purchases = [];
 
   @override
   void initState() {
@@ -69,8 +64,8 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
     }
 
     final idsParaConsultar = <String>{
-      ..._kSubscriptionIds,
-      _kConsumableId,
+      ApiConstants.subscriptionId,
+      ApiConstants.productId,
     };
 
     final response = await _inAppPurchase.queryProductDetails(idsParaConsultar);
@@ -88,7 +83,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
     }
 
     final subscriptionProducts = response.productDetails
-        .where((product) => _kSubscriptionIds.contains(product.id))
+        .where((product) => ApiConstants.subscriptionId == product.id)
         .toList();
 
     final subscriptionBasePlans = subscriptionProducts
@@ -113,7 +108,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
           purchase.status == PurchaseStatus.restored) {
         log('Compra/assinatura aprovada: ${purchase.productID}');
 
-        if (purchase.productID == _kConsumableId) {
+        if (purchase.productID == ApiConstants.productId) {
           _handleExtraMinutesPurchase(purchase);
         }
       }
@@ -122,10 +117,6 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
         _inAppPurchase.completePurchase(purchase);
       }
     }
-
-    setState(() {
-      _purchases = purchaseDetailsList;
-    });
   }
 
   Future<void> _handleExtraMinutesPurchase(PurchaseDetails purchase) async {
@@ -190,7 +181,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
     }
 
     final consumableProducts =
-        _products.where((p) => p.id == _kConsumableId).toList();
+        _products.where((p) => p.id == ApiConstants.productId).toList();
 
     return Scaffold(
       appBar: AppBar(
