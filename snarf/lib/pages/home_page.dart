@@ -561,7 +561,7 @@ class _HomePageState extends State<HomePage> {
     await _analytics.logEvent(
       name: 'open_public_chat',
     );
-    final configProvider = Provider.of<ConfigProvider>(context);
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
 
     log("Abrindo chat para assinante: ${configProvider.isSubscriber}");
     if (configProvider.isSubscriber) {
@@ -581,8 +581,7 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(30.0),
                   border: Border.symmetric(
                     horizontal: BorderSide(
-                      color: Provider.of<ConfigProvider>(context, listen: false)
-                          .secondaryColor,
+                      color: configProvider.secondaryColor,
                       width: 5,
                     ),
                   ),
