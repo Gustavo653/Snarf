@@ -296,36 +296,43 @@ class _AuthCheckerState extends State<AuthChecker> {
 
   @override
   void initState() {
-    final Stream<List<PurchaseDetails>> purchaseUpdates = _inAppPurchase.purchaseStream;
-
-    purchaseUpdates.listen((purchases) {
-      log("Há assinaturas: ${purchases.isEmpty}");
-      _processPurchaseUpdates(purchases);
-    });
-     // Restaure as compras anteriores
-    _inAppPurchase.restorePurchases();
     super.initState();
     _checkAuth();
   }
 
-  void _processPurchaseUpdates(List<PurchaseDetails> purchases) {
+   @override
+  void didChangeDependencies() {
+    final Stream<List<PurchaseDetails>> purchaseUpdates =
+        _inAppPurchase.purchaseStream;
     final configProvider = Provider.of<ConfigProvider>(context);
+
+    purchaseUpdates.listen((purchases) {
+      if (purchases.isEmpty) {
+        configProvider.setIsSubscriber(false);
+        return;
+      }
+      _processPurchaseUpdates(purchases, configProvider);
+    });
+    // Restaure as compras anteriores
+    _inAppPurchase.restorePurchases();
+    super.didChangeDependencies();
+  }
+
+  void _processPurchaseUpdates(List<PurchaseDetails> purchases, ConfigProvider configProvider) {
     for (var purchase in purchases) {
-       if (purchase.productID == _kSubscriptionIds[0]) {
-           // O usuário possui uma assinatura ativa
-           if (purchase.status == PurchaseStatus.restored ||
-          purchase.status == PurchaseStatus.purchased) {
-            configProvider.setIsSubscriber(true);
-            return;
-          }else{
-            configProvider.setIsSubscriber(false);
-            return;
-          }
+      if (purchase.productID == _kSubscriptionIds[0]) {
+        // O usuário possui uma assinatura ativa
+        if (purchase.status == PurchaseStatus.restored ||
+            purchase.status == PurchaseStatus.purchased) {
+          configProvider.setIsSubscriber(true);
+          log("É assinante: ${configProvider.isSubscriber}");
+          return;
+        } else {
+          configProvider.setIsSubscriber(false);
+          log("É assinante: ${configProvider.isSubscriber}");
+          return;
         }
-    }
-    if(purchases.isEmpty){
-      configProvider.setIsSubscriber(false);
-      return;
+      }
     }
   }
 

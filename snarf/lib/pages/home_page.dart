@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -560,51 +561,56 @@ class _HomePageState extends State<HomePage> {
     await _analytics.logEvent(
       name: 'open_public_chat',
     );
+    final configProvider = Provider.of<ConfigProvider>(context);
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => GestureDetector(
-        onTap: () => Navigator.pop(context),
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.only(left: 50),
-          child: GestureDetector(
-            onTap: () {},
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30.0),
-                border: Border.symmetric(
-                  horizontal: BorderSide(
-                    color: Provider.of<ConfigProvider>(context, listen: false)
-                        .secondaryColor,
-                    width: 5,
+    log("Abrindo chat para assinante: ${configProvider.isSubscriber}");
+    if (configProvider.isSubscriber) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => GestureDetector(
+          onTap: () => Navigator.pop(context),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 50),
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30.0),
+                  border: Border.symmetric(
+                    horizontal: BorderSide(
+                      color: Provider.of<ConfigProvider>(context, listen: false)
+                          .secondaryColor,
+                      width: 5,
+                    ),
                   ),
                 ),
-              ),
-              child: DraggableScrollableSheet(
-                initialChildSize: 0.9,
-                minChildSize: 0.9,
-                maxChildSize: 0.9,
-                expand: false,
-                builder: (context, scrollController) {
-                  return ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(30),
-                      bottom: Radius.circular(30),
-                    ),
-                    child: Scaffold(
-                      body: PublicChatPage(scrollController: scrollController),
-                    ),
-                  );
-                },
+                child: DraggableScrollableSheet(
+                  initialChildSize: 0.9,
+                  minChildSize: 0.9,
+                  maxChildSize: 0.9,
+                  expand: false,
+                  builder: (context, scrollController) {
+                    return ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(30),
+                        bottom: Radius.circular(30),
+                      ),
+                      child: Scaffold(
+                        body:
+                            PublicChatPage(scrollController: scrollController),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   void _showCustomMenu(BuildContext context, Offset offset) {
