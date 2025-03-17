@@ -67,4 +67,13 @@ class ConfigProvider with ChangeNotifier {
     _hideVideoCall = !_hideVideoCall;
     notifyListeners();
   }
+
+  bool _isSubscriber = false;
+
+  void setIsSubscriber(bool subscriber){
+    _isSubscriber = subscriber;
+    notifyListeners();
+  }
+
+  bool get isSubscriber => _isSubscriber;
 }

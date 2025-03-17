@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'dart:ui';
 
@@ -5,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_update/in_app_update.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/call_manager.dart';
@@ -16,6 +18,10 @@ import 'pages/home_page.dart';
 import 'services/api_service.dart';
 import 'utils/api_constants.dart';
 import 'utils/app_themes.dart';
+
+const List<String> _kSubscriptionIds = <String>[
+  'snarf_plus',
+];
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -286,11 +292,41 @@ class AuthChecker extends StatefulWidget {
 class _AuthCheckerState extends State<AuthChecker> {
   String? token;
   bool isLoading = true;
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
 
   @override
   void initState() {
+    final Stream<List<PurchaseDetails>> purchaseUpdates = _inAppPurchase.purchaseStream;
+
+    purchaseUpdates.listen((purchases) {
+      log("Há assinaturas: ${purchases.isEmpty}");
+      _processPurchaseUpdates(purchases);
+    });
+     // Restaure as compras anteriores
+    _inAppPurchase.restorePurchases();
     super.initState();
     _checkAuth();
+  }
+
+  void _processPurchaseUpdates(List<PurchaseDetails> purchases) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+    for (var purchase in purchases) {
+       if (purchase.productID == _kSubscriptionIds[0]) {
+           // O usuário possui uma assinatura ativa
+           if (purchase.status == PurchaseStatus.restored ||
+          purchase.status == PurchaseStatus.purchased) {
+            configProvider.setIsSubscriber(true);
+            return;
+          }else{
+            configProvider.setIsSubscriber(false);
+            return;
+          }
+        }
+    }
+    if(purchases.isEmpty){
+      configProvider.setIsSubscriber(false);
+      return;
+    }
   }
 
   Future<void> _checkAuth() async {
