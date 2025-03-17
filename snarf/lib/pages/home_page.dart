@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/config_profile_page.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
@@ -97,7 +99,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
     if (userId == null) {
-      showSnackbar(context, 'Não foi possível obter ID do token');
+      showErrorSnackbar(context, 'Não foi possível obter ID do token');
 
       await _analytics.logEvent(
         name: 'error',
@@ -112,7 +114,7 @@ class _HomePageState extends State<HomePage> {
     if (userInfo != null) {
       userImage = userInfo['imageUrl'];
     } else {
-      showSnackbar(context, 'Erro ao carregar informações do usuário');
+      showErrorSnackbar(context, 'Erro ao carregar informações do usuário');
 
       await _analytics.logEvent(
         name: 'error',
@@ -121,6 +123,8 @@ class _HomePageState extends State<HomePage> {
           'user_id': userId,
         },
       );
+
+      await _logout(context);
     }
   }
 
@@ -183,7 +187,7 @@ class _HomePageState extends State<HomePage> {
         },
       );
     } catch (err) {
-      showSnackbar(context, "Erro ao recuperar localização: $err");
+      showErrorSnackbar(context, "Erro ao recuperar localização: $err");
 
       await _analytics.logEvent(
         name: 'location_error',
@@ -557,51 +561,56 @@ class _HomePageState extends State<HomePage> {
     await _analytics.logEvent(
       name: 'open_public_chat',
     );
+    final configProvider = Provider.of<ConfigProvider>(context);
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => GestureDetector(
-        onTap: () => Navigator.pop(context),
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.only(left: 50),
-          child: GestureDetector(
-            onTap: () {},
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30.0),
-                border: Border.symmetric(
-                  horizontal: BorderSide(
-                    color: Provider.of<ConfigProvider>(context, listen: false)
-                        .secondaryColor,
-                    width: 5,
+    log("Abrindo chat para assinante: ${configProvider.isSubscriber}");
+    if (configProvider.isSubscriber) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => GestureDetector(
+          onTap: () => Navigator.pop(context),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 50),
+            child: GestureDetector(
+              onTap: () {},
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30.0),
+                  border: Border.symmetric(
+                    horizontal: BorderSide(
+                      color: Provider.of<ConfigProvider>(context, listen: false)
+                          .secondaryColor,
+                      width: 5,
+                    ),
                   ),
                 ),
-              ),
-              child: DraggableScrollableSheet(
-                initialChildSize: 0.9,
-                minChildSize: 0.9,
-                maxChildSize: 0.9,
-                expand: false,
-                builder: (context, scrollController) {
-                  return ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(30),
-                      bottom: Radius.circular(30),
-                    ),
-                    child: Scaffold(
-                      body: PublicChatPage(scrollController: scrollController),
-                    ),
-                  );
-                },
+                child: DraggableScrollableSheet(
+                  initialChildSize: 0.9,
+                  minChildSize: 0.9,
+                  maxChildSize: 0.9,
+                  expand: false,
+                  builder: (context, scrollController) {
+                    return ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(30),
+                        bottom: Radius.circular(30),
+                      ),
+                      child: Scaffold(
+                        body:
+                            PublicChatPage(scrollController: scrollController),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   void _showCustomMenu(BuildContext context, Offset offset) {
@@ -638,7 +647,20 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
-          enabled: false,
+          value: 'profile_settings',
+          child: Row(
+            children: [
+              Icon(Icons.settings, color: configProvider.iconColor),
+              const SizedBox(width: 10),
+              Text(
+                "Configurações de Perfil",
+                style: TextStyle(fontSize: 16, color: configProvider.textColor),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          enabled: true,
           child: SwitchListTile(
             title: Text(
               "Modo Noturno",
@@ -649,7 +671,6 @@ class _HomePageState extends State<HomePage> {
             value: configProvider.isDarkMode,
             onChanged: (_) async {
               Navigator.pop(context);
-
               configProvider.toggleTheme();
 
               await _analytics.logEvent(
@@ -660,7 +681,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
-          enabled: false,
+          enabled: true,
           child: SwitchListTile(
             title: Text(
               "Modo Vanilla",
@@ -675,36 +696,11 @@ class _HomePageState extends State<HomePage> {
             value: configProvider.hideImages,
             onChanged: (_) async {
               Navigator.pop(context);
-
               configProvider.toggleHideImages();
 
               await _analytics.logEvent(
                 name: 'toggle_hide_images',
                 parameters: {'value': configProvider.hideImages},
-              );
-            },
-          ),
-        ),
-        PopupMenuItem(
-          enabled: false,
-          child: SwitchListTile(
-            title: Text(
-              "Disponível para vídeo chamadas",
-              style: TextStyle(fontSize: 16, color: configProvider.textColor),
-            ),
-            secondary: Icon(
-              Icons.video_call,
-              color: configProvider.iconColor,
-            ),
-            value: configProvider.hideVideoCall,
-            onChanged: (bool value) async {
-              Navigator.pop(context);
-
-              configProvider.toggleVideoCall();
-
-              await _analytics.logEvent(
-                name: 'toggle_video_call',
-                parameters: {'value': configProvider.hideVideoCall},
               );
             },
           ),
@@ -731,15 +727,25 @@ class _HomePageState extends State<HomePage> {
           context,
           MaterialPageRoute(builder: (context) => const EditUserPage()),
         );
-      } else if (value == 'logout') {
-        await _analytics.logEvent(name: 'logout');
-
-        Navigator.pushReplacement(
+      } else if (value == 'profile_settings') {
+        await _analytics.logEvent(name: 'open_profile_settings');
+        Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const InitialPage()),
+          MaterialPageRoute(builder: (context) => const ConfigProfilePage()),
         );
+      } else if (value == 'logout') {
+        await _logout(context);
       }
     });
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    await _analytics.logEvent(name: 'logout');
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const InitialPage()),
+    );
   }
 
   Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {

@@ -102,5 +102,24 @@ namespace Snarf.API.Controllers
             var user = await accountService.ResetPassword(userEmailDTO);
             return StatusCode(user.Code, user);
         }
+
+        [HttpPost("ChangeEmail")]
+        public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailDTO model)
+        {
+            var userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+
+            var result = await accountService.ChangeEmail(userId, model.NewEmail!, model.CurrentPassword!);
+            return StatusCode(result.Code, result);
+        }
+
+        [HttpPost("ChangePassword")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDTO model)
+        {
+            var userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+
+            var result = await accountService.ChangePassword(userId, model.OldPassword!, model.NewPassword!);
+            return StatusCode(result.Code, result);
+        }
+
     }
 }

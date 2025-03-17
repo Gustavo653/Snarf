@@ -428,6 +428,90 @@ class ApiService {
     }
   }
 
+  static Future<String?> changeEmail({
+    required String newEmail,
+    required String currentPassword,
+  }) async {
+    final token = await getToken();
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/Account/ChangeEmail');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = jsonEncode({
+      'newEmail': newEmail,
+      'currentPassword': currentPassword,
+    });
+
+    try {
+      await FirebaseAnalytics.instance
+          .logEvent(name: 'api_change_email_attempt');
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        await FirebaseAnalytics.instance
+            .logEvent(name: 'api_change_email_success');
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'api_change_email_failure',
+          parameters: {'error': responseData.toString()},
+        );
+        return responseData['message'];
+      }
+    } catch (e) {
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'api_change_email_exception',
+        parameters: {'error': e.toString()},
+      );
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
+  static Future<String?> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final token = await getToken();
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/Account/ChangePassword');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = jsonEncode({
+      'oldPassword': oldPassword,
+      'newPassword': newPassword,
+    });
+
+    try {
+      await FirebaseAnalytics.instance
+          .logEvent(name: 'api_change_password_attempt');
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        await FirebaseAnalytics.instance
+            .logEvent(name: 'api_change_password_success');
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'api_change_password_failure',
+          parameters: {'error': responseData.toString()},
+        );
+        return responseData['message'];
+      }
+    } catch (e) {
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'api_change_password_exception',
+        parameters: {'error': e.toString()},
+      );
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
   static Future<String?> getToken() async {
     return await _secureStorage.read(key: 'token');
   }

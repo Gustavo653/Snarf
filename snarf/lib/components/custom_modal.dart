@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:snarf/providers/config_provider.dart';
 
 class CustomModal extends StatelessWidget {
   final String title;
@@ -16,6 +18,9 @@ class CustomModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final config = Provider.of<ConfigProvider>(context);
+    final bool isLightMode = useGradient ? true : !config.isDarkMode;
+
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(30.0),
@@ -23,9 +28,9 @@ class CustomModal extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30.0),
-          border: const Border.symmetric(
+          border: Border.symmetric(
             horizontal: BorderSide(
-              color: Color(0xFF392ea3),
+              color: config.primaryColor,
               width: 5,
             ),
           ),
@@ -39,6 +44,9 @@ class CustomModal extends StatelessWidget {
                   ],
                 )
               : null,
+          color: useGradient
+              ? null
+              : (isLightMode ? Colors.white : config.darkPrimaryColor),
         ),
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -46,8 +54,8 @@ class CustomModal extends StatelessWidget {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                color: Color(0xFF0b0951),
+              style: TextStyle(
+                color: isLightMode ? config.darkPrimaryColor : config.textColor,
                 fontSize: 20.0,
                 fontWeight: FontWeight.bold,
               ),
