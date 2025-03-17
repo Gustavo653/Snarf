@@ -84,7 +84,7 @@ class _InitialPageState extends State<InitialPage> {
 
     await _analytics.logEvent(
       name: 'age_confirmation_result',
-      parameters: {'birth_year': birthYear, 'is_adult': isAdult},
+      parameters: {'birth_year': birthYear, 'is_adult': isAdult.toString()},
     );
 
     if (!isAdult) {
