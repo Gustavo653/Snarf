@@ -14,7 +14,7 @@ import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
-import 'package:snarf/pages/subscription_plan_page.dart';
+import 'package:snarf/pages/account/subscription_plan_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -923,22 +923,12 @@ class _HomePageState extends State<HomePage> {
           if (index == 0) {
             _openPrivateChat(context);
           } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const SubscriptionPlanPage()),
-            );
-          } else if (index == 2) {
             _openPublicChat(context);
           }
         },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.chat),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.workspace_premium),
             label: '',
           ),
           BottomNavigationBarItem(

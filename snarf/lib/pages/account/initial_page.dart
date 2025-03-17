@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
-import 'package:snarf/pages/account/forgot_password_modal.dart';
+import 'package:snarf/modals/forgot_password_modal.dart';
 import 'package:snarf/pages/account/register_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/config_provider.dart';

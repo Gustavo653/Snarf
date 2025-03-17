@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/components/themed_text_field.dart';
-import 'package:snarf/pages/account/forgot_password_modal.dart';
+import 'package:snarf/modals/forgot_password_modal.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
