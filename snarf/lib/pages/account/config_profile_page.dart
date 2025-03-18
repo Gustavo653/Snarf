@@ -56,22 +56,14 @@ class _ConfigProfilePageState extends State<ConfigProfilePage> {
               );
             },
           ),
-          _buildListTile("Snarf Plus e Video Chamada", Icons.workspace_premium,
-              () {
+          _buildListTile("Snarf Plus", Icons.workspace_premium, () {
             Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (context) => const BuySubscriptionPage()),
+                builder: (context) => const StatusSubscriptionPage(),
+              ),
             );
           }),
-          _buildListTile("Status Assinatura", Icons.workspace_premium,
-                  () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const StatusSubscriptionPage()),
-                );
-              }),
           _buildSectionTitle("Configurações"),
           _buildSwitchTile(
             "Disponível para vídeo chamadas",

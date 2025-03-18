@@ -69,4 +69,29 @@ class SubscriptionBasePlanDetails {
         return null;
     }
   }
+
+  String getBasePlanLengthTranslated() {
+    switch (basePlanLength) {
+      case BasePlanLength.weekly:
+        return "Semanal";
+      case BasePlanLength.everyFourWeeks:
+        return "A cada 4 semanas";
+      case BasePlanLength.monthly:
+        return "Mensal";
+      case BasePlanLength.everyTwoMonths:
+        return "A cada 2 meses";
+      case BasePlanLength.everyThreeMonths:
+        return "A cada 3 meses";
+      case BasePlanLength.everyFourMonths:
+        return "A cada 4 meses";
+      case BasePlanLength.everySixMonths:
+        return "Semestral";
+      case BasePlanLength.everyEightMonths:
+        return "A cada 8 meses";
+      case BasePlanLength.yearly:
+        return "Anual";
+      default:
+        return "Indefinido";
+    }
+  }
 }
