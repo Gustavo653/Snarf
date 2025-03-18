@@ -6,20 +6,17 @@ class CustomModal extends StatelessWidget {
   final String title;
   final Widget content;
   final List<Widget> actions;
-  final bool useGradient;
 
   const CustomModal({
     super.key,
     required this.title,
     required this.content,
     required this.actions,
-    this.useGradient = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final config = Provider.of<ConfigProvider>(context);
-    final bool isLightMode = useGradient ? true : !config.isDarkMode;
 
     return Dialog(
       shape: RoundedRectangleBorder(
@@ -34,19 +31,7 @@ class CustomModal extends StatelessWidget {
               width: 5,
             ),
           ),
-          gradient: useGradient
-              ? LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white,
-                    Colors.pink.shade50,
-                  ],
-                )
-              : null,
-          color: useGradient
-              ? null
-              : (isLightMode ? Colors.white : config.darkPrimaryColor),
+          color: config.primaryColor,
         ),
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -55,7 +40,7 @@ class CustomModal extends StatelessWidget {
             Text(
               title,
               style: TextStyle(
-                color: isLightMode ? config.darkPrimaryColor : config.textColor,
+                color: config.textColor,
                 fontSize: 20.0,
                 fontWeight: FontWeight.bold,
               ),

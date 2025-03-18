@@ -30,18 +30,10 @@ class ThemedTextField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: labelText,
         labelStyle: TextStyle(color: configProvider.textColor),
+        prefixIconColor: configProvider.iconColor,
         prefixIcon: Icon(icon),
-        prefixIconColor: configProvider.secondaryColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.0),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: configProvider.secondaryColor),
-          borderRadius: BorderRadius.circular(12.0),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: configProvider.primaryColor),
-          borderRadius: BorderRadius.circular(12.0),
+          borderRadius: BorderRadius.circular(15),
         ),
       ),
     );

@@ -94,7 +94,6 @@ class _ForgotPasswordModalState extends State<ForgotPasswordModal> {
           onPressed: _isLoading ? null : _requestResetCode,
         ),
       ],
-      useGradient: true,
     );
   }
 }
