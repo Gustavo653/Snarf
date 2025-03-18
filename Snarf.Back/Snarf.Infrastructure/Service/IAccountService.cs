@@ -19,5 +19,6 @@ namespace Snarf.Infrastructure.Service
         Task<ResponseDTO> ReportUser(Guid userId);
         Task<ResponseDTO> ChangeEmail(Guid userId, string newEmail, string currentPassword);
         Task<ResponseDTO> ChangePassword(Guid userId, string oldPassword, string newPassword);
+        Task<ResponseDTO> GetFirstMessageToday(Guid userid);
     }
 }

@@ -506,5 +506,37 @@ namespace Snarf.Service
             return responseDTO;
         }
 
+        public async Task<ResponseDTO> GetFirstMessageToday(Guid userid)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userid.ToString());
+                if (userEntity == null)
+                {
+                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {userid}!");
+                    return responseDTO;
+                }
+
+                var message = await publicChatMessageRepository.GetTrackedEntities()
+                    .Include(x => x.Sender)
+                    .Where(x => x.SenderId == userEntity.Id && x.CreatedAt.Date == DateTime.UtcNow.Date)
+                    .OrderBy(x => x.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (message == null)
+                {
+                    responseDTO.Object = new
+                    {
+                        FirstMessageToDay = (DateTime?)null,
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
     }
 }
