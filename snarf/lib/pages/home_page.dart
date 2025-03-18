@@ -95,6 +95,16 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void fetchFirstMessage(String userId) async {
+  final messageData = await ApiService.getFirstMessageOfDay(userId);
+  if (messageData != null) {
+    log("Primeira mensagem do dia: ${messageData['message']}");
+  } else {
+    log("Nenhuma mensagem encontrada.");
+  }
+}
+
+
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
     if (userId == null) {
