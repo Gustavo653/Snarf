@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
+import 'package:snarf/components/loading_outlined_button.dart';
 import 'package:snarf/modals/forgot_password_modal.dart';
 import 'package:snarf/modals/login_modal.dart';
 import 'package:snarf/pages/home_page.dart';
@@ -375,6 +376,8 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return CustomModal(
       title: 'Confirmar Idade',
       content: Column(
@@ -385,15 +388,15 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
             'Precisamos verificar a sua idade.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.grey.shade800,
+              color: configProvider.textColor,
               fontSize: 14.0,
             ),
           ),
           const SizedBox(height: 20.0),
-          const Text(
+          Text(
             'Quando Você Nasceu?',
             style: TextStyle(
-              color: Color(0xFF0b0951),
+              color: configProvider.textColor,
               fontSize: 16.0,
               fontWeight: FontWeight.bold,
             ),
@@ -401,16 +404,8 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
           const SizedBox(height: 20.0),
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.pink.shade50,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(30.0),
-            ),
+                borderRadius: BorderRadius.circular(30.0),
+                color: configProvider.secondaryColor),
             child: SizedBox(
               height: 100.0,
               child: ListWheelScrollView.useDelegate(
@@ -435,11 +430,13 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
                         border: isSelected
                             ? Border(
                                 top: BorderSide(
-                                  color: Colors.grey.shade300,
+                                  color:
+                                      configProvider.textColor.withOpacity(0.4),
                                   width: 1.0,
                                 ),
                                 bottom: BorderSide(
-                                  color: Colors.grey.shade300,
+                                  color:
+                                      configProvider.textColor.withOpacity(0.4),
                                   width: 1.0,
                                 ),
                               )
@@ -452,8 +449,8 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
                           fontWeight:
                               isSelected ? FontWeight.bold : FontWeight.normal,
                           color: isSelected
-                              ? const Color(0xFF0b0951)
-                              : Colors.black,
+                              ? configProvider.textColor
+                              : configProvider.textColor.withOpacity(0.7),
                         ),
                       ),
                     );
@@ -466,38 +463,27 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
         ],
       ),
       actions: [
-        OutlinedButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text(
-            'Voltar',
-            style: TextStyle(
-              color: Color(0xFF0b0951),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            if (currentYear - selectedYear >= 18) {
-              Navigator.of(context).pop(selectedYear);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content:
-                      Text('Você precisa ser maior de idade para continuar.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          },
-          child: const Text(
-            'Avançar',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+        LoadingOutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            isLoading: false,
+            text: 'Voltar'),
+        LoadingElevatedButton(
+            text: 'Avançar',
+            isLoading: false,
+            onPressed: () {
+              if (currentYear - selectedYear >= 18) {
+                Navigator.of(context).pop(selectedYear);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      'Você precisa ser maior de idade para continuar.',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            })
       ],
     );
   }

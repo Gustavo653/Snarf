@@ -4,12 +4,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart'; // <-- Import necessário
 import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
-import 'package:snarf/services/api_service.dart';
 import 'package:snarf/pages/home_page.dart';
+import 'package:snarf/providers/config_provider.dart'; // <-- Import necessário
+import 'package:snarf/services/api_service.dart';
 
 class RegisterModal extends StatefulWidget {
   const RegisterModal({super.key});
@@ -126,6 +128,9 @@ class _RegisterModalState extends State<RegisterModal> {
 
   @override
   Widget build(BuildContext context) {
+    // Obtenha seu configProvider para acessar cores e demais atributos de tema
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
       child: CustomModal(
@@ -136,36 +141,45 @@ class _RegisterModalState extends State<RegisterModal> {
               const SizedBox(height: 8),
               TextField(
                 controller: _emailController,
+                style: TextStyle(color: configProvider.textColor),
                 decoration: InputDecoration(
                   labelText: 'E-mail',
+                  labelStyle: TextStyle(color: configProvider.textColor),
+                  prefixIconColor: configProvider.iconColor,
+                  prefixIcon: const Icon(Icons.email),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
                   ),
-                  prefixIcon: const Icon(Icons.email),
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _nameController,
+                style: TextStyle(color: configProvider.textColor),
                 decoration: InputDecoration(
                   labelText: 'Nome',
+                  labelStyle: TextStyle(color: configProvider.textColor),
+                  prefixIconColor: configProvider.iconColor,
+                  prefixIcon: const Icon(Icons.person),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
                   ),
-                  prefixIcon: const Icon(Icons.person),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
+                style: TextStyle(color: configProvider.textColor),
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Senha',
+                  labelStyle: TextStyle(color: configProvider.textColor),
+                  prefixIconColor: configProvider.iconColor,
+                  prefixIcon: const Icon(Icons.lock),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.0),
                   ),
-                  prefixIcon: const Icon(Icons.lock),
                 ),
               ),
               const SizedBox(height: 16),
