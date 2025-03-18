@@ -155,17 +155,17 @@ class _StatusSubscriptionPageState extends State<StatusSubscriptionPage> {
                     'Você não possui assinatura ativa.',
                     style: TextStyle(fontSize: 16),
                   ),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const BuySubscriptionPage(),
-                        ),
-                      );
-                    },
-                    child: const Text('Adquirir Assinatura'),
-                  ),
+                  LoadingElevatedButton(
+                      text: 'Adquirir Assinatura',
+                      isLoading: false,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BuySubscriptionPage(),
+                          ),
+                        );
+                      })
                 ],
               ),
             ),

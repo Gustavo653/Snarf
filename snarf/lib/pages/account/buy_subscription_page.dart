@@ -199,8 +199,10 @@ class _BuySubscriptionPageState extends State<BuySubscriptionPage> {
                     'Duração: ${plan.getBasePlanLengthTranslated()}\nTeste grátis: ${plan.isFreeTrialAvailable == true ? 'Sim' : 'Não'}',
                     style: TextStyle(color: configProvider.textColor),
                   ),
-                  trailing: Text(plan.formattedPrice,
-                      style: TextStyle(color: configProvider.textColor)),
+                  trailing: Text(
+                    plan.formattedPrice,
+                    style: TextStyle(color: configProvider.textColor),
+                  ),
                   onTap: () => _buySubscription(plan),
                 ),
               );
