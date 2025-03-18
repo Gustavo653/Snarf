@@ -524,13 +524,10 @@ namespace Snarf.Service
                     .OrderBy(x => x.CreatedAt)
                     .FirstOrDefaultAsync();
 
-                if (message == null)
+                responseDTO.Object = new
                 {
-                    responseDTO.Object = new
-                    {
-                        FirstMessageToDay = (DateTime?)null,
-                    };
-                }
+                    FirstMessageToDay = message == null ? (DateTime?)null : message.CreatedAt,
+                };
             }
             catch (Exception ex)
             {
