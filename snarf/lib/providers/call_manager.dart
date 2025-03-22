@@ -1,14 +1,19 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/src/widgets/framework.dart';
 import 'package:jitsi_meet_flutter_sdk/jitsi_meet_flutter_sdk.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:provider/provider.dart';
+import 'package:snarf/providers/config_provider.dart';
 
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
 
 class CallManager extends ChangeNotifier {
   final JitsiMeet jitsiMeet = JitsiMeet();
+  final ConfigProvider configProvider;
 
   bool _isInCall = false;
   bool _isCallOverlayVisible = false;
@@ -37,7 +42,7 @@ class CallManager extends ChangeNotifier {
   String _callRejectionReason = "";
   String get callRejectionReason => _callRejectionReason;
 
-  CallManager() {
+  CallManager(this.configProvider) {
     _setupCallSignals();
   }
 
@@ -84,6 +89,14 @@ class CallManager extends ChangeNotifier {
   }
 
   void _handleVideoCallIncoming(Map<String, dynamic> data) {
+    //Verificar se é assinante => chamar reject
+
+    if (!configProvider.isSubscriber) {
+      log("O cara não é assinante.");
+      _handleVideoCallReject(data);
+      return;
+    }
+
     final newRoomId = data['roomId'] as String?;
     final newCallerUserId = data['callerUserId'] as String?;
     final newCallerUserName = data['callerName'] as String?;

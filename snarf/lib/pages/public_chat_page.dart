@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/buy_subscription_page.dart';
 
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
@@ -159,23 +161,50 @@ class _PublicChatPageState extends State<PublicChatPage> {
     });
   }
 
+  Future<bool> _canSendMessage() async {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    DateTime? firstMessageDate = config.FirstMessageToday;
+    DateTime now = DateTime.now().toUtc();
+
+    if (firstMessageDate == null) {
+      return true;
+    }
+
+    log("Data primeira mensagem: ${firstMessageDate.toUtc()} Data atual: $now");
+    Duration difference = now.difference(firstMessageDate.toUtc());
+    log("Diferença em minutos: ${difference.inMinutes}");
+
+    return difference.inMinutes <= 30;
+  }
+
   void _sendMessage() async {
-    final messageText = _messageController.text.trim();
-    if (messageText.isNotEmpty) {
-      await SignalRManager().sendSignalRMessage(
-        SignalREventType.PublicChatSendMessage,
-        {"Message": messageText},
-      );
+    final config = Provider.of<ConfigProvider>(context, listen: false);
 
-      await _analytics.logEvent(
-        name: 'public_chat_message_sent',
-        parameters: {
-          'message_length': messageText.length,
-        },
-      );
+    if (await _canSendMessage() || config.isSubscriber) {
+      final messageText = _messageController.text.trim();
+      if (messageText.isNotEmpty) {
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PublicChatSendMessage,
+          {"Message": messageText},
+        );
 
-      setState(() => _messageController.clear());
-      _scrollToBottom();
+        await _analytics.logEvent(
+          name: 'public_chat_message_sent',
+          parameters: {
+            'message_length': messageText.length,
+          },
+        );
+
+        setState(() => _messageController.clear());
+        _scrollToBottom();
+      }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuySubscriptionPage(),
+        ),
+      );
     }
   }
 
@@ -236,137 +265,136 @@ class _PublicChatPageState extends State<PublicChatPage> {
       });
     }
 
-    if (configProvider.isSubscriber) {
-      return Scaffold(
+    // if (configProvider.isSubscriber) {
+    return Scaffold(
+      backgroundColor: configProvider.primaryColor,
+      appBar: AppBar(
         backgroundColor: configProvider.primaryColor,
-        appBar: AppBar(
-          backgroundColor: configProvider.primaryColor,
-          iconTheme: IconThemeData(color: configProvider.iconColor),
-          title: Text(
-            'Feed',
-            style: TextStyle(color: configProvider.textColor),
-          ),
-          automaticallyImplyLeading: false,
-          actions: [
-            PopupMenuButton<String>(
-              color: configProvider.primaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: configProvider.secondaryColor,
-                  width: 2,
+        iconTheme: IconThemeData(color: configProvider.iconColor),
+        title: Text(
+          'Feed',
+          style: TextStyle(color: configProvider.textColor),
+        ),
+        automaticallyImplyLeading: false,
+        actions: [
+          PopupMenuButton<String>(
+            color: configProvider.primaryColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: configProvider.secondaryColor,
+                width: 2,
+              ),
+            ),
+            icon: Icon(Icons.sort, color: configProvider.iconColor),
+            onSelected: (value) async {
+              setState(() {
+                _sortByDate = (value == 'date');
+              });
+
+              await _analytics.logEvent(
+                name: 'public_chat_sort_changed',
+                parameters: {
+                  'sort_by': _sortByDate ? 'date' : 'distance',
+                },
+              );
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'date',
+                child: Text(
+                  'Ordenar por data',
+                  style: TextStyle(color: configProvider.textColor),
                 ),
               ),
-              icon: Icon(Icons.sort, color: configProvider.iconColor),
-              onSelected: (value) async {
-                setState(() {
-                  _sortByDate = (value == 'date');
-                });
+              PopupMenuItem(
+                value: 'distance',
+                child: Text(
+                  'Ordenar por distância',
+                  style: TextStyle(color: configProvider.textColor),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                color: configProvider.iconColor,
+              ),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    controller: widget.scrollController,
+                    itemCount: sortedMessages.length,
+                    itemBuilder: (context, index) {
+                      final msg = sortedMessages[index];
+                      final isMine = msg['isMine'] as bool;
+                      final createdAt = msg['createdAt'] as DateTime;
+                      final distance = msg['distance'] ?? 0.0;
 
-                await _analytics.logEvent(
-                  name: 'public_chat_sort_changed',
-                  parameters: {
-                    'sort_by': _sortByDate ? 'date' : 'distance',
-                  },
-                );
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'date',
-                  child: Text(
-                    'Ordenar por data',
-                    style: TextStyle(color: configProvider.textColor),
+                      return Column(
+                        crossAxisAlignment: isMine
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  DateJSONUtils.formatRelativeTime(
+                                    createdAt.toString(),
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontStyle: FontStyle.italic,
+                                    color: configProvider.textColor,
+                                  ),
+                                ),
+                                Text(
+                                  !isMine
+                                      ? '${distance?.toStringAsFixed(2)} km'
+                                      : '',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontStyle: FontStyle.italic,
+                                    color: configProvider.textColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Align(
+                            alignment: isMine
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: _buildMessageWidget(
+                              context,
+                              message: msg,
+                              isMine: isMine,
+                              messageColor: configProvider.secondaryColor,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
-                PopupMenuItem(
-                  value: 'distance',
-                  child: Text(
-                    'Ordenar por distância',
-                    style: TextStyle(color: configProvider.textColor),
-                  ),
-                ),
+                _buildMessageInput(context),
               ],
             ),
-          ],
-        ),
-        body: _isLoading
-            ? Center(
-                child: CircularProgressIndicator(
-                  color: configProvider.iconColor,
-                ),
-              )
-            : Column(
-                children: [
-                  Expanded(
-                    child: ListView.builder(
-                      controller: widget.scrollController,
-                      itemCount: sortedMessages.length,
-                      itemBuilder: (context, index) {
-                        final msg = sortedMessages[index];
-                        final isMine = msg['isMine'] as bool;
-                        final createdAt = msg['createdAt'] as DateTime;
-                        final distance = msg['distance'] ?? 0.0;
-
-                        return Column(
-                          crossAxisAlignment: isMine
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    DateJSONUtils.formatRelativeTime(
-                                      createdAt.toString(),
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontStyle: FontStyle.italic,
-                                      color: configProvider.textColor,
-                                    ),
-                                  ),
-                                  Text(
-                                    !isMine
-                                        ? '${distance?.toStringAsFixed(2)} km'
-                                        : '',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontStyle: FontStyle.italic,
-                                      color: configProvider.textColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Align(
-                              alignment: isMine
-                                  ? Alignment.centerRight
-                                  : Alignment.centerLeft,
-                              child: _buildMessageWidget(
-                                context,
-                                message: msg,
-                                isMine: isMine,
-                                messageColor: configProvider.secondaryColor,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  _buildMessageInput(context),
-                ],
-              ),
-      );
-    } else{
-      return SizedBox.shrink();
-    }
+    );
+    // } else{
+    //   return SizedBox.shrink();
+    // }
   }
 
   Widget _buildMessageWidget(

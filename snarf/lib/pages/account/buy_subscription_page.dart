@@ -10,6 +10,8 @@ import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/api_constants.dart';
 import 'package:snarf/utils/subscription_base_plan_details.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 
 class BuySubscriptionPage extends StatefulWidget {
   const BuySubscriptionPage({Key? key}) : super(key: key);
@@ -27,6 +29,30 @@ class _BuySubscriptionPageState extends State<BuySubscriptionPage> {
   List<ProductDetails> _products = [];
   List<SubscriptionBasePlanDetails> _subscriptionBasePlans = [];
   int _extraVideoCallMinutes = 0;
+
+  final List<Map<String, dynamic>> benefits = [
+    {"icon": FontAwesomeIcons.ban, "text": "Desbloquear Usuários Individuais"},
+    {
+      "icon": FontAwesomeIcons.solidMessage,
+      "text": "Ver quem excluiu uma conversa"
+    },
+    {"icon": FontAwesomeIcons.googlePlay, "text": "Sem anúncios"},
+    {"icon": FontAwesomeIcons.filter, "text": "Perfis de Cruisers Ilimitados"},
+    {"icon": FontAwesomeIcons.bullhorn, "text": "Publique uma Atualização"},
+    {"icon": FontAwesomeIcons.images, "text": "Várias fotos de perfil"},
+    {
+      "icon": FontAwesomeIcons.thumbtack,
+      "text": "Fixar conversas e fixar para mais tarde"
+    },
+    {"icon": FontAwesomeIcons.eye, "text": "Recibos de Leitura"},
+    {"icon": FontAwesomeIcons.userGroup, "text": "Criar Grupals"},
+    {"icon": FontAwesomeIcons.image, "text": "Ocultar Fotos do Chat"},
+    {"icon": FontAwesomeIcons.plane, "text": "Modo Viagem"},
+    {"icon": FontAwesomeIcons.eyeSlash, "text": "Modo Discreto"},
+    {"icon": FontAwesomeIcons.mapMarkerAlt, "text": "Adicionar Locais"},
+    {"icon": FontAwesomeIcons.mask, "text": "Check-ins anônimos"},
+    {"icon": FontAwesomeIcons.video, "text": "Chamada de vídeo"},
+  ];
 
   @override
   void initState() {
@@ -215,6 +241,30 @@ class _BuySubscriptionPageState extends State<BuySubscriptionPage> {
                     style: TextStyle(fontSize: 16)),
               ),
             ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Aqui está tudo o que você receberá...",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 16),
+              Column(
+                children: benefits.map((item) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        Icon(item["icon"], size: 20, color: Colors.blueAccent),
+                        SizedBox(width: 10),
+                        Text(item["text"], style: TextStyle(fontSize: 16)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
           const Divider(height: 32),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),

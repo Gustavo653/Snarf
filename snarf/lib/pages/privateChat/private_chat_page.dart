@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:location/location.dart' as loc;
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/buy_subscription_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/call_manager.dart';
@@ -421,22 +422,49 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     }
   }
 
+  Future<bool> _canSendMessage() async {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    DateTime? firstMessageDate = config.FirstMessageToday;
+    DateTime now = DateTime.now().toUtc();
+
+    if (firstMessageDate == null) {
+      return true;
+    }
+
+    log("Data primeira mensagem: ${firstMessageDate.toUtc()} Data atual: $now");
+    Duration difference = now.difference(firstMessageDate.toUtc());
+    log("Diferença em minutos: ${difference.inMinutes}");
+
+    return difference.inMinutes <= 30;
+  }
+
   void _sendMessage() async {
-    final message = _messageController.text.trim();
-    if (message.isNotEmpty) {
-      try {
-        await SignalRManager().sendSignalRMessage(
-          SignalREventType.PrivateChatSendMessage,
-          {
-            'ReceiverUserId': widget.userId,
-            'Message': message,
-          },
-        );
-        _messageController.clear();
-        _scrollToBottom();
-      } catch (err) {
-        showErrorSnackbar(context, "Erro ao enviar mensagem: $err");
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+
+    if (await _canSendMessage() || config.isSubscriber) {
+      final message = _messageController.text.trim();
+      if (message.isNotEmpty) {
+        try {
+          await SignalRManager().sendSignalRMessage(
+            SignalREventType.PrivateChatSendMessage,
+            {
+              'ReceiverUserId': widget.userId,
+              'Message': message,
+            },
+          );
+          _messageController.clear();
+          _scrollToBottom();
+        } catch (err) {
+          showErrorSnackbar(context, "Erro ao enviar mensagem: $err");
+        }
       }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuySubscriptionPage(),
+        ),
+      );
     }
   }
 
@@ -755,11 +783,15 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _initiateCall(String targetUserId) async {
-    try {
-      final callManager = Provider.of<CallManager>(context, listen: false);
-      callManager.startCall(targetUserId);
-    } catch (e) {
-      showErrorSnackbar(context, "Erro ao iniciar chamada: $e");
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+
+    if(config.isSubscriber){
+      try {
+        final callManager = Provider.of<CallManager>(context, listen: false);
+        callManager.startCall(targetUserId);
+      } catch (e) {
+        showErrorSnackbar(context, "Erro ao iniciar chamada: $e");
+      }
     }
   }
 

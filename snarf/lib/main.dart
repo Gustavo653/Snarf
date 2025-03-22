@@ -37,11 +37,13 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider<CallManager>(
-          create: (_) => CallManager(),
-        ),
         ChangeNotifierProvider<ConfigProvider>(
           create: (_) => configProvider,
+        ),
+
+        ChangeNotifierProxyProvider<ConfigProvider, CallManager>(
+          create: (context) => CallManager(context.read<ConfigProvider>()),
+          update: (context, config, previous) => CallManager(config),
         ),
       ],
       child: const SnarfApp(),

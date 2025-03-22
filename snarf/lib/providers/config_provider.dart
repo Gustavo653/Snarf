@@ -76,4 +76,13 @@ class ConfigProvider with ChangeNotifier {
   }
 
   bool get isSubscriber => _isSubscriber;
+
+  DateTime? _firstMessageToday;
+
+  void setFirstMessageToday(DateTime date){
+    _firstMessageToday = date;
+    notifyListeners();
+  }
+
+  DateTime? get FirstMessageToday => _firstMessageToday;
 }
