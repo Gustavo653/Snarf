@@ -72,7 +72,7 @@ class _HomePageState extends State<HomePage> {
     await _getFcmToken();
     await _initializeLocation();
     await _setupSignalRConnection();
-    await fetchFirstMessage();
+    await _fetchFirstMessage();
 
     await _analytics.logEvent(
       name: 'app_initialized',
@@ -96,24 +96,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> fetchFirstMessage() async {
+  Future<void> _fetchFirstMessage() async {
     final config = Provider.of<ConfigProvider>(context, listen: false);
-    final userId = await ApiService.getUserIdFromToken();
-    if (userId == null) {
-      showErrorSnackbar(context, 'Não foi possível obter ID do token');
-
-      await _analytics.logEvent(
-        name: 'error',
-        parameters: {
-          'message': 'Falha ao obter ID do token',
-        },
-      );
-      return;
-    }
-
-    final messageData = await ApiService.getFirstMessageOfDay(userId);
+    final messageData = await ApiService.getFirstMessageOfDay();
     if (messageData != null) {
-      log("Recebeu retorno do data: ${messageData['firstMessageToDay']}");
       config.setFirstMessageToday(
           DateTime.parse(messageData['firstMessageToDay']));
     }

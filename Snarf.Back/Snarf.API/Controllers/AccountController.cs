@@ -121,11 +121,11 @@ namespace Snarf.API.Controllers
             return StatusCode(result.Code, result);
         }
 
-        [HttpGet("GetFirstMessageToday/{requestedUserId:guid}")]
-        public async Task<IActionResult> GetFirstMessageToday([FromRoute] Guid requestedUserId)
+        [HttpGet("GetFirstMessageToday")]
+        public async Task<IActionResult> GetFirstMessageToday()
         {
             var userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
-            var message = await accountService.GetFirstMessageToday(requestedUserId);
+            var message = await accountService.GetFirstMessageToday(userId);
             return StatusCode(message.Code, message);
         }
 

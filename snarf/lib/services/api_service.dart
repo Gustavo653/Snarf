@@ -228,20 +228,20 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>?> getFirstMessageOfDay(String userId) async {
+  static Future<Map<String, dynamic>?> getFirstMessageOfDay() async {
     final token = await ApiService.getToken();
     if (token == null) return null;
     try {
       await _analytics.logEvent(
-          name: 'api_get_first_message_today_attempt', parameters: {'userId': userId});
+          name: 'api_get_first_message_today_attempt');
       final response = await http.get(
-        Uri.parse('${ApiConstants.baseUrl}/Account/GetFirstMessageToday/$userId'),
+        Uri.parse('${ApiConstants.baseUrl}/Account/GetFirstMessageToday'),
         headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
       );
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
         await _analytics.logEvent(
-            name: 'api_get_first_message_today_success', parameters: {'userId': userId});
+            name: 'api_get_first_message_today_success');
         return responseData['object'];
       } else {
         log('Erro ao obter informações do usuário: ${response.body}');

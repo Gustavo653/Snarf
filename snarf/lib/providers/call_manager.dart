@@ -28,18 +28,24 @@ class CallManager extends ChangeNotifier {
   String? _incomingCallerName;
 
   bool get isInCall => _isInCall;
+
   bool get isCallOverlayVisible => _isCallOverlayVisible;
 
   String? get incomingRoomId => _incomingRoomId;
+
   String? get incomingCallerUserId => _incomingCallerUserId;
+
   String? get incomingCallerName => _incomingCallerName;
 
   String? get activeRoomId => _activeRoomId;
+
   String? get activeCallerUserId => _activeCallerUserId;
+
   String? get activeCallerName => _activeCallerName;
 
   bool get isCallRejectedOverlayVisible => _isCallRejectedOverlayVisible;
   String _callRejectionReason = "";
+
   String get callRejectionReason => _callRejectionReason;
 
   CallManager(this.configProvider) {
@@ -89,10 +95,7 @@ class CallManager extends ChangeNotifier {
   }
 
   void _handleVideoCallIncoming(Map<String, dynamic> data) {
-    //Verificar se é assinante => chamar reject
-
     if (!configProvider.isSubscriber) {
-      log("O cara não é assinante.");
       _handleVideoCallReject(data);
       return;
     }
@@ -243,11 +246,8 @@ class CallManager extends ChangeNotifier {
         },
       );
     } catch (e, s) {
-      FirebaseCrashlytics.instance.recordError(
-        e,
-        s,
-        reason: "Erro ao iniciar chamada",
-      );
+      FirebaseCrashlytics.instance
+          .recordError(e, s, reason: "Erro ao iniciar chamada");
     }
   }
 

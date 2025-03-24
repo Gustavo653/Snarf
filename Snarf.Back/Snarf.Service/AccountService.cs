@@ -511,28 +511,45 @@ namespace Snarf.Service
             ResponseDTO responseDTO = new();
             try
             {
-                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userid.ToString());
+                var userEntity = await userRepository.GetTrackedEntities()
+                    .FirstOrDefaultAsync(x => x.Id == userid.ToString());
+
                 if (userEntity == null)
                 {
                     responseDTO.SetBadInput($"Usuário não encontrado com este id: {userid}!");
                     return responseDTO;
                 }
 
-                var message = await publicChatMessageRepository.GetTrackedEntities()
-                    .Include(x => x.Sender)
-                    .Where(x => x.SenderId == userEntity.Id && x.CreatedAt.Date == DateTime.UtcNow.Date)
+                var today = DateTime.UtcNow.Date;
+
+                var publicMessage = await publicChatMessageRepository.GetTrackedEntities()
+                    .Where(x => x.SenderId == userEntity.Id && x.CreatedAt.Date == today)
                     .OrderBy(x => x.CreatedAt)
                     .FirstOrDefaultAsync();
 
+                var privateMessage = await privateChatMessageRepository.GetTrackedEntities()
+                    .Where(x => x.Sender.Id == userEntity.Id && x.CreatedAt.Date == today)
+                    .OrderBy(x => x.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                DateTime? firstMessage = (publicMessage, privateMessage) switch
+                {
+                    (null, null) => null,
+                    (not null, null) => publicMessage.CreatedAt,
+                    (null, not null) => privateMessage.CreatedAt,
+                    _ => publicMessage.CreatedAt <= privateMessage.CreatedAt ? publicMessage.CreatedAt : privateMessage.CreatedAt
+                };
+
                 responseDTO.Object = new
                 {
-                    FirstMessageToDay = message == null ? (DateTime?)null : message.CreatedAt,
+                    FirstMessageToday = firstMessage
                 };
             }
             catch (Exception ex)
             {
                 responseDTO.SetError(ex);
             }
+
             return responseDTO;
         }
     }
