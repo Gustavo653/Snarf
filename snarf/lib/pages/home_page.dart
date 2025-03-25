@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
-
+import 'package:snarf/pages/account/config_profile_page.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
@@ -71,6 +72,7 @@ class _HomePageState extends State<HomePage> {
     await _getFcmToken();
     await _initializeLocation();
     await _setupSignalRConnection();
+    await _fetchFirstMessage();
 
     await _analytics.logEvent(
       name: 'app_initialized',
@@ -94,10 +96,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _fetchFirstMessage() async {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    final messageData = await ApiService.getFirstMessageOfDay();
+    if (messageData != null) {
+      config.setFirstMessageToday(
+          DateTime.parse(messageData['firstMessageToDay']));
+    }
+  }
+
   Future<void> _loadUserInfo() async {
     final userId = await ApiService.getUserIdFromToken();
     if (userId == null) {
-      showSnackbar(context, 'Não foi possível obter ID do token');
+      showErrorSnackbar(context, 'Não foi possível obter ID do token');
 
       await _analytics.logEvent(
         name: 'error',
@@ -112,7 +123,7 @@ class _HomePageState extends State<HomePage> {
     if (userInfo != null) {
       userImage = userInfo['imageUrl'];
     } else {
-      showSnackbar(context, 'Erro ao carregar informações do usuário');
+      showErrorSnackbar(context, 'Erro ao carregar informações do usuário');
 
       await _analytics.logEvent(
         name: 'error',
@@ -121,13 +132,23 @@ class _HomePageState extends State<HomePage> {
           'user_id': userId,
         },
       );
+
+      await _logout(context);
     }
   }
 
   Future<void> _initializeLocation() async {
     if (await _checkLocationPermissions()) {
-      _getCurrentLocation();
-      _startLocationUpdates();
+      await _getCurrentLocation();
+
+      if (_currentLocation.latitude != null &&
+          _currentLocation.longitude != null) {
+        await _sendLocationUpdate();
+      }
+
+      Timer(const Duration(seconds: 60), () {
+        _startLocationUpdates();
+      });
     }
   }
 
@@ -175,7 +196,7 @@ class _HomePageState extends State<HomePage> {
         },
       );
     } catch (err) {
-      showSnackbar(context, "Erro ao recuperar localização: $err");
+      showErrorSnackbar(context, "Erro ao recuperar localização: $err");
 
       await _analytics.logEvent(
         name: 'location_error',
@@ -187,7 +208,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
+    _location.changeSettings(
+      accuracy: LocationAccuracy.high,
+      interval: 60000,
+    );
 
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) async {
@@ -195,6 +219,7 @@ class _HomePageState extends State<HomePage> {
         _currentLocation = newLocation;
         _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
       });
+
       if (_currentLocation.longitude != null &&
           _currentLocation.latitude != null) {
         await _sendLocationUpdate();
@@ -261,6 +286,7 @@ class _HomePageState extends State<HomePage> {
     final latitude = data['Latitude'];
     final longitude = data['Longitude'];
     final userImg = data['userImage'];
+    final videoCall = data['videoCall'];
 
     setState(() {
       _userMarkers[userId] = Marker(
@@ -290,23 +316,24 @@ class _HomePageState extends State<HomePage> {
                   radius: 25,
                 ),
               ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                child: Container(
-                  width: 25,
-                  height: 25,
-                  decoration: BoxDecoration(
-                    color: config.customOrange,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.videocam,
-                    color: config.customWhite,
-                    size: 14,
+              if (videoCall)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  child: Container(
+                    width: 25,
+                    height: 25,
+                    decoration: BoxDecoration(
+                      color: config.customOrange,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.videocam,
+                      color: config.customWhite,
+                      size: 14,
+                    ),
                   ),
                 ),
-              ),
               Positioned(
                 top: 0,
                 right: 0,
@@ -347,11 +374,15 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sendLocationUpdate() async {
     try {
+      final configProvider =
+          Provider.of<ConfigProvider>(context, listen: false);
+
       await SignalRManager()
           .sendSignalRMessage(SignalREventType.MapUpdateLocation, {
         "Latitude": _currentLocation.latitude,
         "Longitude": _currentLocation.longitude,
         "FcmToken": _fcmToken,
+        "VideoCall": configProvider.hideVideoCall,
       });
 
       await _analytics.logEvent(
@@ -359,6 +390,7 @@ class _HomePageState extends State<HomePage> {
         parameters: {
           'latitude': _currentLocation.latitude!,
           'longitude': _currentLocation.longitude!,
+          "VideoCall": configProvider.hideVideoCall,
         },
       );
     } catch (e) {
@@ -398,23 +430,24 @@ class _HomePageState extends State<HomePage> {
               radius: 25,
             ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: Container(
-              width: 25,
-              height: 25,
-              decoration: BoxDecoration(
-                color: config.customOrange,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.videocam,
-                color: config.customWhite,
-                size: 20,
+          if (config.hideVideoCall)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              child: Container(
+                width: 25,
+                height: 25,
+                decoration: BoxDecoration(
+                  color: config.customOrange,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.videocam,
+                  color: config.customWhite,
+                  size: 20,
+                ),
               ),
             ),
-          ),
           Positioned(
             top: 0,
             right: 0,
@@ -537,7 +570,9 @@ class _HomePageState extends State<HomePage> {
     await _analytics.logEvent(
       name: 'open_public_chat',
     );
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
 
+    log("Abrindo chat para assinante: ${configProvider.isSubscriber}");
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -554,8 +589,7 @@ class _HomePageState extends State<HomePage> {
                 borderRadius: BorderRadius.circular(30.0),
                 border: Border.symmetric(
                   horizontal: BorderSide(
-                    color: Provider.of<ConfigProvider>(context, listen: false)
-                        .secondaryColor,
+                    color: configProvider.secondaryColor,
                     width: 5,
                   ),
                 ),
@@ -618,7 +652,20 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
-          enabled: false,
+          value: 'profile_settings',
+          child: Row(
+            children: [
+              Icon(Icons.settings, color: configProvider.iconColor),
+              const SizedBox(width: 10),
+              Text(
+                "Configurações de Perfil",
+                style: TextStyle(fontSize: 16, color: configProvider.textColor),
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          enabled: true,
           child: SwitchListTile(
             title: Text(
               "Modo Noturno",
@@ -629,7 +676,6 @@ class _HomePageState extends State<HomePage> {
             value: configProvider.isDarkMode,
             onChanged: (_) async {
               Navigator.pop(context);
-
               configProvider.toggleTheme();
 
               await _analytics.logEvent(
@@ -640,7 +686,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
-          enabled: false,
+          enabled: true,
           child: SwitchListTile(
             title: Text(
               "Modo Vanilla",
@@ -655,7 +701,6 @@ class _HomePageState extends State<HomePage> {
             value: configProvider.hideImages,
             onChanged: (_) async {
               Navigator.pop(context);
-
               configProvider.toggleHideImages();
 
               await _analytics.logEvent(
@@ -687,15 +732,25 @@ class _HomePageState extends State<HomePage> {
           context,
           MaterialPageRoute(builder: (context) => const EditUserPage()),
         );
-      } else if (value == 'logout') {
-        await _analytics.logEvent(name: 'logout');
-
-        Navigator.pushReplacement(
+      } else if (value == 'profile_settings') {
+        await _analytics.logEvent(name: 'open_profile_settings');
+        Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const InitialPage()),
+          MaterialPageRoute(builder: (context) => const ConfigProfilePage()),
         );
+      } else if (value == 'logout') {
+        await _logout(context);
       }
     });
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    await _analytics.logEvent(name: 'logout');
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const InitialPage()),
+    );
   }
 
   Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {
@@ -856,7 +911,7 @@ class _HomePageState extends State<HomePage> {
               await _analytics.logEvent(name: 'eye_button_pressed');
             }),
             _buildFloatingButton(Icons.crop_free, () async {
-              await _analytics.logEvent(name: 'moldura_button_pressed');
+              await _analytics.logEvent(name: 'crop_button_pressed');
             }),
             _buildFloatingButton(Icons.my_location, () {
               _recenterMap();

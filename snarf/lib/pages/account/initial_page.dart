@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +9,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
-import 'package:snarf/pages/account/register_page.dart';
+import 'package:snarf/components/loading_outlined_button.dart';
+import 'package:snarf/modals/forgot_password_modal.dart';
+import 'package:snarf/modals/login_modal.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -200,7 +201,6 @@ class _InitialPageState extends State<InitialPage> {
             ),
           ),
         ],
-        useGradient: true,
       ),
     );
   }
@@ -376,6 +376,8 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+
     return CustomModal(
       title: 'Confirmar Idade',
       content: Column(
@@ -386,15 +388,15 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
             'Precisamos verificar a sua idade.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.grey.shade800,
+              color: configProvider.textColor,
               fontSize: 14.0,
             ),
           ),
           const SizedBox(height: 20.0),
-          const Text(
+          Text(
             'Quando Você Nasceu?',
             style: TextStyle(
-              color: Color(0xFF0b0951),
+              color: configProvider.textColor,
               fontSize: 16.0,
               fontWeight: FontWeight.bold,
             ),
@@ -402,16 +404,8 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
           const SizedBox(height: 20.0),
           Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.pink.shade50,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(30.0),
-            ),
+                borderRadius: BorderRadius.circular(30.0),
+                color: configProvider.secondaryColor),
             child: SizedBox(
               height: 100.0,
               child: ListWheelScrollView.useDelegate(
@@ -436,11 +430,13 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
                         border: isSelected
                             ? Border(
                                 top: BorderSide(
-                                  color: Colors.grey.shade300,
+                                  color:
+                                      configProvider.textColor.withOpacity(0.4),
                                   width: 1.0,
                                 ),
                                 bottom: BorderSide(
-                                  color: Colors.grey.shade300,
+                                  color:
+                                      configProvider.textColor.withOpacity(0.4),
                                   width: 1.0,
                                 ),
                               )
@@ -453,8 +449,8 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
                           fontWeight:
                               isSelected ? FontWeight.bold : FontWeight.normal,
                           color: isSelected
-                              ? const Color(0xFF0b0951)
-                              : Colors.black,
+                              ? configProvider.textColor
+                              : configProvider.textColor.withOpacity(0.7),
                         ),
                       ),
                     );
@@ -467,40 +463,28 @@ class _AgeConfirmationDialogState extends State<AgeConfirmationDialog> {
         ],
       ),
       actions: [
-        OutlinedButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text(
-            'Voltar',
-            style: TextStyle(
-              color: Color(0xFF0b0951),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            if (currentYear - selectedYear >= 18) {
-              Navigator.of(context).pop(selectedYear);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content:
-                      Text('Você precisa ser maior de idade para continuar.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          },
-          child: const Text(
-            'Avançar',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+        LoadingOutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            isLoading: false,
+            text: 'Voltar'),
+        LoadingElevatedButton(
+            text: 'Avançar',
+            isLoading: false,
+            onPressed: () {
+              if (currentYear - selectedYear >= 18) {
+                Navigator.of(context).pop(selectedYear);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      'Você precisa ser maior de idade para continuar.',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            })
       ],
-      useGradient: true,
     );
   }
 }
@@ -510,441 +494,4 @@ void showForgotPasswordModal(BuildContext context) {
     context: context,
     builder: (context) => const ForgotPasswordModal(),
   );
-}
-
-class ForgotPasswordModal extends StatefulWidget {
-  const ForgotPasswordModal({super.key});
-
-  @override
-  State<ForgotPasswordModal> createState() => _ForgotPasswordModalState();
-}
-
-class _ForgotPasswordModalState extends State<ForgotPasswordModal> {
-  final TextEditingController _emailController = TextEditingController();
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  Future<void> _requestResetCode() async {
-    final email = _emailController.text.trim();
-
-    if (email.isEmpty) {
-      setState(() {
-        _errorMessage = 'Por favor, insira seu e-mail.';
-      });
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final response = await ApiService.requestResetPassword(email);
-
-      if (response == null) {
-        Navigator.pop(context);
-        showResetPasswordModal(context, email);
-      } else {
-        setState(() {
-          _errorMessage = response;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Erro ao solicitar código: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomModal(
-      title: 'Esqueci Minha Senha',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Insira seu e-mail para receber um código de redefinição de senha.',
-            style: TextStyle(
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _emailController,
-            decoration: InputDecoration(
-              labelText: 'E-mail',
-              fillColor: Colors.black,
-              labelStyle: const TextStyle(color: Colors.black),
-              prefixIconColor: const Color(0xFF0b0951),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              prefixIcon: const Icon(Icons.email),
-            ),
-            keyboardType: TextInputType.emailAddress,
-            style: const TextStyle(color: Colors.black),
-          ),
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 16),
-            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-          ],
-        ],
-      ),
-      actions: [
-        LoadingElevatedButton(
-          text: 'Enviar Código',
-          isLoading: _isLoading,
-          onPressed: _isLoading ? null : _requestResetCode,
-        ),
-      ],
-      useGradient: true,
-    );
-  }
-}
-
-void showResetPasswordModal(BuildContext context, String email) {
-  showDialog(
-    context: context,
-    builder: (context) => ResetPasswordModal(email: email),
-  );
-}
-
-class ResetPasswordModal extends StatefulWidget {
-  final String email;
-
-  const ResetPasswordModal({super.key, required this.email});
-
-  @override
-  State<ResetPasswordModal> createState() => _ResetPasswordModalState();
-}
-
-class _ResetPasswordModalState extends State<ResetPasswordModal> {
-  final TextEditingController _codeController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  Future<void> _resetPassword() async {
-    final code = _codeController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (code.isEmpty || password.isEmpty) {
-      setState(() {
-        _errorMessage = 'Por favor, preencha todos os campos.';
-      });
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final response =
-          await ApiService.resetPassword(widget.email, code, password);
-
-      if (response == null) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Senha redefinida com sucesso!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        setState(() {
-          _errorMessage = response;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Erro ao redefinir a senha: $e';
-      });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomModal(
-      title: 'Redefinir Senha',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Insira o código recebido por e-mail e sua nova senha.'),
-          const SizedBox(height: 16),
-          TextField(
-            style: const TextStyle(color: Colors.black),
-            controller: _codeController,
-            decoration: InputDecoration(
-              labelText: 'Código',
-              labelStyle: const TextStyle(color: Colors.black),
-              prefixIconColor: const Color(0xFF0b0951),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              prefixIcon: const Icon(Icons.dataset),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            style: const TextStyle(color: Colors.black),
-            controller: _passwordController,
-            decoration: InputDecoration(
-              labelText: 'Nova Senha',
-              labelStyle: const TextStyle(color: Colors.black),
-              prefixIconColor: const Color(0xFF0b0951),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-              ),
-              prefixIcon: const Icon(Icons.lock),
-            ),
-            obscureText: true,
-          ),
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 16),
-            Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
-          ],
-        ],
-      ),
-      actions: [
-        LoadingElevatedButton(
-          text: 'Redefinir Senha',
-          isLoading: _isLoading,
-          onPressed: _isLoading ? null : _resetPassword,
-        ),
-      ],
-      useGradient: true,
-    );
-  }
-}
-
-class LoginModal extends StatefulWidget {
-  final VoidCallback onLoginSuccess;
-
-  const LoginModal({super.key, required this.onLoginSuccess});
-
-  @override
-  State<LoginModal> createState() => _LoginModalState();
-}
-
-class _LoginModalState extends State<LoginModal> {
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final ValueNotifier<bool> isPasswordVisible = ValueNotifier(false);
-  static const _secureStorage = FlutterSecureStorage();
-  bool isLoading = false;
-  String? errorMessage;
-
-  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
-
-  Future<void> login() async {
-    final String email = emailController.text.trim();
-    final String password = passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      setState(() {
-        errorMessage = 'Por favor, preencha todos os campos.';
-      });
-      return;
-    }
-
-    setState(() {
-      isLoading = true;
-      errorMessage = null;
-    });
-
-    try {
-      final loginResponse = await ApiService.login(email, password);
-
-      await _analytics.logEvent(
-        name: 'login_attempt',
-        parameters: {
-          'email': email,
-        },
-      );
-
-      await _secureStorage.write(key: 'email', value: email);
-      await _secureStorage.write(key: 'password', value: password);
-
-      if (loginResponse == null) {
-        await _analytics.logEvent(
-          name: 'login_success',
-          parameters: {
-            'email': email,
-          },
-        );
-        widget.onLoginSuccess();
-      } else {
-        await _analytics.logEvent(
-          name: 'login_failure',
-          parameters: {
-            'email': email,
-            'error': loginResponse,
-          },
-        );
-        setState(() {
-          errorMessage = loginResponse;
-        });
-      }
-    } catch (e) {
-      await _analytics.logEvent(
-        name: 'login_exception',
-        parameters: {
-          'error': e.toString(),
-        },
-      );
-      setState(() {
-        errorMessage = 'Ocorreu um erro: $e';
-      });
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    _analytics.logScreenView(
-      screenName: 'LoginModal',
-      screenClass: 'LoginModal',
-    );
-
-    return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-      child: CustomModal(
-        title: 'Login',
-        content: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              TextField(
-                controller: emailController,
-                style: const TextStyle(color: Colors.black),
-                decoration: InputDecoration(
-                  labelText: 'E-mail',
-                  labelStyle: const TextStyle(color: Colors.black),
-                  prefixIconColor: const Color(0xFF0b0951),
-                  prefixIcon: const Icon(Icons.email),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              ValueListenableBuilder(
-                valueListenable: isPasswordVisible,
-                builder: (context, isVisible, child) {
-                  return TextField(
-                    controller: passwordController,
-                    style: const TextStyle(color: Colors.black),
-                    decoration: InputDecoration(
-                      labelText: 'Senha',
-                      labelStyle: const TextStyle(color: Colors.black),
-                      prefixIconColor: const Color(0xFF0b0951),
-                      suffixIconColor: Colors.black,
-                      prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          isVisible ? Icons.visibility : Icons.visibility_off,
-                        ),
-                        color: const Color(0xFF0b0951),
-                        onPressed: () {
-                          isPasswordVisible.value = !isVisible;
-                        },
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                    obscureText: !isVisible,
-                  );
-                },
-              ),
-              if (errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  errorMessage!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          if (isLoading)
-            const Center(child: CircularProgressIndicator())
-          else ...[
-            LoadingElevatedButton(
-              text: 'Entrar',
-              isLoading: false,
-              onPressed: login,
-            ),
-            Column(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    showForgotPasswordModal(context);
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.only(top: 16.0),
-                    child: Text(
-                      'Esqueci minha senha',
-                      style: TextStyle(
-                        color: Colors.blue,
-                      ),
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const RegisterPage(),
-                      ),
-                    );
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.only(top: 8.0),
-                    child: Column(
-                      children: [
-                        Text(
-                          'Primeira vez no Snarf? ',
-                          style: TextStyle(
-                            color: Colors.black,
-                          ),
-                        ),
-                        Text(
-                          'Criar conta',
-                          style: TextStyle(
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-        useGradient: true,
-      ),
-    );
-  }
 }

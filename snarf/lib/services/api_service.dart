@@ -228,6 +228,37 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>?> getFirstMessageOfDay() async {
+    final token = await ApiService.getToken();
+    if (token == null) return null;
+    try {
+      await _analytics.logEvent(
+          name: 'api_get_first_message_today_attempt');
+      final response = await http.get(
+        Uri.parse('${ApiConstants.baseUrl}/Account/GetFirstMessageToday'),
+        headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        await _analytics.logEvent(
+            name: 'api_get_first_message_today_success');
+        return responseData['object'];
+      } else {
+        log('Erro ao obter informações do usuário: ${response.body}');
+        await _analytics.logEvent(
+          name: 'api_get_first_message_today_failure',
+          parameters: {'error': response.body},
+        );
+        return null;
+      }
+    } catch (e) {
+      await _analytics.logEvent(
+          name: 'api_get_first_message_today_exception',
+          parameters: {'error': e.toString()});
+      return null;
+    }
+  }
+
   static Future<String?> editUser(
     String userId,
     String name,
@@ -364,6 +395,150 @@ class ApiService {
       await _analytics.logEvent(
           name: 'api_report_user_exception',
           parameters: {'error': e.toString()});
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
+  static Future<String?> addExtraMinutes({
+    required int minutes,
+    String? subscriptionId,
+    String? tokenFromPurchase,
+  }) async {
+    final userJwtToken = await getToken();
+    final url = Uri.parse('${ApiConstants.baseUrl}/Account/AddExtraMinutes');
+    final headers = {
+      'accept': '*/*',
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $userJwtToken',
+    };
+
+    final body = jsonEncode({
+      "subscriptionId": subscriptionId ?? "string",
+      "token": tokenFromPurchase ?? "string",
+      "minutes": minutes,
+    });
+
+    try {
+      await _analytics.logEvent(
+        name: 'api_add_extra_minutes_attempt',
+        parameters: {
+          'minutes': minutes,
+        },
+      );
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        await _analytics.logEvent(
+          name: 'api_add_extra_minutes_success',
+          parameters: {
+            'minutes': minutes,
+          },
+        );
+        return null;
+      } else {
+        await _analytics.logEvent(
+          name: 'api_add_extra_minutes_failure',
+          parameters: {
+            'minutes': minutes,
+            'statusCode': response.statusCode,
+            'error': response.body,
+          },
+        );
+        return 'Erro: ${response.body}';
+      }
+    } catch (e) {
+      await _analytics.logEvent(
+        name: 'api_add_extra_minutes_exception',
+        parameters: {
+          'minutes': minutes,
+          'error': e.toString(),
+        },
+      );
+      return 'Exceção: $e';
+    }
+  }
+
+  static Future<String?> changeEmail({
+    required String newEmail,
+    required String currentPassword,
+  }) async {
+    final token = await getToken();
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/Account/ChangeEmail');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = jsonEncode({
+      'newEmail': newEmail,
+      'currentPassword': currentPassword,
+    });
+
+    try {
+      await FirebaseAnalytics.instance
+          .logEvent(name: 'api_change_email_attempt');
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        await FirebaseAnalytics.instance
+            .logEvent(name: 'api_change_email_success');
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'api_change_email_failure',
+          parameters: {'error': responseData.toString()},
+        );
+        return responseData['message'];
+      }
+    } catch (e) {
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'api_change_email_exception',
+        parameters: {'error': e.toString()},
+      );
+      return 'Erro ao conectar à API: $e';
+    }
+  }
+
+  static Future<String?> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final token = await getToken();
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/Account/ChangePassword');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = jsonEncode({
+      'oldPassword': oldPassword,
+      'newPassword': newPassword,
+    });
+
+    try {
+      await FirebaseAnalytics.instance
+          .logEvent(name: 'api_change_password_attempt');
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        await FirebaseAnalytics.instance
+            .logEvent(name: 'api_change_password_success');
+        return null;
+      } else {
+        final responseData = jsonDecode(response.body);
+        await FirebaseAnalytics.instance.logEvent(
+          name: 'api_change_password_failure',
+          parameters: {'error': responseData.toString()},
+        );
+        return responseData['message'];
+      }
+    } catch (e) {
+      await FirebaseAnalytics.instance.logEvent(
+        name: 'api_change_password_exception',
+        parameters: {'error': e.toString()},
+      );
       return 'Erro ao conectar à API: $e';
     }
   }

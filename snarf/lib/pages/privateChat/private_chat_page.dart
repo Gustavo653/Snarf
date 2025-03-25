@@ -5,12 +5,14 @@ import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/return_code.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:location/location.dart' as loc;
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/buy_subscription_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/call_manager.dart';
@@ -99,6 +101,7 @@ class PrivateChatPage extends StatefulWidget {
 class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   List<PrivateChatMessageModel> _messages = [];
   final _record = AudioRecorder();
   bool _isRecording = false;
@@ -154,7 +157,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       await _initAudioRecorder();
     } catch (e) {
       log("Erro ao inicializar chat: $e");
-      showSnackbar(context, "Erro ao inicializar chat: $e");
+      showErrorSnackbar(context, "Erro ao inicializar chat: $e");
     } finally {
       setState(() => _isLoading = false);
     }
@@ -170,7 +173,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   Future<void> _loadUserInfo() async {
     final userInfo = await ApiService.getUserInfoById(widget.userId);
     if (userInfo == null) {
-      showSnackbar(context, "Não foi possível carregar dados do usuário");
+      showErrorSnackbar(context, "Não foi possível carregar dados do usuário");
       return;
     }
     setState(() {
@@ -253,7 +256,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       });
       _scrollToBottom();
     } catch (err) {
-      showSnackbar(context, "Erro ao processar mensagens: $err");
+      showErrorSnackbar(context, "Erro ao processar mensagens: $err");
     }
   }
 
@@ -267,7 +270,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       });
       _scrollToBottom();
     } catch (e) {
-      showSnackbar(context, "Erro ao processar nova mensagem: $e");
+      showErrorSnackbar(context, "Erro ao processar nova mensagem: $e");
     }
   }
 
@@ -284,7 +287,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         }
       });
     } catch (e) {
-      showSnackbar(context, "Erro ao processar exclusão: $e");
+      showErrorSnackbar(context, "Erro ao processar exclusão: $e");
     }
   }
 
@@ -328,7 +331,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         }
       });
     } catch (e) {
-      showSnackbar(context, "Erro ao processar reação: $e");
+      showErrorSnackbar(context, "Erro ao processar reação: $e");
     }
   }
 
@@ -342,7 +345,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       });
       _scrollToBottom();
     } catch (e) {
-      showSnackbar(context, "Erro ao processar resposta: $e");
+      showErrorSnackbar(context, "Erro ao processar resposta: $e");
     }
   }
 
@@ -353,7 +356,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         {'MessageId': messageId},
       );
     } catch (err) {
-      showSnackbar(context, "Erro ao excluir mensagem: $err");
+      showErrorSnackbar(context, "Erro ao excluir mensagem: $err");
     } finally {
       setState(() => _selectedMessageId = null);
     }
@@ -416,27 +419,54 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         );
         if (mounted) Navigator.pop(context);
       } catch (err) {
-        showSnackbar(context, "Erro ao excluir o chat: $err");
+        showErrorSnackbar(context, "Erro ao excluir o chat: $err");
       }
     }
   }
 
+  Future<bool> _canSendMessage() async {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    DateTime? firstMessageDate = config.FirstMessageToday;
+    DateTime now = DateTime.now().toUtc();
+
+    if (firstMessageDate == null) {
+      return true;
+    }
+
+    log("Data primeira mensagem: ${firstMessageDate.toUtc()} Data atual: $now");
+    Duration difference = now.difference(firstMessageDate.toUtc());
+    log("Diferença em minutos: ${difference.inMinutes}");
+
+    return difference.inMinutes <= 30;
+  }
+
   void _sendMessage() async {
-    final message = _messageController.text.trim();
-    if (message.isNotEmpty) {
-      try {
-        await SignalRManager().sendSignalRMessage(
-          SignalREventType.PrivateChatSendMessage,
-          {
-            'ReceiverUserId': widget.userId,
-            'Message': message,
-          },
-        );
-        _messageController.clear();
-        _scrollToBottom();
-      } catch (err) {
-        showSnackbar(context, "Erro ao enviar mensagem: $err");
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+
+    if (await _canSendMessage() || config.isSubscriber) {
+      final message = _messageController.text.trim();
+      if (message.isNotEmpty) {
+        try {
+          await SignalRManager().sendSignalRMessage(
+            SignalREventType.PrivateChatSendMessage,
+            {
+              'ReceiverUserId': widget.userId,
+              'Message': message,
+            },
+          );
+          _messageController.clear();
+          _scrollToBottom();
+        } catch (err) {
+          showErrorSnackbar(context, "Erro ao enviar mensagem: $err");
+        }
       }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuySubscriptionPage(),
+        ),
+      );
     }
   }
 
@@ -462,7 +492,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       );
       setState(() => _selectedMessageId = null);
     } catch (e) {
-      showSnackbar(context, "Erro ao enviar reação: $e");
+      showErrorSnackbar(context, "Erro ao enviar reação: $e");
     }
   }
 
@@ -478,14 +508,14 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         },
       );
     } catch (e) {
-      showSnackbar(context, "Erro ao enviar resposta: $e");
+      showErrorSnackbar(context, "Erro ao enviar resposta: $e");
     }
   }
 
   Future<void> _initAudioRecorder() async {
     final status = await Permission.microphone.request();
     if (status != PermissionStatus.granted) {
-      showSnackbar(context, "Permissão de microfone negada");
+      showErrorSnackbar(context, "Permissão de microfone negada");
       return;
     }
   }
@@ -494,7 +524,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     if (_isRecording) return;
     final hasPermission = await _record.hasPermission();
     if (!hasPermission) {
-      showSnackbar(context, "Sem permissão para gravar áudio");
+      showErrorSnackbar(context, "Sem permissão para gravar áudio");
       return;
     }
     _isRecording = true;
@@ -541,7 +571,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         },
       );
     } catch (e) {
-      showSnackbar(context, "Erro ao enviar áudio: $e");
+      showErrorSnackbar(context, "Erro ao enviar áudio: $e");
     } finally {
       if (mounted) setState(() => _isSendingMedia = false);
     }
@@ -584,7 +614,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         ),
       );
     } catch (e) {
-      showSnackbar(context, "Erro ao editar/enviar imagem: $e");
+      showErrorSnackbar(context, "Erro ao editar/enviar imagem: $e");
     } finally {
       if (mounted) setState(() => _isSendingMedia = false);
     }
@@ -610,7 +640,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         },
       );
     } catch (e) {
-      showSnackbar(context, "Erro ao enviar imagem: $e");
+      showErrorSnackbar(context, "Erro ao enviar imagem: $e");
     }
   }
 
@@ -623,7 +653,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     if (video == null) return;
     final durationOk = await _checkVideoDuration(File(video.path));
     if (!durationOk) {
-      showSnackbar(context, "O vídeo excede 15 segundos!");
+      showErrorSnackbar(context, "O vídeo excede 15 segundos!");
       return;
     }
     await _sendVideo(video);
@@ -645,7 +675,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
       final originalFile = File(video.path);
       final compressedFile = await _compressVideo(originalFile);
       if (compressedFile == null) {
-        showSnackbar(context, "Falha ao comprimir vídeo");
+        showErrorSnackbar(context, "Falha ao comprimir vídeo");
         return;
       }
       final resizedFile = await _resizeVideo(compressedFile);
@@ -660,14 +690,13 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         },
       );
     } catch (e) {
-      showSnackbar(context, "Erro ao enviar vídeo: $e");
+      showErrorSnackbar(context, "Erro ao enviar vídeo: $e");
     } finally {
       if (mounted) setState(() => _isSendingMedia = false);
     }
   }
 
   Future<File?> _resizeVideo(File inputFile) async {
-    return inputFile;
     final String outputPath = '${inputFile.path}_square.mp4';
 
     final String inPath = "'${inputFile.path}'";
@@ -729,38 +758,54 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         _isFavorite = !_isFavorite;
       });
     } catch (e) {
-      showSnackbar(context, "Erro ao alterar favorito: $e");
+      showErrorSnackbar(context, "Erro ao alterar favorito: $e");
     }
   }
 
   Future<void> _blockUser() async {
     final result = await ApiService.blockUser(widget.userId);
     if (result == null) {
-      showSnackbar(context, 'Usuário bloqueado com sucesso.',
+      showSuccessSnackbar(context, 'Usuário bloqueado com sucesso.',
           color: Colors.green);
       Navigator.pop(context);
     } else {
-      showSnackbar(context, 'Erro ao bloquear usuário: $result');
+      showErrorSnackbar(context, 'Erro ao bloquear usuário: $result');
     }
   }
 
   Future<void> _reportUser() async {
     final result = await ApiService.reportUser(widget.userId);
     if (result == null) {
-      showSnackbar(context, 'Usuário denunciado com sucesso.',
+      showSuccessSnackbar(context, 'Usuário denunciado com sucesso.',
           color: Colors.green);
       Navigator.pop(context);
     } else {
-      showSnackbar(context, 'Erro ao denunciar usuário: $result');
+      showErrorSnackbar(context, 'Erro ao denunciar usuário: $result');
     }
   }
 
   Future<void> _initiateCall(String targetUserId) async {
-    try {
-      final callManager = Provider.of<CallManager>(context, listen: false);
-      callManager.startCall(targetUserId);
-    } catch (e) {
-      showSnackbar(context, "Erro ao iniciar chamada: $e");
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    if (config.isSubscriber) {
+      try {
+        final callManager = Provider.of<CallManager>(context, listen: false);
+        callManager.startCall(targetUserId);
+        await _analytics.logEvent(
+            name: 'view_user_initiate_call',
+            parameters: {'targetUserId': targetUserId});
+      } catch (e) {
+        showErrorSnackbar(context, "Erro ao iniciar chamada: $e");
+        await _analytics.logEvent(
+            name: 'view_user_initiate_call_error',
+            parameters: {'error': e.toString()});
+      }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuySubscriptionPage(),
+        ),
+      );
     }
   }
 
