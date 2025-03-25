@@ -19,6 +19,7 @@ namespace Snarf.API.Controllers
         IPublicChatMessageRepository _publicChatMessageRepository,
         IPrivateChatMessageRepository _privateChatMessageRepository,
         IBlockedUserRepository _blockedUserRepository,
+        IVideoCallLogRepository _videoCallLogRepository,
         IFavoriteChatRepository _favoriteChatRepository) : Hub
     {
         private static ConcurrentDictionary<string, List<string>> _userConnections = new();
@@ -150,7 +151,8 @@ namespace Snarf.API.Controllers
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,
                 user.Name,
-                userImage = user.ImageUrl
+                userImage = user.ImageUrl,
+                videoCall = location.VideoCall
             });
 
             await Clients.Others.SendAsync("ReceiveMessage", jsonResponse);
@@ -764,6 +766,20 @@ namespace Snarf.API.Controllers
             var callerUserId = GetUserId();
             var targetUserId = data.GetProperty("TargetUserId").GetString();
 
+            if (await IsMonthlyLimitReached(targetUserId) || await IsMonthlyLimitReached(callerUserId))
+            {
+                var rejectedMessage = SignalRMessage.Serialize(
+                    SignalREventType.VideoCallReject,
+                    new
+                    {
+                        reason = "O limite de 360 minutos foi atingido no mês."
+                    }
+                );
+                await Clients.User(callerUserId).SendAsync("ReceiveMessage", rejectedMessage);
+                await Clients.User(targetUserId).SendAsync("ReceiveMessage", rejectedMessage);
+                return;
+            }
+
             if (!_userConnections.ContainsKey(targetUserId))
             {
                 var response = SignalRMessage.Serialize(
@@ -776,7 +792,10 @@ namespace Snarf.API.Controllers
 
             var roomId = Guid.NewGuid().ToString("N");
 
-            var callerName = await _userRepository.GetEntities().Where(x => x.Id == callerUserId).Select(x => x.Name).FirstOrDefaultAsync();
+            var callerName = await _userRepository.GetEntities()
+                .Where(x => x.Id == callerUserId)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync();
 
             var incomingCallMessage = SignalRMessage.Serialize(
                 SignalREventType.VideoCallIncoming,
@@ -801,6 +820,21 @@ namespace Snarf.API.Controllers
             var targetUserId = GetUserId();
             var callerUserId = data.GetProperty("CallerUserId").GetString();
             var roomId = data.GetProperty("RoomId").GetString();
+
+            var caller = await _userRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(x => x.Id == callerUserId);
+            var callee = await _userRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(x => x.Id == targetUserId);
+
+            var callLog = new VideoCallLog
+            {
+                RoomId = roomId,
+                Caller = caller,
+                Callee = callee,
+                StartTime = DateTime.Now
+            };
+            await _videoCallLogRepository.InsertAsync(callLog);
+            await _videoCallLogRepository.SaveChangesAsync();
 
             var acceptedMessage = SignalRMessage.Serialize(
                 SignalREventType.VideoCallAccept,
@@ -833,16 +867,30 @@ namespace Snarf.API.Controllers
         private async Task HandleVideoCallEnd(JsonElement data)
         {
             var userId = GetUserId();
-
             var roomId = data.GetProperty("RoomId").GetString();
-            var endMessage = SignalRMessage.Serialize(SignalREventType.VideoCallEnd, new
-            {
-                RoomId = roomId,
-                EndedByUserId = userId
-            });
 
+            var endMessage = SignalRMessage.Serialize(
+                SignalREventType.VideoCallEnd,
+                new
+                {
+                    roomId,
+                    EndedByUserId = userId
+                }
+            );
             await Clients.All.SendAsync("ReceiveMessage", endMessage);
             Log.Information($"Usuário {userId} encerrou a chamada {roomId}");
+
+            var callLog = await _videoCallLogRepository.GetTrackedEntities()
+                .Include(x => x.Caller)
+                .Include(x => x.Callee)
+                .FirstOrDefaultAsync(x => x.RoomId == roomId);
+
+            if (callLog != null && callLog.EndTime == null)
+            {
+                callLog.EndTime = DateTime.Now;
+                callLog.DurationMinutes = (int)(callLog.EndTime.Value - callLog.StartTime).TotalMinutes;
+                await _videoCallLogRepository.SaveChangesAsync();
+            }
         }
 
         #endregion
@@ -877,14 +925,69 @@ namespace Snarf.API.Controllers
                 if (connections.Count == 0)
                 {
                     _userConnections.TryRemove(userId, out _);
+
+                    // 1) Localizar chamadas em aberto (EndTime == null) envolvendo este usuário
+                    var ongoingCalls = await _videoCallLogRepository.GetEntities()
+                        .Include(x => x.Caller)
+                        .Include(x => x.Callee)
+                        .Where(x =>
+                            x.EndTime == null &&
+                            (x.Caller.Id == userId || x.Callee.Id == userId)
+                        ).ToListAsync();
+
+                    foreach (var call in ongoingCalls)
+                    {
+                        // 2) Ajustar EndTime e DurationMinutes
+                        call.EndTime = DateTime.Now;
+                        call.DurationMinutes = (int)(call.EndTime.Value - call.StartTime).TotalMinutes;
+                        await _videoCallLogRepository.SaveChangesAsync();
+
+                        // 3) Opcional: notificar outras partes que a chamada foi finalizada
+                        var endMessage = SignalRMessage.Serialize(
+                            SignalREventType.VideoCallEnd,
+                            new
+                            {
+                                RoomId = call.RoomId,
+                                EndedByUserId = userId
+                            }
+                        );
+                        // Se quiser notificar só o outro usuário, use Clients.User(...) 
+                        // ou se preferir avisar todo mundo, use Clients.All:
+                        await Clients.All.SendAsync("ReceiveMessage", endMessage);
+
+                        Log.Information($"Chamada {call.RoomId} encerrada para o usuário {userId} no OnDisconnectedAsync.");
+                    }
                 }
             }
 
+            // Notificar outros que esse usuário saiu
             var jsonResponse = SignalRMessage.Serialize(SignalREventType.UserDisconnected, new { userId });
             await Clients.Others.SendAsync("ReceiveMessage", jsonResponse);
 
             await base.OnDisconnectedAsync(exception);
         }
+
+
+        private async Task<bool> IsMonthlyLimitReached(string userId)
+        {
+            var startOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+
+            var totalMinutesUsedThisMonth = await _videoCallLogRepository.GetEntities()
+                .Where(x => (x.Caller.Id == userId || x.Callee.Id == userId)
+                            && x.StartTime >= startOfMonth
+                            && x.EndTime != null)
+                .SumAsync(x => x.DurationMinutes);
+
+            var user = await _userRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null) return true;
+
+            var totalMonthlyLimit = 360 + user.ExtraVideoCallMinutes;
+
+            return totalMinutesUsedThisMonth >= totalMonthlyLimit;
+        }
+
 
         private string GetUserId()
         {
@@ -896,6 +999,7 @@ namespace Snarf.API.Controllers
             public double Latitude { get; set; }
             public double Longitude { get; set; }
             public string FcmToken { get; set; }
+            public bool VideoCall { get; set; }
         }
 
         #endregion

@@ -109,7 +109,7 @@ class _RecentChatPageState extends State<RecentPage> {
         }).toList();
       });
     } catch (e) {
-      showSnackbar(context, "Erro ao processar chats recentes: $e");
+      showErrorSnackbar(context, "Erro ao processar chats recentes: $e");
     }
   }
 
@@ -122,7 +122,7 @@ class _RecentChatPageState extends State<RecentPage> {
             parsedData.map((item) => item['Id'].toString()).toList();
       });
     } catch (e) {
-      showSnackbar(context, "Erro ao processar favoritos: $e");
+      showErrorSnackbar(context, "Erro ao processar favoritos: $e");
     }
   }
 

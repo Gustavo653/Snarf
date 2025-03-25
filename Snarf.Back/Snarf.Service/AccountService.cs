@@ -106,6 +106,7 @@ namespace Snarf.Service
                                                               BlockedBy = showSensitiveInfo ? x.BlockedBy.Count : 0,
                                                               FavoriteChats = showSensitiveInfo ? x.FavoriteChats.Select(x => new { x.ChatUser.Name, x.ChatUser.ImageUrl }) : null,
                                                               FavoritedBy = showSensitiveInfo ? x.FavoritedBy.Count : 0,
+                                                              ExtraVideoCallMinutes = showSensitiveInfo ? x.ExtraVideoCallMinutes : 0
                                                           })
                                                           .FirstOrDefaultAsync(x => x.Id == id.ToString());
                 var a = JsonSerializer.Serialize(data);
@@ -400,6 +401,155 @@ namespace Snarf.Service
             {
                 responseDTO.SetError(ex);
             }
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> AddExtraMinutes(AddExtraMinutesDTO addExtraMinutesDTO)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var user = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == addExtraMinutesDTO.UserId.ToString());
+                if (user == null)
+                {
+                    responseDTO.SetBadInput("Usuário não encontrado!");
+                    return responseDTO;
+                }
+                Log.Information($"Adicionando {addExtraMinutesDTO.Minutes} minutos ao usuário {user.Id} ID assinatura:{addExtraMinutesDTO.SubscriptionId} Token:{addExtraMinutesDTO.Token}");
+                user.ExtraVideoCallMinutes += addExtraMinutesDTO.Minutes;
+                await userRepository.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> ChangeEmail(Guid userId, string newEmail, string currentPassword)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var user = await userRepository.GetTrackedEntities()
+                                               .FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (user == null)
+                {
+                    responseDTO.SetBadInput("Usuário não encontrado!");
+                    return responseDTO;
+                }
+
+                var signInResult = await signInManager.CheckPasswordSignInAsync(user, currentPassword, false);
+                if (!signInResult.Succeeded)
+                {
+                    responseDTO.SetBadInput("Senha atual incorreta!");
+                    return responseDTO;
+                }
+
+                var existingUser = await userManager.FindByEmailAsync(newEmail);
+                if (existingUser != null && existingUser.Id != user.Id)
+                {
+                    responseDTO.SetBadInput("Já existe um usuário com este email!");
+                    return responseDTO;
+                }
+
+                user.Email = newEmail;
+                user.NormalizedEmail = newEmail.ToUpper();
+                user.UserName = newEmail;
+                user.NormalizedUserName = newEmail.ToUpper();
+
+                await userManager.UpdateSecurityStampAsync(user);
+                await userRepository.SaveChangesAsync();
+
+                responseDTO.Message = "Email alterado com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> ChangePassword(Guid userId, string oldPassword, string newPassword)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var user = await userRepository.GetTrackedEntities()
+                                               .FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (user == null)
+                {
+                    responseDTO.SetBadInput("Usuário não encontrado!");
+                    return responseDTO;
+                }
+
+                var signInResult = await signInManager.CheckPasswordSignInAsync(user, oldPassword, false);
+                if (!signInResult.Succeeded)
+                {
+                    responseDTO.SetBadInput("Senha antiga incorreta!");
+                    return responseDTO;
+                }
+
+                user.PasswordHash = userManager.PasswordHasher.HashPassword(user, newPassword);
+
+                await userManager.UpdateSecurityStampAsync(user);
+                await userRepository.SaveChangesAsync();
+
+                responseDTO.Message = "Senha alterada com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> GetFirstMessageToday(Guid userid)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var userEntity = await userRepository.GetTrackedEntities()
+                    .FirstOrDefaultAsync(x => x.Id == userid.ToString());
+
+                if (userEntity == null)
+                {
+                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {userid}!");
+                    return responseDTO;
+                }
+
+                var today = DateTime.UtcNow.Date;
+
+                var publicMessage = await publicChatMessageRepository.GetTrackedEntities()
+                    .Where(x => x.SenderId == userEntity.Id && x.CreatedAt.Date == today)
+                    .OrderBy(x => x.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                var privateMessage = await privateChatMessageRepository.GetTrackedEntities()
+                    .Where(x => x.Sender.Id == userEntity.Id && x.CreatedAt.Date == today)
+                    .OrderBy(x => x.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                DateTime? firstMessage = (publicMessage, privateMessage) switch
+                {
+                    (null, null) => null,
+                    (not null, null) => publicMessage.CreatedAt,
+                    (null, not null) => privateMessage.CreatedAt,
+                    _ => publicMessage.CreatedAt <= privateMessage.CreatedAt ? publicMessage.CreatedAt : privateMessage.CreatedAt
+                };
+
+                responseDTO.Object = new
+                {
+                    FirstMessageToday = firstMessage
+                };
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
             return responseDTO;
         }
     }

@@ -70,6 +70,15 @@ namespace Snarf.API.Controllers
             return StatusCode(user.Code, user);
         }
 
+        [HttpPost("AddExtraMinutes")]
+        public async Task<IActionResult> AddExtraMinutes([FromBody] AddExtraMinutesDTO addExtraMinutesDTO)
+        {
+            addExtraMinutesDTO.UserId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var user = await accountService.AddExtraMinutes(addExtraMinutesDTO);
+            return StatusCode(user.Code, user);
+        }
+
+
         [HttpPost("")]
         [AllowAnonymous]
         public async Task<IActionResult> CreateUser([FromBody] UserDTO userDTO)
@@ -93,5 +102,32 @@ namespace Snarf.API.Controllers
             var user = await accountService.ResetPassword(userEmailDTO);
             return StatusCode(user.Code, user);
         }
+
+        [HttpPost("ChangeEmail")]
+        public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailDTO model)
+        {
+            var userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+
+            var result = await accountService.ChangeEmail(userId, model.NewEmail!, model.CurrentPassword!);
+            return StatusCode(result.Code, result);
+        }
+
+        [HttpPost("ChangePassword")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDTO model)
+        {
+            var userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+
+            var result = await accountService.ChangePassword(userId, model.OldPassword!, model.NewPassword!);
+            return StatusCode(result.Code, result);
+        }
+
+        [HttpGet("GetFirstMessageToday")]
+        public async Task<IActionResult> GetFirstMessageToday()
+        {
+            var userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var message = await accountService.GetFirstMessageToday(userId);
+            return StatusCode(message.Code, message);
+        }
+
     }
 }

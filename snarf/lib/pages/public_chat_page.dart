@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/buy_subscription_page.dart';
 
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
@@ -159,23 +161,50 @@ class _PublicChatPageState extends State<PublicChatPage> {
     });
   }
 
+  Future<bool> _canSendMessage() async {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    DateTime? firstMessageDate = config.FirstMessageToday;
+    DateTime now = DateTime.now().toUtc();
+
+    if (firstMessageDate == null) {
+      return true;
+    }
+
+    log("Data primeira mensagem: ${firstMessageDate.toUtc()} Data atual: $now");
+    Duration difference = now.difference(firstMessageDate.toUtc());
+    log("Diferença em minutos: ${difference.inMinutes}");
+
+    return difference.inMinutes <= 30;
+  }
+
   void _sendMessage() async {
-    final messageText = _messageController.text.trim();
-    if (messageText.isNotEmpty) {
-      await SignalRManager().sendSignalRMessage(
-        SignalREventType.PublicChatSendMessage,
-        {"Message": messageText},
-      );
+    final config = Provider.of<ConfigProvider>(context, listen: false);
 
-      await _analytics.logEvent(
-        name: 'public_chat_message_sent',
-        parameters: {
-          'message_length': messageText.length,
-        },
-      );
+    if (await _canSendMessage() || config.isSubscriber) {
+      final messageText = _messageController.text.trim();
+      if (messageText.isNotEmpty) {
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PublicChatSendMessage,
+          {"Message": messageText},
+        );
 
-      setState(() => _messageController.clear());
-      _scrollToBottom();
+        await _analytics.logEvent(
+          name: 'public_chat_message_sent',
+          parameters: {
+            'message_length': messageText.length,
+          },
+        );
+
+        setState(() => _messageController.clear());
+        _scrollToBottom();
+      }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuySubscriptionPage(),
+        ),
+      );
     }
   }
 
@@ -193,7 +222,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
         },
       );
     } catch (e) {
-      showSnackbar(context, "Erro ao excluir a mensagem: $e");
+      showErrorSnackbar(context, "Erro ao excluir a mensagem: $e");
 
       await _analytics.logEvent(
         name: 'public_chat_delete_message_error',
@@ -236,6 +265,7 @@ class _PublicChatPageState extends State<PublicChatPage> {
       });
     }
 
+    // if (configProvider.isSubscriber) {
     return Scaffold(
       backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
@@ -362,6 +392,9 @@ class _PublicChatPageState extends State<PublicChatPage> {
               ],
             ),
     );
+    // } else{
+    //   return SizedBox.shrink();
+    // }
   }
 
   Widget _buildMessageWidget(
@@ -746,7 +779,7 @@ class ChatMessageOptions extends StatelessWidget {
     if (confirm == true) {
       final response = await ApiService.blockUser(senderId);
       if (response == null) {
-        showSnackbar(
+        showSuccessSnackbar(
           context,
           'Usuário bloqueado com sucesso.',
           color: Colors.green,
@@ -759,7 +792,7 @@ class ChatMessageOptions extends StatelessWidget {
           },
         );
       } else {
-        showSnackbar(context, 'Erro ao bloquear usuário: $response');
+        showErrorSnackbar(context, 'Erro ao bloquear usuário: $response');
 
         await FirebaseAnalytics.instance.logEvent(
           name: 'public_chat_block_user_error',
@@ -824,7 +857,7 @@ class ChatMessageOptions extends StatelessWidget {
     if (confirm == true) {
       final response = await ApiService.reportMessage(messageId);
       if (response == null) {
-        showSnackbar(
+        showSuccessSnackbar(
           context,
           'Mensagem denunciada com sucesso.',
           color: Colors.green,
@@ -837,7 +870,7 @@ class ChatMessageOptions extends StatelessWidget {
           },
         );
       } else {
-        showSnackbar(context, 'Erro ao denunciar mensagem: $response');
+        showErrorSnackbar(context, 'Erro ao denunciar mensagem: $response');
 
         await FirebaseAnalytics.instance.logEvent(
           name: 'public_chat_report_message_error',
