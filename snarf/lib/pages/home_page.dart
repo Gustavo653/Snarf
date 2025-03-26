@@ -210,7 +210,7 @@ class _HomePageState extends State<HomePage> {
   void _startLocationUpdates() {
     _location.changeSettings(
       accuracy: LocationAccuracy.high,
-      interval: 60000,
+      interval: 5000,
     );
 
     _locationSubscription =
