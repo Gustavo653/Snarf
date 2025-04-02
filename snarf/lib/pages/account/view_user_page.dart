@@ -4,6 +4,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/buy_subscription_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
 import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/providers/config_provider.dart';
@@ -167,17 +168,27 @@ class _ViewUserPageState extends State<ViewUserPage> {
   }
 
   Future<void> _initiateCall(String targetUserId) async {
-    try {
-      final callManager = Provider.of<CallManager>(context, listen: false);
-      callManager.startCall(targetUserId);
-      await _analytics.logEvent(
-          name: 'view_user_initiate_call',
-          parameters: {'targetUserId': targetUserId});
-    } catch (e) {
-      showErrorSnackbar(context, "Erro ao iniciar chamada: $e");
-      await _analytics.logEvent(
-          name: 'view_user_initiate_call_error',
-          parameters: {'error': e.toString()});
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    if (config.isSubscriber) {
+      try {
+        final callManager = Provider.of<CallManager>(context, listen: false);
+        callManager.startCall(targetUserId);
+        await _analytics.logEvent(
+            name: 'view_user_initiate_call',
+            parameters: {'targetUserId': targetUserId});
+      } catch (e) {
+        showErrorSnackbar(context, "Erro ao iniciar chamada: $e");
+        await _analytics.logEvent(
+            name: 'view_user_initiate_call_error',
+            parameters: {'error': e.toString()});
+      }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuySubscriptionPage(),
+        ),
+      );
     }
   }
 

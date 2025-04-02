@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/return_code.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -100,6 +101,7 @@ class PrivateChatPage extends StatefulWidget {
 class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   List<PrivateChatMessageModel> _messages = [];
   final _record = AudioRecorder();
   bool _isRecording = false;
@@ -784,14 +786,26 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<void> _initiateCall(String targetUserId) async {
     final config = Provider.of<ConfigProvider>(context, listen: false);
-
-    if(config.isSubscriber){
+    if (config.isSubscriber) {
       try {
         final callManager = Provider.of<CallManager>(context, listen: false);
         callManager.startCall(targetUserId);
+        await _analytics.logEvent(
+            name: 'view_user_initiate_call',
+            parameters: {'targetUserId': targetUserId});
       } catch (e) {
         showErrorSnackbar(context, "Erro ao iniciar chamada: $e");
+        await _analytics.logEvent(
+            name: 'view_user_initiate_call_error',
+            parameters: {'error': e.toString()});
       }
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BuySubscriptionPage(),
+        ),
+      );
     }
   }
 
