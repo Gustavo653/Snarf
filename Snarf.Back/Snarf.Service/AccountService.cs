@@ -274,7 +274,7 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                BackgroundJob.Enqueue(() => emailService.SendEmail("Solicitação para redefinir senha - Snarf", emailService.BuildResetPasswordText(email, user.SecurityStamp!), email));
+                //BackgroundJob.Enqueue(() => emailService.SendEmail("Solicitação para redefinir senha - Snarf", emailService.BuildResetPasswordText(email, user.SecurityStamp!), email));
             }
             catch (Exception ex)
             {
@@ -375,7 +375,7 @@ namespace Snarf.Service
                     responseDTO.SetBadInput("Mensagem não encontrada!");
                     return responseDTO;
                 }
-                var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de chat público - Snarf", emailService.BuildReportedMessageText(message.Message, message.CreatedAt, message.Sender.Name, message.Sender.Email), "oficial.snarf@gmail.com"));
+                //var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de chat público - Snarf", emailService.BuildReportedMessageText(message.Message, message.CreatedAt, message.Sender.Name, message.Sender.Email), "oficial.snarf@gmail.com"));
             }
             catch (Exception ex)
             {
@@ -395,7 +395,7 @@ namespace Snarf.Service
                     responseDTO.SetBadInput("Usuário não encontrado!");
                     return responseDTO;
                 }
-                var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de perfil - Snarf", emailService.BuildReportedUser(user.Name, user.Email), "oficial.snarf@gmail.com"));
+                //var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de perfil - Snarf", emailService.BuildReportedUser(user.Name, user.Email), "oficial.snarf@gmail.com"));
             }
             catch (Exception ex)
             {

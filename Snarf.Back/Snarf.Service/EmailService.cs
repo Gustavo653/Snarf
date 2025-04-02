@@ -171,17 +171,17 @@ namespace Snarf.Service
 
         public async Task SendEmail(string title, string body, string recipient)
         {
-            using var mailMessage = new MailMessage
-            {
-                From = new MailAddress(_smtpUser),
-                Subject = title,
-                Body = body,
-                IsBodyHtml = true,
-            };
+            //using var mailMessage = new MailMessage
+            //{
+            //    From = new MailAddress(_smtpUser),
+            //    Subject = title,
+            //    Body = body,
+            //    IsBodyHtml = true,
+            //};
 
-            mailMessage.To.Add(recipient);
-            mailMessage.CC.Add("gustavohs2004@gmail.com");
-            await _smtpClient.SendMailAsync(mailMessage);
+            //mailMessage.To.Add(recipient);
+            //mailMessage.CC.Add("gustavohs2004@gmail.com");
+            //await _smtpClient.SendMailAsync(mailMessage);
         }
     }
 }
