@@ -249,6 +249,8 @@ namespace Snarf.API
             builder.Services.AddScoped<IVideoCallLogRepository, VideoCallLogRepository>();
             builder.Services.AddScoped<IPrivateChatMessageRepository, PrivateChatMessageRepository>();
             builder.Services.AddScoped<IPublicChatMessageRepository, PublicChatMessageRepository>();
+            builder.Services.AddScoped<IPartyChatMessageRepository, PartyChatMessageRepository>();
+            builder.Services.AddScoped<IPartyRepository, PartyRepository>();
             builder.Services.AddScoped<IFavoriteChatRepository, FavoriteChatRepository>();
             builder.Services.AddScoped<IBlockedUserRepository, BlockedUserRepository>();
         }
@@ -259,6 +261,7 @@ namespace Snarf.API
             builder.Services.AddScoped<S3Service>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<ITokenService, TokenService>();
+            builder.Services.AddScoped<IPartyService, PartyService>();
         }
 
         private static async Task SeedAdminUser(IServiceProvider serviceProvider)

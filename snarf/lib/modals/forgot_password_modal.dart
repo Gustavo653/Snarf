@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/components/themed_text_field.dart';
-import 'package:snarf/pages/account/reset_password_modal.dart';
+import 'package:snarf/modals/reset_password_modal.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 
@@ -94,7 +94,6 @@ class _ForgotPasswordModalState extends State<ForgotPasswordModal> {
           onPressed: _isLoading ? null : _requestResetCode,
         ),
       ],
-      useGradient: true,
     );
   }
 }

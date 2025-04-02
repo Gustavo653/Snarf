@@ -17,6 +17,7 @@ namespace Snarf.API.Controllers
     public class SnarfHub(
         IUserRepository _userRepository,
         IPublicChatMessageRepository _publicChatMessageRepository,
+        IPartyChatMessageRepository _partyChatMessageRepository,
         IPrivateChatMessageRepository _privateChatMessageRepository,
         IBlockedUserRepository _blockedUserRepository,
         IVideoCallLogRepository _videoCallLogRepository,
@@ -32,6 +33,18 @@ namespace Snarf.API.Controllers
             {
                 case nameof(SignalREventType.MapUpdateLocation):
                     await HandleMapUpdateLocation(message.Data);
+                    break;
+
+                case nameof(SignalREventType.PartyChatSendMessage):
+                    await HandlePartyChatSendMessage(message.Data);
+                    break;
+
+                case nameof(SignalREventType.PartyChatDeleteMessage):
+                    await HandlePartyChatDeleteMessage(message.Data);
+                    break;
+
+                case nameof(SignalREventType.PartyChatGetPreviousMessages):
+                    await HandlePartyChatGetPreviousMessages();
                     break;
 
                 case nameof(SignalREventType.PublicChatSendMessage):
@@ -156,6 +169,113 @@ namespace Snarf.API.Controllers
             });
 
             await Clients.Others.SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePartyChatSendMessage(JsonElement data)
+        {
+            var userId = GetUserId();
+            var text = data.GetProperty("Message").GetString();
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            var user = await _userRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(x => x.Id == userId);
+
+            if (user == null) return;
+
+            var message = new PartyChatMessage
+            {
+                SenderId = userId,
+                Message = text
+            };
+
+            await _partyChatMessageRepository.InsertAsync(message);
+            await _partyChatMessageRepository.SaveChangesAsync();
+
+            var blockedUsers = await _blockedUserRepository
+                .GetEntities()
+                .Where(b => b.Blocked.Id == userId)
+                .Select(b => b.Blocker.Id)
+                .ToListAsync();
+
+            var blockedConnectionIds = new List<string>();
+
+            foreach (var blockedUserId in blockedUsers)
+            {
+                if (_userConnections.TryGetValue(blockedUserId, out var connections))
+                {
+                    blockedConnectionIds.AddRange(connections);
+                }
+            }
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PartyChatReceiveMessage, new
+            {
+                message.Id,
+                CreatedAt = DateTime.Now,
+                UserId = userId,
+                UserName = user.Name,
+                UserImage = user.ImageUrl,
+                Latitude = user.LastLatitude,
+                Longitude = user.LastLongitude,
+                Message = text
+            });
+
+            await Clients.AllExcept(blockedConnectionIds).SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePartyChatDeleteMessage(JsonElement data)
+        {
+            var userId = GetUserId();
+            var messageId = data.GetProperty("MessageId").GetString();
+
+            var message = await _partyChatMessageRepository
+                .GetTrackedEntities()
+                .FirstOrDefaultAsync(m => m.Id == Guid.Parse(messageId))
+                ?? throw new Exception("Mensagem não encontrada.");
+
+            if (message.SenderId != userId)
+                throw new Exception("Você não pode excluir mensagens de outro usuário.");
+
+            message.Message = "Mensagem excluída";
+
+            await _partyChatMessageRepository.SaveChangesAsync();
+            Log.Information($"Mensagem {message.Id} do usuário {userId} marcada como excluída.");
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PartyChatReceiveMessageDeleted, new
+            {
+                MessageId = message.Id,
+                Message = "Mensagem excluída"
+            });
+
+            await Clients.All.SendAsync("ReceiveMessage", jsonResponse);
+        }
+
+        private async Task HandlePartyChatGetPreviousMessages()
+        {
+            var userId = GetUserId();
+            var previousMessages = await _partyChatMessageRepository
+                .GetEntities()
+                .Where(x => !x.Sender.BlockedBy.Select(x => x.Blocker.Id).Contains(userId))
+                .OrderByDescending(m => m.CreatedAt)
+                .Take(1000)
+                .OrderBy(m => m.CreatedAt)
+                .Select(x => new
+                {
+                    x.Id,
+                    CreatedAt = x.CreatedAt.ToUniversalTime(),
+                    UserId = x.Sender.Id,
+                    UserName = x.Sender.Name,
+                    UserImage = x.Sender.ImageUrl,
+                    Latitude = x.Sender.LastLatitude,
+                    Longitude = x.Sender.LastLongitude,
+                    x.Message
+                })
+                .ToListAsync();
+
+            foreach (var message in previousMessages)
+            {
+                var jsonResponse = SignalRMessage.Serialize(SignalREventType.PartyChatReceiveMessage, message);
+                await Clients.Caller.SendAsync("ReceiveMessage", jsonResponse);
+            }
         }
 
         private async Task HandlePublicChatSendMessage(JsonElement data)

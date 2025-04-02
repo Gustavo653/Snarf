@@ -107,7 +107,6 @@ class _ResetPasswordModalState extends State<ResetPasswordModal> {
           onPressed: _isLoading ? null : _resetPassword,
         ),
       ],
-      useGradient: true,
     );
   }
 }

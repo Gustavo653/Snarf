@@ -4,33 +4,54 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:provider/provider.dart';
+import 'package:snarf/components/consumable_purchase_component.dart';
+import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
-import 'package:snarf/utils/subscriptiob_base_plan_details.dart';
+import 'package:snarf/utils/api_constants.dart';
+import 'package:snarf/utils/subscription_base_plan_details.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-const List<String> _kSubscriptionIds = <String>[
-  'snarf_plus',
-];
-
-const String _kConsumableId = '5_minutos_video_chamada';
-
-class SubscriptionPlanPage extends StatefulWidget {
-  const SubscriptionPlanPage({super.key});
+class BuySubscriptionPage extends StatefulWidget {
+  const BuySubscriptionPage({Key? key}) : super(key: key);
 
   @override
-  State<SubscriptionPlanPage> createState() => _SubscriptionPlanPageState();
+  State<BuySubscriptionPage> createState() => _BuySubscriptionPageState();
 }
 
-class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
+class _BuySubscriptionPageState extends State<BuySubscriptionPage> {
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   late StreamSubscription<List<PurchaseDetails>> _subscription;
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
-
   bool _isStoreAvailable = false;
   bool _isLoading = true;
-
   List<ProductDetails> _products = [];
   List<SubscriptionBasePlanDetails> _subscriptionBasePlans = [];
-  List<PurchaseDetails> _purchases = [];
+  int _extraVideoCallMinutes = 0;
+
+  final List<Map<String, dynamic>> benefits = [
+    {"icon": FontAwesomeIcons.ban, "text": "Desbloquear usuários individuais"},
+    {
+      "icon": FontAwesomeIcons.solidMessage,
+      "text": "Ver quem excluiu uma conversa"
+    },
+    {"icon": FontAwesomeIcons.googlePlay, "text": "Sem anúncios"},
+    {"icon": FontAwesomeIcons.filter, "text": "Perfis de usuários ilimitados"},
+    {"icon": FontAwesomeIcons.bullhorn, "text": "Publique uma atualização"},
+    {"icon": FontAwesomeIcons.images, "text": "Várias fotos de perfil"},
+    {
+      "icon": FontAwesomeIcons.thumbtack,
+      "text": "Fixar conversas e fixar para mais tarde"
+    },
+    {"icon": FontAwesomeIcons.eye, "text": "Recibos de leitura"},
+    {"icon": FontAwesomeIcons.userGroup, "text": "Criar grupals"},
+    {"icon": FontAwesomeIcons.image, "text": "Ocultar fotos do chat"},
+    {"icon": FontAwesomeIcons.plane, "text": "Modo viagem"},
+    {"icon": FontAwesomeIcons.eyeSlash, "text": "Modo discreto"},
+    {"icon": FontAwesomeIcons.mapMarkerAlt, "text": "Adicionar locais"},
+    {"icon": FontAwesomeIcons.mask, "text": "Check-ins anônimos"},
+    {"icon": FontAwesomeIcons.video, "text": "Chamada de vídeo"},
+  ];
 
   @override
   void initState() {
@@ -47,19 +68,12 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
   Future<void> _initialize() async {
     _analytics.logEvent(name: 'initialize_store');
     final purchaseUpdated = _inAppPurchase.purchaseStream;
-    _subscription = purchaseUpdated.listen(
-      _onPurchaseUpdate,
-      onDone: () => _subscription.cancel(),
-      onError: (error) {
-        debugPrint('Erro na stream de compras: $error');
-      },
-    );
-
+    _subscription = purchaseUpdated.listen(_onPurchaseUpdate,
+        onDone: () => _subscription.cancel(), onError: (error) {});
     final isAvailable = await _inAppPurchase.isAvailable();
     setState(() {
       _isStoreAvailable = isAvailable;
     });
-
     if (!isAvailable) {
       _analytics.logEvent(name: 'store_unavailable');
       setState(() {
@@ -67,39 +81,45 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
       });
       return;
     }
-
     final idsParaConsultar = <String>{
-      ..._kSubscriptionIds,
-      _kConsumableId,
+      ApiConstants.subscriptionId,
+      ApiConstants.productId,
     };
-
     final response = await _inAppPurchase.queryProductDetails(idsParaConsultar);
-
     if (response.error != null) {
-      debugPrint('Erro ao consultar produtos: ${response.error}');
       FirebaseCrashlytics.instance.recordError(response.error, null);
     }
-
     if (response.notFoundIDs.isNotEmpty) {
-      debugPrint('IDs não encontrados: ${response.notFoundIDs}');
       _analytics.logEvent(name: 'product_not_found', parameters: {
         'ids': response.notFoundIDs.join(', '),
       });
     }
-
     final subscriptionProducts = response.productDetails
-        .where((product) => _kSubscriptionIds.contains(product.id))
+        .where((p) => p.id == ApiConstants.subscriptionId)
         .toList();
-
     final subscriptionBasePlans = subscriptionProducts
-        .map((product) => SubscriptionBasePlanDetails(product))
+        .map((p) => SubscriptionBasePlanDetails(p))
         .toList();
-
     setState(() {
       _products = response.productDetails;
       _subscriptionBasePlans = subscriptionBasePlans;
+    });
+    await _retrieveUserInfo();
+    setState(() {
       _isLoading = false;
     });
+  }
+
+  Future<void> _retrieveUserInfo() async {
+    final userId = await ApiService.getUserIdFromToken();
+    if (userId != null) {
+      final userInfo = await ApiService.getUserInfoById(userId);
+      if (userInfo != null && userInfo.containsKey('extraVideoCallMinutes')) {
+        setState(() {
+          _extraVideoCallMinutes = userInfo['extraVideoCallMinutes'] ?? 0;
+        });
+      }
+    }
   }
 
   void _onPurchaseUpdate(List<PurchaseDetails> purchaseDetailsList) {
@@ -108,24 +128,17 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
         'product_id': purchase.productID,
         'status': purchase.status.toString(),
       });
-
       if (purchase.status == PurchaseStatus.purchased ||
           purchase.status == PurchaseStatus.restored) {
         log('Compra/assinatura aprovada: ${purchase.productID}');
-
-        if (purchase.productID == _kConsumableId) {
+        if (purchase.productID == ApiConstants.productId) {
           _handleExtraMinutesPurchase(purchase);
         }
       }
-
       if (purchase.pendingCompletePurchase) {
         _inAppPurchase.completePurchase(purchase);
       }
     }
-
-    setState(() {
-      _purchases = purchaseDetailsList;
-    });
   }
 
   Future<void> _handleExtraMinutesPurchase(PurchaseDetails purchase) async {
@@ -136,15 +149,14 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
         subscriptionId: purchase.productID,
         tokenFromPurchase: purchase.verificationData.serverVerificationData,
       );
-
       if (result == null) {
-        log('Minutos adicionados com sucesso no servidor.');
         _analytics.logEvent(name: 'extra_minutes_added', parameters: {
           'product_id': purchase.productID,
           'minutes': purchasedMinutes,
         });
-      } else {
-        log('Falha ao adicionar minutos: $result');
+        setState(() {
+          _extraVideoCallMinutes += purchasedMinutes;
+        });
       }
     } catch (e, stackTrace) {
       FirebaseCrashlytics.instance.recordError(e, stackTrace);
@@ -155,9 +167,7 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
     _analytics.logEvent(name: 'purchase_attempt', parameters: {
       'product_id': plan.productDetails.id,
     });
-    final purchaseParam = PurchaseParam(
-      productDetails: plan.productDetails,
-    );
+    final purchaseParam = PurchaseParam(productDetails: plan.productDetails);
     _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
   }
 
@@ -171,27 +181,25 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
 
   @override
   Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
     if (!_isStoreAvailable) {
       return Scaffold(
         appBar: AppBar(title: const Text('Assinaturas e Compras')),
         body: const Center(
           child: Text(
-            'A loja não está disponível. Verifique conexão ou configuração.',
-          ),
+              'A loja não está disponível. Verifique conexão ou configuração.'),
         ),
       );
     }
-
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(title: const Text('Assinaturas e Compras')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-
     final consumableProducts =
-        _products.where((p) => p.id == _kConsumableId).toList();
-
+        _products.where((p) => p.id == ApiConstants.productId).toList();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Snarf Plus e Video Chamada'),
@@ -209,14 +217,17 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
           if (_subscriptionBasePlans.isNotEmpty)
             ..._subscriptionBasePlans.map((plan) {
               return Card(
-                margin: const EdgeInsets.all(8.0),
+                color: configProvider.secondaryColor,
+                margin: const EdgeInsets.all(8),
                 child: ListTile(
-                  title: Text(plan.basePlanId ?? plan.subscriptionId),
-                  subtitle: Text(
-                    'Duração: ${plan.basePlanLength?.name ?? 'Indefinida'}\n'
-                    'Trial: ${plan.isFreeTrialAvailable! ? 'Sim' : 'Não'}',
+                  title: Text(
+                    'Duração: ${plan.getBasePlanLengthTranslated()}\nTeste grátis: ${plan.isFreeTrialAvailable == true ? 'Sim' : 'Não'}',
+                    style: TextStyle(color: configProvider.textColor),
                   ),
-                  trailing: Text(plan.formattedPrice),
+                  trailing: Text(
+                    plan.formattedPrice,
+                    style: TextStyle(color: configProvider.textColor),
+                  ),
                   onTap: () => _buySubscription(plan),
                 ),
               );
@@ -224,13 +235,39 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
           else
             const Center(
               child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
-                  'Nenhuma assinatura encontrada.',
-                  style: TextStyle(fontSize: 16),
-                ),
+                padding: EdgeInsets.all(16),
+                child: Text('Nenhuma assinatura encontrada.',
+                    style: TextStyle(fontSize: 16)),
               ),
             ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Aqui está tudo o que você receberá...",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 16),
+                Column(
+                  children: benefits.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Icon(item["icon"],
+                              size: 20, color: Colors.blueAccent),
+                          SizedBox(width: 10),
+                          Text(item["text"], style: TextStyle(fontSize: 16)),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
           const Divider(height: 32),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16),
@@ -239,28 +276,11 @@ class _SubscriptionPlanPageState extends State<SubscriptionPlanPage> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          if (consumableProducts.isNotEmpty)
-            ...consumableProducts.map((product) {
-              return Card(
-                margin: const EdgeInsets.all(8.0),
-                child: ListTile(
-                  title: Text(product.title),
-                  subtitle: Text(product.description),
-                  trailing: Text(product.price),
-                  onTap: () => _buyConsumable(product),
-                ),
-              );
-            }).toList()
-          else
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
-                  'Nenhum produto avulso encontrado.',
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-            ),
+          ConsumablePurchaseComponent(
+            consumableProducts: consumableProducts,
+            onBuyConsumable: _buyConsumable,
+            purchasedMinutes: _extraVideoCallMinutes,
+          ),
         ],
       ),
     );

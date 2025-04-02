@@ -14,6 +14,12 @@
         PublicChatReceiveMessageDeleted,
         PublicChatGetPreviousMessages,
 
+        PartyChatSendMessage,
+        PartyChatReceiveMessage,
+        PartyChatDeleteMessage,
+        PartyChatReceiveMessageDeleted,
+        PartyChatGetPreviousMessages,
+
         PrivateChatSendMessage,
         PrivateChatReceiveMessage,
         PrivateChatGetRecentChats,

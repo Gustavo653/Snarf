@@ -106,6 +106,7 @@ namespace Snarf.Service
                                                               BlockedBy = showSensitiveInfo ? x.BlockedBy.Count : 0,
                                                               FavoriteChats = showSensitiveInfo ? x.FavoriteChats.Select(x => new { x.ChatUser.Name, x.ChatUser.ImageUrl }) : null,
                                                               FavoritedBy = showSensitiveInfo ? x.FavoritedBy.Count : 0,
+                                                              ExtraVideoCallMinutes = showSensitiveInfo ? x.ExtraVideoCallMinutes : 0
                                                           })
                                                           .FirstOrDefaultAsync(x => x.Id == id.ToString());
                 var a = JsonSerializer.Serialize(data);
@@ -273,7 +274,7 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                BackgroundJob.Enqueue(() => emailService.SendEmail("Solicitação para redefinir senha - Snarf", emailService.BuildResetPasswordText(email, user.SecurityStamp!), email));
+                //BackgroundJob.Enqueue(() => emailService.SendEmail("Solicitação para redefinir senha - Snarf", emailService.BuildResetPasswordText(email, user.SecurityStamp!), email));
             }
             catch (Exception ex)
             {
@@ -374,7 +375,7 @@ namespace Snarf.Service
                     responseDTO.SetBadInput("Mensagem não encontrada!");
                     return responseDTO;
                 }
-                var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de chat público - Snarf", emailService.BuildReportedMessageText(message.Message, message.CreatedAt, message.Sender.Name, message.Sender.Email), "oficial.snarf@gmail.com"));
+                //var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de chat público - Snarf", emailService.BuildReportedMessageText(message.Message, message.CreatedAt, message.Sender.Name, message.Sender.Email), "oficial.snarf@gmail.com"));
             }
             catch (Exception ex)
             {
@@ -394,7 +395,7 @@ namespace Snarf.Service
                     responseDTO.SetBadInput("Usuário não encontrado!");
                     return responseDTO;
                 }
-                var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de perfil - Snarf", emailService.BuildReportedUser(user.Name, user.Email), "oficial.snarf@gmail.com"));
+                //var email = BackgroundJob.Enqueue(() => emailService.SendEmail("Denúncia de perfil - Snarf", emailService.BuildReportedUser(user.Name, user.Email), "oficial.snarf@gmail.com"));
             }
             catch (Exception ex)
             {
@@ -505,5 +506,51 @@ namespace Snarf.Service
             return responseDTO;
         }
 
+        public async Task<ResponseDTO> GetFirstMessageToday(Guid userid)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var userEntity = await userRepository.GetTrackedEntities()
+                    .FirstOrDefaultAsync(x => x.Id == userid.ToString());
+
+                if (userEntity == null)
+                {
+                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {userid}!");
+                    return responseDTO;
+                }
+
+                var today = DateTime.UtcNow.Date;
+
+                var publicMessage = await publicChatMessageRepository.GetTrackedEntities()
+                    .Where(x => x.SenderId == userEntity.Id && x.CreatedAt.Date == today)
+                    .OrderBy(x => x.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                var privateMessage = await privateChatMessageRepository.GetTrackedEntities()
+                    .Where(x => x.Sender.Id == userEntity.Id && x.CreatedAt.Date == today)
+                    .OrderBy(x => x.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                DateTime? firstMessage = (publicMessage, privateMessage) switch
+                {
+                    (null, null) => null,
+                    (not null, null) => publicMessage.CreatedAt,
+                    (null, not null) => privateMessage.CreatedAt,
+                    _ => publicMessage.CreatedAt <= privateMessage.CreatedAt ? publicMessage.CreatedAt : privateMessage.CreatedAt
+                };
+
+                responseDTO.Object = new
+                {
+                    FirstMessageToday = firstMessage
+                };
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
     }
 }

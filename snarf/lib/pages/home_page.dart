@@ -14,7 +14,6 @@ import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
-import 'package:snarf/pages/subscription_plan_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -73,6 +72,7 @@ class _HomePageState extends State<HomePage> {
     await _getFcmToken();
     await _initializeLocation();
     await _setupSignalRConnection();
+    await _fetchFirstMessage();
 
     await _analytics.logEvent(
       name: 'app_initialized',
@@ -93,6 +93,15 @@ class _HomePageState extends State<HomePage> {
           'token_length': fcmToken.length,
         },
       );
+    }
+  }
+
+  Future<void> _fetchFirstMessage() async {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    final messageData = await ApiService.getFirstMessageOfDay();
+    if (messageData != null) {
+      config.setFirstMessageToday(
+          DateTime.parse(messageData['firstMessageToDay']));
     }
   }
 
@@ -201,7 +210,7 @@ class _HomePageState extends State<HomePage> {
   void _startLocationUpdates() {
     _location.changeSettings(
       accuracy: LocationAccuracy.high,
-      interval: 60000,
+      interval: 5000,
     );
 
     _locationSubscription =
@@ -561,56 +570,52 @@ class _HomePageState extends State<HomePage> {
     await _analytics.logEvent(
       name: 'open_public_chat',
     );
-    final configProvider = Provider.of<ConfigProvider>(context);
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
 
     log("Abrindo chat para assinante: ${configProvider.isSubscriber}");
-    if (configProvider.isSubscriber) {
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (context) => GestureDetector(
-          onTap: () => Navigator.pop(context),
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 50),
-            child: GestureDetector(
-              onTap: () {},
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30.0),
-                  border: Border.symmetric(
-                    horizontal: BorderSide(
-                      color: Provider.of<ConfigProvider>(context, listen: false)
-                          .secondaryColor,
-                      width: 5,
-                    ),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => GestureDetector(
+        onTap: () => Navigator.pop(context),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 50),
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30.0),
+                border: Border.symmetric(
+                  horizontal: BorderSide(
+                    color: configProvider.secondaryColor,
+                    width: 5,
                   ),
                 ),
-                child: DraggableScrollableSheet(
-                  initialChildSize: 0.9,
-                  minChildSize: 0.9,
-                  maxChildSize: 0.9,
-                  expand: false,
-                  builder: (context, scrollController) {
-                    return ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(30),
-                        bottom: Radius.circular(30),
-                      ),
-                      child: Scaffold(
-                        body:
-                            PublicChatPage(scrollController: scrollController),
-                      ),
-                    );
-                  },
-                ),
+              ),
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.9,
+                minChildSize: 0.9,
+                maxChildSize: 0.9,
+                expand: false,
+                builder: (context, scrollController) {
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
+                      bottom: Radius.circular(30),
+                    ),
+                    child: Scaffold(
+                      body: PublicChatPage(scrollController: scrollController),
+                    ),
+                  );
+                },
               ),
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 
   void _showCustomMenu(BuildContext context, Offset offset) {
@@ -906,7 +911,7 @@ class _HomePageState extends State<HomePage> {
               await _analytics.logEvent(name: 'eye_button_pressed');
             }),
             _buildFloatingButton(Icons.crop_free, () async {
-              await _analytics.logEvent(name: 'moldura_button_pressed');
+              await _analytics.logEvent(name: 'crop_button_pressed');
             }),
             _buildFloatingButton(Icons.my_location, () {
               _recenterMap();
@@ -924,22 +929,12 @@ class _HomePageState extends State<HomePage> {
           if (index == 0) {
             _openPrivateChat(context);
           } else if (index == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const SubscriptionPlanPage()),
-            );
-          } else if (index == 2) {
             _openPublicChat(context);
           }
         },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.chat),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.workspace_premium),
             label: '',
           ),
           BottomNavigationBarItem(
