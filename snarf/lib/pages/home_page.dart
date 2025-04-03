@@ -12,8 +12,10 @@ import 'package:snarf/pages/account/config_profile_page.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
+import 'package:snarf/pages/parties/create_edit_party_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
+import 'package:snarf/pages/parties/party_details_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -37,13 +39,13 @@ class _HomePageState extends State<HomePage> {
   late MapController _mapController;
   late Marker _userLocationMarker;
   final Map<String, Marker> _userMarkers = {};
+  final Map<String, Marker> _partyMarkers = {};
   final Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   late String userImage = '';
   double _opacity = 0.0;
   late Timer _timer;
   String? _fcmToken;
-
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
   @override
@@ -52,11 +54,6 @@ class _HomePageState extends State<HomePage> {
     _mapController = MapController();
     _initializeApp();
     _startOpacityAnimation();
-
-    _analytics.logScreenView(
-      screenName: 'HomePage',
-      screenClass: 'HomePage',
-    );
   }
 
   void _startOpacityAnimation() {
@@ -73,33 +70,25 @@ class _HomePageState extends State<HomePage> {
     await _initializeLocation();
     await _setupSignalRConnection();
     await _fetchFirstMessage();
-
-    await _analytics.logEvent(
-      name: 'app_initialized',
-      parameters: {
-        'screen': 'HomePage',
-      },
-    );
+    await _getAllParties();
+    await _analytics
+        .logEvent(name: 'app_initialized', parameters: {'screen': 'HomePage'});
   }
 
   Future<void> _getFcmToken() async {
     final fcmToken = await FirebaseMessaging.instance.getToken();
     if (fcmToken != null) {
       _fcmToken = fcmToken;
-
       await _analytics.logEvent(
-        name: 'fcm_token_received',
-        parameters: {
-          'token_length': fcmToken.length,
-        },
-      );
+          name: 'fcm_token_received',
+          parameters: {'token_length': fcmToken.length});
     }
   }
 
   Future<void> _fetchFirstMessage() async {
     final config = Provider.of<ConfigProvider>(context, listen: false);
     final messageData = await ApiService.getFirstMessageOfDay();
-    if (messageData != null) {
+    if (messageData != null && messageData['firstMessageToDay'] != null) {
       config.setFirstMessageToday(
           DateTime.parse(messageData['firstMessageToDay']));
     }
@@ -109,30 +98,22 @@ class _HomePageState extends State<HomePage> {
     final userId = await ApiService.getUserIdFromToken();
     if (userId == null) {
       showErrorSnackbar(context, 'Não foi possível obter ID do token');
-
       await _analytics.logEvent(
-        name: 'error',
-        parameters: {
-          'message': 'Falha ao obter ID do token',
-        },
-      );
+          name: 'error', parameters: {'message': 'Falha ao obter ID do token'});
       return;
     }
-
     final userInfo = await ApiService.getUserInfoById(userId);
     if (userInfo != null) {
       userImage = userInfo['imageUrl'];
     } else {
       showErrorSnackbar(context, 'Erro ao carregar informações do usuário');
-
       await _analytics.logEvent(
         name: 'error',
         parameters: {
           'message': 'Falha ao carregar informações do usuário',
-          'user_id': userId,
+          'user_id': userId
         },
       );
-
       await _logout(context);
     }
   }
@@ -140,12 +121,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> _initializeLocation() async {
     if (await _checkLocationPermissions()) {
       await _getCurrentLocation();
-
       if (_currentLocation.latitude != null &&
           _currentLocation.longitude != null) {
         await _sendLocationUpdate();
       }
-
       Timer(const Duration(seconds: 60), () {
         _startLocationUpdates();
       });
@@ -157,20 +136,15 @@ class _HomePageState extends State<HomePage> {
     if (!serviceEnabled) {
       serviceEnabled = await _location.requestService();
       if (!serviceEnabled) {
-        await _analytics.logEvent(
-          name: 'location_service_disabled',
-        );
+        await _analytics.logEvent(name: 'location_service_disabled');
         return false;
       }
     }
-
     PermissionStatus permissionGranted = await _location.hasPermission();
     if (permissionGranted == PermissionStatus.denied) {
       permissionGranted = await _location.requestPermission();
       if (permissionGranted != PermissionStatus.granted) {
-        await _analytics.logEvent(
-          name: 'location_permission_denied',
-        );
+        await _analytics.logEvent(name: 'location_permission_denied');
         return false;
       }
     }
@@ -183,11 +157,8 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _isLocationLoaded = true;
         _updateUserMarker(
-          _currentLocation.latitude!,
-          _currentLocation.longitude!,
-        );
+            _currentLocation.latitude!, _currentLocation.longitude!);
       });
-
       await _analytics.logEvent(
         name: 'location_obtained',
         parameters: {
@@ -197,29 +168,19 @@ class _HomePageState extends State<HomePage> {
       );
     } catch (err) {
       showErrorSnackbar(context, "Erro ao recuperar localização: $err");
-
       await _analytics.logEvent(
-        name: 'location_error',
-        parameters: {
-          'error': err.toString(),
-        },
-      );
+          name: 'location_error', parameters: {'error': err.toString()});
     }
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(
-      accuracy: LocationAccuracy.high,
-      interval: 5000,
-    );
-
+    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 5000);
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) async {
       setState(() {
         _currentLocation = newLocation;
         _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
       });
-
       if (_currentLocation.longitude != null &&
           _currentLocation.latitude != null) {
         await _sendLocationUpdate();
@@ -229,32 +190,21 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _setupSignalRConnection() async {
     SignalRManager().listenToEvent("ReceiveMessage", _onReceiveMessage);
-
-    await _analytics.logEvent(
-      name: 'signalr_connection_initialized',
-    );
+    await _analytics.logEvent(name: 'signalr_connection_initialized');
   }
 
   void _onReceiveMessage(List<Object?>? args) async {
     if (args == null || args.isEmpty) return;
-
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
-
       final SignalREventType type = SignalREventType.values.firstWhere(
         (e) => e.toString().split('.').last == message['Type'],
         orElse: () => SignalREventType.MapReceiveLocation,
       );
-
       final dynamic data = message['Data'];
-
       await _analytics.logEvent(
-        name: 'signalr_message_received',
-        parameters: {
-          'type': message['Type'],
-        },
-      );
-
+          name: 'signalr_message_received',
+          parameters: {'type': message['Type']});
       switch (type) {
         case SignalREventType.MapReceiveLocation:
           _handleReceiveLocation(data);
@@ -264,19 +214,12 @@ class _HomePageState extends State<HomePage> {
           break;
         default:
           await _analytics.logEvent(
-            name: 'signalr_unrecognized_event',
-            parameters: {
-              'type': message['Type'],
-            },
-          );
+              name: 'signalr_unrecognized_event',
+              parameters: {'type': message['Type']});
       }
     } catch (e) {
       await _analytics.logEvent(
-        name: 'signalr_process_error',
-        parameters: {
-          'error': e.toString(),
-        },
-      );
+          name: 'signalr_process_error', parameters: {'error': e.toString()});
     }
   }
 
@@ -287,7 +230,6 @@ class _HomePageState extends State<HomePage> {
     final longitude = data['Longitude'];
     final userImg = data['userImage'];
     final videoCall = data['videoCall'];
-
     setState(() {
       _userMarkers[userId] = Marker(
         point: LatLng(latitude, longitude),
@@ -303,10 +245,7 @@ class _HomePageState extends State<HomePage> {
                 height: 75,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: config.customGreen,
-                    width: 4.0,
-                  ),
+                  border: Border.all(color: config.customGreen, width: 4.0),
                 ),
                 child: CircleAvatar(
                   backgroundImage: InterceptedImageProvider(
@@ -324,14 +263,9 @@ class _HomePageState extends State<HomePage> {
                     width: 25,
                     height: 25,
                     decoration: BoxDecoration(
-                      color: config.customOrange,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.videocam,
-                      color: config.customWhite,
-                      size: 14,
-                    ),
+                        color: config.customOrange, shape: BoxShape.circle),
+                    child: Icon(Icons.videocam,
+                        color: config.customWhite, size: 14),
                   ),
                 ),
               Positioned(
@@ -341,14 +275,9 @@ class _HomePageState extends State<HomePage> {
                   width: 25,
                   height: 25,
                   decoration: BoxDecoration(
-                    color: config.customGreen,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.person,
-                    color: config.customWhite,
-                    size: 14,
-                  ),
+                      color: config.customGreen, shape: BoxShape.circle),
+                  child:
+                      Icon(Icons.person, color: config.customWhite, size: 14),
                 ),
               ),
             ],
@@ -363,20 +292,14 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _userMarkers.remove(userId);
     });
-
-    await _analytics.logEvent(
-      name: 'user_disconnected',
-      parameters: {
-        'user_id': userId,
-      },
-    );
+    await _analytics
+        .logEvent(name: 'user_disconnected', parameters: {'user_id': userId});
   }
 
   Future<void> _sendLocationUpdate() async {
     try {
       final configProvider =
           Provider.of<ConfigProvider>(context, listen: false);
-
       await SignalRManager()
           .sendSignalRMessage(SignalREventType.MapUpdateLocation, {
         "Latitude": _currentLocation.latitude,
@@ -384,7 +307,6 @@ class _HomePageState extends State<HomePage> {
         "FcmToken": _fcmToken,
         "VideoCall": configProvider.hideVideoCall,
       });
-
       await _analytics.logEvent(
         name: 'location_update_sent',
         parameters: {
@@ -396,9 +318,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       await _analytics.logEvent(
         name: 'location_update_failed',
-        parameters: {
-          'error': e.toString(),
-        },
+        parameters: {'error': e.toString()},
       );
     }
   }
@@ -417,10 +337,7 @@ class _HomePageState extends State<HomePage> {
             height: 75,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(
-                color: config.customGreen,
-                width: 4.0,
-              ),
+              border: Border.all(color: config.customGreen, width: 4.0),
             ),
             child: CircleAvatar(
               backgroundImage: InterceptedImageProvider(
@@ -438,14 +355,9 @@ class _HomePageState extends State<HomePage> {
                 width: 25,
                 height: 25,
                 decoration: BoxDecoration(
-                  color: config.customOrange,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.videocam,
-                  color: config.customWhite,
-                  size: 20,
-                ),
+                    color: config.customOrange, shape: BoxShape.circle),
+                child:
+                    Icon(Icons.videocam, color: config.customWhite, size: 20),
               ),
             ),
           Positioned(
@@ -455,14 +367,8 @@ class _HomePageState extends State<HomePage> {
               width: 25,
               height: 25,
               decoration: BoxDecoration(
-                color: config.customGreen,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.person,
-                color: config.customWhite,
-                size: 20,
-              ),
+                  color: config.customGreen, shape: BoxShape.circle),
+              child: Icon(Icons.person, color: config.customWhite, size: 20),
             ),
           ),
         ],
@@ -470,16 +376,67 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _getAllParties() async {
+    final userId = await ApiService.getUserIdFromToken();
+    if (userId == null) return;
+    final result = await ApiService.getAllParties(userId);
+    if (result != null && result['data'] != null) {
+      final List parties = result['data'];
+      for (var p in parties) {
+        final id = p['id'].toString();
+        final lat = p['latitude'] is double ? p['latitude'] : 0.0;
+        final lon = p['longitude'] is double ? p['longitude'] : 0.0;
+        final title = p['title'].toString();
+        final imageUrl = p['imageUrl'].toString();
+        final userRole = p['userRole'].toString();
+        _addPartyMarker(id, lat, lon, title, imageUrl, userRole);
+      }
+      setState(() {});
+    }
+  }
+
+  void _addPartyMarker(String partyId, double lat, double lon, String title,
+      String imageUrl, String userRole) {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    _partyMarkers[partyId] = Marker(
+      point: LatLng(lat, lon),
+      width: 70,
+      height: 70,
+      child: GestureDetector(
+        onTap: () => _openPartyDetails(partyId),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: config.customOrange, width: 3),
+          ),
+          child: CircleAvatar(
+            backgroundImage: InterceptedImageProvider(
+              originalProvider: NetworkImage(imageUrl),
+              hideImages: config.hideImages,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openPartyDetails(String partyId) async {
+    final userId = await ApiService.getUserIdFromToken();
+    if (userId == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (context) =>
+              PartyDetailsPage(partyId: partyId, userId: userId)),
+    );
+  }
+
   void _recenterMap() async {
     if (_isLocationLoaded) {
       _mapController.move(
-        LatLng(
-          _currentLocation.latitude!,
-          _currentLocation.longitude!,
-        ),
+        LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
         15.0,
       );
-
       await _analytics.logEvent(
         name: 'map_recentering',
         parameters: {
@@ -499,25 +456,13 @@ class _HomePageState extends State<HomePage> {
 
   void _openProfile(String userId) async {
     await _analytics.logEvent(
-      name: 'open_other_user_profile',
-      parameters: {
-        'user_id': userId,
-      },
-    );
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ViewUserPage(userId: userId),
-      ),
-    );
+        name: 'open_other_user_profile', parameters: {'user_id': userId});
+    Navigator.push(context,
+        MaterialPageRoute(builder: (context) => ViewUserPage(userId: userId)));
   }
 
   void _openPrivateChat(BuildContext context) async {
-    await _analytics.logEvent(
-      name: 'open_private_chat',
-    );
-
+    await _analytics.logEvent(name: 'open_private_chat');
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -548,14 +493,10 @@ class _HomePageState extends State<HomePage> {
                 builder: (context, scrollController) {
                   return ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(30),
-                      bottom: Radius.circular(30),
-                    ),
+                        top: Radius.circular(30), bottom: Radius.circular(30)),
                     child: Scaffold(
-                      body: PrivateChatNavigationPage(
-                        scrollController: scrollController,
-                      ),
-                    ),
+                        body: PrivateChatNavigationPage(
+                            scrollController: scrollController)),
                   );
                 },
               ),
@@ -567,11 +508,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openPublicChat(BuildContext context) async {
-    await _analytics.logEvent(
-      name: 'open_public_chat',
-    );
+    await _analytics.logEvent(name: 'open_public_chat');
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
-
     log("Abrindo chat para assinante: ${configProvider.isSubscriber}");
     showModalBottomSheet(
       context: context,
@@ -589,9 +527,7 @@ class _HomePageState extends State<HomePage> {
                 borderRadius: BorderRadius.circular(30.0),
                 border: Border.symmetric(
                   horizontal: BorderSide(
-                    color: configProvider.secondaryColor,
-                    width: 5,
-                  ),
+                      color: configProvider.secondaryColor, width: 5),
                 ),
               ),
               child: DraggableScrollableSheet(
@@ -602,12 +538,10 @@ class _HomePageState extends State<HomePage> {
                 builder: (context, scrollController) {
                   return ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(30),
-                      bottom: Radius.circular(30),
-                    ),
+                        top: Radius.circular(30), bottom: Radius.circular(30)),
                     child: Scaffold(
-                      body: PublicChatPage(scrollController: scrollController),
-                    ),
+                        body:
+                            PublicChatPage(scrollController: scrollController)),
                   );
                 },
               ),
@@ -620,22 +554,14 @@ class _HomePageState extends State<HomePage> {
 
   void _showCustomMenu(BuildContext context, Offset offset) {
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
-
     showMenu(
       context: context,
       color: configProvider.primaryColor,
       position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy,
-        offset.dx + 50,
-        offset.dy + 50,
-      ),
+          offset.dx, offset.dy, offset.dx + 50, offset.dy + 50),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(30),
-        side: BorderSide(
-          color: configProvider.secondaryColor,
-          width: 3,
-        ),
+        side: BorderSide(color: configProvider.secondaryColor, width: 3),
       ),
       items: [
         PopupMenuItem(
@@ -644,10 +570,9 @@ class _HomePageState extends State<HomePage> {
             children: [
               Icon(Icons.person, color: configProvider.iconColor),
               const SizedBox(width: 10),
-              Text(
-                "Meu Perfil",
-                style: TextStyle(fontSize: 16, color: configProvider.textColor),
-              ),
+              Text("Meu Perfil",
+                  style:
+                      TextStyle(fontSize: 16, color: configProvider.textColor)),
             ],
           ),
         ),
@@ -657,27 +582,36 @@ class _HomePageState extends State<HomePage> {
             children: [
               Icon(Icons.settings, color: configProvider.iconColor),
               const SizedBox(width: 10),
-              Text(
-                "Configurações de Perfil",
-                style: TextStyle(fontSize: 16, color: configProvider.textColor),
-              ),
+              Text("Configurações de Perfil",
+                  style:
+                      TextStyle(fontSize: 16, color: configProvider.textColor)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'create_party',
+          child: Row(
+            children: [
+              Icon(Icons.add, color: configProvider.iconColor),
+              const SizedBox(width: 10),
+              Text("Criar festa",
+                  style:
+                      TextStyle(fontSize: 16, color: configProvider.textColor)),
             ],
           ),
         ),
         PopupMenuItem(
           enabled: true,
           child: SwitchListTile(
-            title: Text(
-              "Modo Noturno",
-              style: TextStyle(fontSize: 16, color: configProvider.textColor),
-            ),
+            title: Text("Modo Noturno",
+                style:
+                    TextStyle(fontSize: 16, color: configProvider.textColor)),
             secondary:
                 Icon(Icons.brightness_6, color: configProvider.iconColor),
             value: configProvider.isDarkMode,
             onChanged: (_) async {
               Navigator.pop(context);
               configProvider.toggleTheme();
-
               await _analytics.logEvent(
                 name: 'toggle_dark_mode',
                 parameters: {'value': configProvider.isDarkMode},
@@ -688,10 +622,9 @@ class _HomePageState extends State<HomePage> {
         PopupMenuItem(
           enabled: true,
           child: SwitchListTile(
-            title: Text(
-              "Modo Vanilla",
-              style: TextStyle(fontSize: 16, color: configProvider.textColor),
-            ),
+            title: Text("Modo Vanilla",
+                style:
+                    TextStyle(fontSize: 16, color: configProvider.textColor)),
             secondary: Icon(
               configProvider.hideImages
                   ? Icons.image_not_supported
@@ -702,7 +635,6 @@ class _HomePageState extends State<HomePage> {
             onChanged: (_) async {
               Navigator.pop(context);
               configProvider.toggleHideImages();
-
               await _analytics.logEvent(
                 name: 'toggle_hide_images',
                 parameters: {'value': configProvider.hideImages},
@@ -716,10 +648,9 @@ class _HomePageState extends State<HomePage> {
             children: [
               Icon(Icons.exit_to_app, color: configProvider.iconColor),
               const SizedBox(width: 10),
-              Text(
-                "Sair",
-                style: TextStyle(fontSize: 16, color: configProvider.textColor),
-              ),
+              Text("Sair",
+                  style:
+                      TextStyle(fontSize: 16, color: configProvider.textColor)),
             ],
           ),
         ),
@@ -728,15 +659,19 @@ class _HomePageState extends State<HomePage> {
     ).then((value) async {
       if (value == 'config') {
         await _analytics.logEvent(name: 'open_profile_edit');
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const EditUserPage()),
-        );
+        Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const EditUserPage()));
       } else if (value == 'profile_settings') {
         await _analytics.logEvent(name: 'open_profile_settings');
+        Navigator.push(context,
+            MaterialPageRoute(builder: (context) => const ConfigProfilePage()));
+      } else if (value == 'create_party') {
+        await _analytics.logEvent(name: 'open_create_party');
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const ConfigProfilePage()),
+          MaterialPageRoute(
+            builder: (context) => const CreateEditPartyPage(),
+          ),
         );
       } else if (value == 'logout') {
         await _logout(context);
@@ -746,16 +681,12 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _logout(BuildContext context) async {
     await _analytics.logEvent(name: 'logout');
-
     Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const InitialPage()),
-    );
+        context, MaterialPageRoute(builder: (context) => const InitialPage()));
   }
 
   Widget _buildFloatingButton(IconData icon, VoidCallback onPressed) {
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: RawMaterialButton(
@@ -766,11 +697,7 @@ class _HomePageState extends State<HomePage> {
         fillColor: Colors.transparent,
         splashColor: Colors.transparent,
         elevation: 0,
-        child: Icon(
-          icon,
-          color: configProvider.iconColor,
-          size: 24,
-        ),
+        child: Icon(icon, color: configProvider.iconColor, size: 24),
       ),
     );
   }
@@ -785,7 +712,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
-
     return Scaffold(
       backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
@@ -795,22 +721,14 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             configProvider.isDarkMode
-                ? Image.asset(
-                    'assets/images/logo-black.png',
-                    height: 30,
-                  )
-                : Image.asset(
-                    'assets/images/logo-white.png',
-                    height: 30,
-                  ),
+                ? Image.asset('assets/images/logo-black.png', height: 30)
+                : Image.asset('assets/images/logo-white.png', height: 30),
           ],
         ),
         automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: Icon(
-            Icons.filter_list_rounded,
-            color: configProvider.iconColor,
-          ),
+          icon:
+              Icon(Icons.filter_list_rounded, color: configProvider.iconColor),
           onPressed: () async {
             await _analytics.logEvent(name: 'menu_button_pressed');
           },
@@ -822,10 +740,7 @@ class _HomePageState extends State<HomePage> {
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Icon(
-                Icons.settings,
-                color: configProvider.iconColor,
-              ),
+              child: Icon(Icons.settings, color: configProvider.iconColor),
             ),
           ),
         ],
@@ -841,23 +756,18 @@ class _HomePageState extends State<HomePage> {
                         if (widget.initialLatitude != null &&
                             widget.initialLongitude != null) {
                           _mapController.move(
-                            LatLng(
-                              widget.initialLatitude!,
-                              widget.initialLongitude!,
-                            ),
-                            15.0,
-                          );
+                              LatLng(widget.initialLatitude!,
+                                  widget.initialLongitude!),
+                              15.0);
                         }
                       });
                     },
-                    initialCenter: LatLng(
-                      _currentLocation.latitude!,
-                      _currentLocation.longitude!,
-                    ),
+                    initialCenter: LatLng(_currentLocation.latitude!,
+                        _currentLocation.longitude!),
                     initialZoom: 15.0,
                     interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-                    ),
+                        flags:
+                            InteractiveFlag.pinchZoom | InteractiveFlag.drag),
                   ),
                   children: [
                     TileLayer(urlTemplate: _getMapUrl(context)),
@@ -865,6 +775,7 @@ class _HomePageState extends State<HomePage> {
                       markers: [
                         _userLocationMarker,
                         ..._userMarkers.values,
+                        ..._partyMarkers.values,
                       ],
                     ),
                   ],
@@ -875,17 +786,12 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.location_on, color: configProvider.iconColor),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Carregando Conteúdo',
-                        style: TextStyle(color: configProvider.textColor),
-                      ),
-                    ],
-                  ),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.location_on, color: configProvider.iconColor),
+                    const SizedBox(width: 8),
+                    Text('Carregando Conteúdo',
+                        style: TextStyle(color: configProvider.textColor)),
+                  ]),
                   AnimatedOpacity(
                     duration: const Duration(seconds: 2),
                     opacity: _opacity,
@@ -933,14 +839,8 @@ class _HomePageState extends State<HomePage> {
           }
         },
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group),
-            label: '',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.group), label: ''),
         ],
       ),
     );

@@ -51,5 +51,13 @@ namespace Snarf.API.Controllers
             var parties = await partyService.GetAllParticipants(id, userId);
             return StatusCode(parties.Code, parties);
         }
+
+        [HttpGet("{id:guid}/details/{userId:guid}")]
+        public async Task<IActionResult> GetPartyDetails([FromRoute] Guid id, [FromRoute] Guid userId)
+        {
+            userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var party = await partyService.GetById(id, userId);
+            return StatusCode(party.Code, party);
+        }
     }
 }

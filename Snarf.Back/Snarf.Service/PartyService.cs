@@ -281,5 +281,68 @@ namespace Snarf.Service
 
             return responseDTO;
         }
+
+        public async Task<ResponseDTO> GetById(Guid id, Guid userId)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (userEntity == null)
+                {
+                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {userId}!");
+                    return responseDTO;
+                }
+
+                var partyEntity = await partyRepository
+                    .GetTrackedEntities()
+                    .Include(p => p.Owner)
+                    .Include(p => p.InvitedUsers)
+                    .Include(p => p.ConfirmedUsers)
+                    .FirstOrDefaultAsync(p => p.Id == id);
+
+                if (partyEntity == null)
+                {
+                    responseDTO.SetBadInput($"Festa não encontrada com este id: {id}");
+                    return responseDTO;
+                }
+
+                var userRole = "Disponível para Participar";
+                if (partyEntity.InvitedUsers.Contains(userEntity))
+                    userRole = "Convidado";
+                else if (partyEntity.ConfirmedUsers.Contains(userEntity))
+                    userRole = "Confirmado";
+                else if (partyEntity.OwnerId == userEntity.Id)
+                    userRole = "Hospedando";
+
+                var data = new
+                {
+                    Id = partyEntity.Id,
+                    Title = partyEntity.Title,
+                    Description = partyEntity.Description,
+                    StartDate = partyEntity.StartDate,
+                    Duration = partyEntity.Duration,
+                    Type = partyEntity.Type,
+                    Location = partyEntity.Location,
+                    Instructions = partyEntity.Instructions,
+                    Latitude = partyEntity.Latitude,
+                    Longitude = partyEntity.Longitude,
+                    CoverImageUrl = partyEntity.CoverImageUrl,
+                    OwnerId = partyEntity.OwnerId,
+                    OwnerName = partyEntity.Owner.Name,
+                    InvitedCount = partyEntity.InvitedUsers.Count,
+                    ConfirmedCount = partyEntity.ConfirmedUsers.Count,
+                    UserRole = userRole
+                };
+
+                responseDTO.Object = data;
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+
+            return responseDTO;
+        }
     }
 }

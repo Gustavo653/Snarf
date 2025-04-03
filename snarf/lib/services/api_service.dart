@@ -232,16 +232,14 @@ class ApiService {
     final token = await ApiService.getToken();
     if (token == null) return null;
     try {
-      await _analytics.logEvent(
-          name: 'api_get_first_message_today_attempt');
+      await _analytics.logEvent(name: 'api_get_first_message_today_attempt');
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/Account/GetFirstMessageToday'),
         headers: {'accept': '*/*', 'Authorization': 'Bearer $token'},
       );
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        await _analytics.logEvent(
-            name: 'api_get_first_message_today_success');
+        await _analytics.logEvent(name: 'api_get_first_message_today_success');
         return responseData['object'];
       } else {
         log('Erro ao obter informações do usuário: ${response.body}');
@@ -464,7 +462,6 @@ class ApiService {
     required String currentPassword,
   }) async {
     final token = await getToken();
-
     final url = Uri.parse('${ApiConstants.baseUrl}/Account/ChangeEmail');
     final headers = {
       'Content-Type': 'application/json',
@@ -474,12 +471,10 @@ class ApiService {
       'newEmail': newEmail,
       'currentPassword': currentPassword,
     });
-
     try {
       await FirebaseAnalytics.instance
           .logEvent(name: 'api_change_email_attempt');
       final response = await http.post(url, headers: headers, body: body);
-
       if (response.statusCode == 200) {
         await FirebaseAnalytics.instance
             .logEvent(name: 'api_change_email_success');
@@ -506,7 +501,6 @@ class ApiService {
     required String newPassword,
   }) async {
     final token = await getToken();
-
     final url = Uri.parse('${ApiConstants.baseUrl}/Account/ChangePassword');
     final headers = {
       'Content-Type': 'application/json',
@@ -516,12 +510,10 @@ class ApiService {
       'oldPassword': oldPassword,
       'newPassword': newPassword,
     });
-
     try {
       await FirebaseAnalytics.instance
           .logEvent(name: 'api_change_password_attempt');
       final response = await http.post(url, headers: headers, body: body);
-
       if (response.statusCode == 200) {
         await FirebaseAnalytics.instance
             .logEvent(name: 'api_change_password_success');
@@ -550,5 +542,130 @@ class ApiService {
   static Future<void> logout() async {
     await _secureStorage.delete(key: 'token');
     await _analytics.logEvent(name: 'api_logout');
+  }
+
+  static Future<Map<String, dynamic>?> createParty({
+    required String email,
+    required String title,
+    required String description,
+    required DateTime startDate,
+    required int duration,
+    required int type,
+    required String location,
+    required String instructions,
+    required double latitude,
+    required double longitude,
+    required String coverImageBase64,
+  }) async {
+    final token = await getToken();
+    if (token == null) return null;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = jsonEncode({
+      "email": email,
+      "title": title,
+      "description": description,
+      "startDate": startDate.toUtc().toIso8601String(),
+      "duration": duration,
+      "type": type,
+      "location": location,
+      "instructions": instructions,
+      "lastLatitude": latitude,
+      "lastLongitude": longitude,
+      "coverImage": coverImageBase64
+    });
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return json['object'];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> updateParty({
+    required String partyId,
+    required String title,
+    required String description,
+    required String location,
+    required String instructions,
+    required DateTime startDate,
+    required int duration,
+  }) async {
+    final token = await getToken();
+    if (token == null) return null;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = jsonEncode({
+      "title": title,
+      "description": description,
+      "location": location,
+      "instructions": instructions,
+      "startDate": startDate.toUtc().toIso8601String(),
+      "duration": duration
+    });
+    try {
+      final response = await http.put(url, headers: headers, body: body);
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        return json['object'];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getAllParties(String userId) async {
+    final token = await getToken();
+    if (token == null) return null;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party/all$userId');
+    try {
+      final response = await http.get(url, headers: {
+        'accept': '*/*',
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData['object'] is List
+            ? {"data": responseData['object']}
+            : null;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getPartyDetails({
+    required String partyId,
+    required String userId,
+  }) async {
+    final token = await getToken();
+    if (token == null) return null;
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/details/$userId');
+    try {
+      final response = await http.get(url, headers: {
+        'accept': '*/*',
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData['object'];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 }

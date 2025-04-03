@@ -1,0 +1,320 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:snarf/pages/parties/party_details_page.dart';
+import 'package:snarf/providers/config_provider.dart';
+import 'package:snarf/services/api_service.dart';
+import 'package:snarf/utils/show_snackbar.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+
+class CreateEditPartyPage extends StatefulWidget {
+  final String? partyId;
+  final String? title;
+  final String? description;
+  final DateTime? startDate;
+  final int? duration;
+  final int? type;
+  final String? location;
+  final String? instructions;
+
+  const CreateEditPartyPage({
+    super.key,
+    this.partyId,
+    this.title,
+    this.description,
+    this.startDate,
+    this.duration,
+    this.type,
+    this.location,
+    this.instructions,
+  });
+
+  @override
+  State<CreateEditPartyPage> createState() => _CreateEditPartyPageState();
+}
+
+class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _titleController;
+  late TextEditingController _descController;
+  late TextEditingController _locationController;
+  late TextEditingController _instructionsController;
+  late DateTime _selectedDate;
+  late int _duration;
+  late int _type;
+  String? _base64Image;
+  File? _imageFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.title ?? '');
+    _descController = TextEditingController(text: widget.description ?? '');
+    _locationController = TextEditingController(text: widget.location ?? '');
+    _instructionsController =
+        TextEditingController(text: widget.instructions ?? '');
+    _selectedDate = widget.startDate ?? DateTime.now();
+    _duration = widget.duration ?? 60;
+    _type = widget.type ?? 0;
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      _imageFile = File(pickedFile.path);
+      final bytes = await _imageFile!.readAsBytes();
+      _base64Image = base64Encode(bytes);
+      setState(() {});
+    }
+  }
+
+  Future<void> _onSave() async {
+    if (!_formKey.currentState!.validate()) return;
+    final userId = await ApiService.getUserIdFromToken();
+    if (userId == null) {
+      showErrorSnackbar(context, 'Token inválido');
+      return;
+    }
+    final email = await _getUserEmail(userId);
+    if (email == null) {
+      showErrorSnackbar(context, 'Email não encontrado');
+      return;
+    }
+    if (widget.partyId == null) {
+      final result = await ApiService.createParty(
+        email: email,
+        title: _titleController.text,
+        description: _descController.text,
+        startDate: _selectedDate,
+        duration: _duration,
+        type: _type,
+        location: _locationController.text,
+        instructions: _instructionsController.text,
+        latitude: 0.0,
+        longitude: 0.0,
+        coverImageBase64: _base64Image ?? '',
+      );
+      if (result != null) {
+        Navigator.pop(context, true);
+      } else {
+        showErrorSnackbar(context, 'Erro ao criar festa');
+      }
+    } else {
+      final result = await ApiService.updateParty(
+        partyId: widget.partyId!,
+        title: _titleController.text,
+        description: _descController.text,
+        location: _locationController.text,
+        instructions: _instructionsController.text,
+        startDate: _selectedDate,
+        duration: _duration,
+      );
+      if (result != null) {
+        Navigator.pop(context, true);
+      } else {
+        showErrorSnackbar(context, 'Erro ao atualizar festa');
+      }
+    }
+  }
+
+  Future<String?> _getUserEmail(String userId) async {
+    final userData = await ApiService.getUserInfoById(userId);
+    if (userData == null) return null;
+    return userData['email'];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final configProvider = Provider.of<ConfigProvider>(context);
+    return Scaffold(
+      backgroundColor: configProvider.primaryColor,
+      appBar: AppBar(
+        backgroundColor: configProvider.primaryColor,
+        title: Text(widget.partyId == null ? 'Criar Festa' : 'Editar Festa',
+            style: TextStyle(color: configProvider.textColor)),
+        iconTheme: IconThemeData(color: configProvider.iconColor),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: _imageFile == null
+                      ? Container(
+                          height: 150,
+                          width: 150,
+                          decoration: BoxDecoration(
+                            color:
+                                configProvider.secondaryColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(75),
+                          ),
+                          child: const Icon(Icons.camera_alt, size: 40),
+                        )
+                      : CircleAvatar(
+                          radius: 75,
+                          backgroundImage: FileImage(_imageFile!),
+                        ),
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    labelText: 'Título',
+                    labelStyle: TextStyle(color: configProvider.textColor),
+                    filled: true,
+                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
+                  ),
+                  style: TextStyle(color: configProvider.textColor),
+                  validator: (val) =>
+                      val == null || val.isEmpty ? 'Informe o título' : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _descController,
+                  decoration: InputDecoration(
+                    labelText: 'Descrição',
+                    labelStyle: TextStyle(color: configProvider.textColor),
+                    filled: true,
+                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
+                  ),
+                  style: TextStyle(color: configProvider.textColor),
+                  validator: (val) =>
+                      val == null || val.isEmpty ? 'Informe a descrição' : null,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Text('Data de Início: ',
+                        style: TextStyle(color: configProvider.textColor)),
+                    const SizedBox(width: 10),
+                    TextButton(
+                      onPressed: () async {
+                        final selected = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2100),
+                        );
+                        if (selected != null) {
+                          setState(() {
+                            _selectedDate = DateTime(
+                              selected.year,
+                              selected.month,
+                              selected.day,
+                              _selectedDate.hour,
+                              _selectedDate.minute,
+                            );
+                          });
+                        }
+                      },
+                      child:
+                          Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
+                    ),
+                    const SizedBox(width: 10),
+                    TextButton(
+                      onPressed: () async {
+                        final pickedTime = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay(
+                              hour: _selectedDate.hour,
+                              minute: _selectedDate.minute),
+                        );
+                        if (pickedTime != null) {
+                          setState(() {
+                            _selectedDate = DateTime(
+                              _selectedDate.year,
+                              _selectedDate.month,
+                              _selectedDate.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+                          });
+                        }
+                      },
+                      child: Text(DateFormat('HH:mm').format(_selectedDate)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _locationController,
+                  decoration: InputDecoration(
+                    labelText: 'Local',
+                    labelStyle: TextStyle(color: configProvider.textColor),
+                    filled: true,
+                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
+                  ),
+                  style: TextStyle(color: configProvider.textColor),
+                  validator: (val) =>
+                      val == null || val.isEmpty ? 'Informe o local' : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _instructionsController,
+                  decoration: InputDecoration(
+                    labelText: 'Instruções',
+                    labelStyle: TextStyle(color: configProvider.textColor),
+                    filled: true,
+                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
+                  ),
+                  style: TextStyle(color: configProvider.textColor),
+                  validator: (val) => val == null || val.isEmpty
+                      ? 'Informe as instruções'
+                      : null,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  initialValue: _duration.toString(),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Duração (min)',
+                    labelStyle: TextStyle(color: configProvider.textColor),
+                    filled: true,
+                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
+                  ),
+                  style: TextStyle(color: configProvider.textColor),
+                  onChanged: (val) {
+                    if (val.isNotEmpty) {
+                      _duration = int.parse(val);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  initialValue: _type.toString(),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Tipo (0=Normal, 1=VIP)',
+                    labelStyle: TextStyle(color: configProvider.textColor),
+                    filled: true,
+                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
+                  ),
+                  style: TextStyle(color: configProvider.textColor),
+                  onChanged: (val) {
+                    if (val.isNotEmpty) {
+                      _type = int.parse(val);
+                    }
+                  },
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _onSave,
+                  child: Text(widget.partyId == null
+                      ? 'Criar Festa'
+                      : 'Salvar Alterações'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
