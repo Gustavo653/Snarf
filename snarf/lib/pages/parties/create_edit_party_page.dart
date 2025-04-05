@@ -1,34 +1,20 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
-import 'package:location/location.dart';
 
 class CreateEditPartyPage extends StatefulWidget {
   final String? partyId;
-  final String? title;
-  final String? description;
-  final DateTime? startDate;
-  final int? duration;
-  final int? type;
-  final String? location;
-  final String? instructions;
 
   const CreateEditPartyPage({
     super.key,
     this.partyId,
-    this.title,
-    this.description,
-    this.startDate,
-    this.duration,
-    this.type,
-    this.location,
-    this.instructions,
   });
 
   @override
@@ -45,6 +31,7 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
   late DateTime _selectedDate;
   late int _duration;
   late int _type;
+
   String? _base64Image;
   File? _imageFile;
 
@@ -62,19 +49,55 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
   double? _longitude;
   bool _locationObtained = false;
 
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.title ?? '');
-    _descController = TextEditingController(text: widget.description ?? '');
-    _locationController = TextEditingController(text: widget.location ?? '');
-    _instructionsController =
-        TextEditingController(text: widget.instructions ?? '');
-    _selectedDate = widget.startDate ?? DateTime.now();
-    _duration = widget.duration ?? 60;
-    _type = widget.type ?? 0;
+
+    _titleController = TextEditingController();
+    _descController = TextEditingController();
+    _locationController = TextEditingController();
+    _instructionsController = TextEditingController();
+    _selectedDate = DateTime.now();
+    _duration = 60;
+    _type = 0;
+
+    if (widget.partyId != null) {
+      _fetchPartyData(widget.partyId!);
+    }
 
     _obterLocalizacao();
+  }
+
+  Future<void> _fetchPartyData(String partyId) async {
+    final userId = await ApiService.getUserIdFromToken();
+
+    setState(() => _isLoading = true);
+
+    final partyData =
+        await ApiService.getPartyDetails(partyId: partyId, userId: userId!);
+    setState(() => _isLoading = false);
+
+    if (partyData == null) {
+      showErrorSnackbar(context, "Erro ao carregar dados da festa.");
+      return;
+    }
+
+    setState(() {
+      _titleController.text = partyData["title"] ?? "";
+      _descController.text = partyData["description"] ?? "";
+      _locationController.text = partyData["location"] ?? "";
+      _instructionsController.text = partyData["instructions"] ?? "";
+
+      final startDateStr = partyData["startDate"];
+      if (startDateStr != null) {
+        _selectedDate = DateTime.tryParse(startDateStr) ?? DateTime.now();
+      }
+
+      _duration = partyData["duration"] ?? 60;
+      _type = partyData["type"] ?? 0;
+    });
   }
 
   Future<void> _obterLocalizacao() async {
@@ -132,6 +155,7 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
       showErrorSnackbar(context, 'Token inválido');
       return;
     }
+
     final email = await _getUserEmail(userId);
     if (email == null) {
       showErrorSnackbar(context, 'Email não encontrado');
@@ -157,21 +181,22 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
       } else {
         showErrorSnackbar(context, 'Erro ao criar festa');
       }
+      return;
+    }
+
+    final result = await ApiService.updateParty(
+      partyId: widget.partyId!,
+      title: _titleController.text,
+      description: _descController.text,
+      location: _locationController.text,
+      instructions: _instructionsController.text,
+      startDate: _selectedDate,
+      duration: _duration,
+    );
+    if (result != null) {
+      Navigator.pop(context, true);
     } else {
-      final result = await ApiService.updateParty(
-        partyId: widget.partyId!,
-        title: _titleController.text,
-        description: _descController.text,
-        location: _locationController.text,
-        instructions: _instructionsController.text,
-        startDate: _selectedDate,
-        duration: _duration,
-      );
-      if (result != null) {
-        Navigator.pop(context, true);
-      } else {
-        showErrorSnackbar(context, 'Erro ao atualizar festa');
-      }
+      showErrorSnackbar(context, 'Erro ao atualizar festa');
     }
   }
 
@@ -184,6 +209,7 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
   @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
+
     return Scaffold(
       backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
@@ -194,206 +220,242 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
         ),
         iconTheme: IconThemeData(color: configProvider.iconColor),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: _imageFile == null
-                      ? Container(
-                          height: 150,
-                          width: 150,
-                          decoration: BoxDecoration(
-                            color:
-                                configProvider.secondaryColor.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(75),
-                          ),
-                          child: const Icon(Icons.camera_alt, size: 40),
-                        )
-                      : CircleAvatar(
-                          radius: 75,
-                          backgroundImage: FileImage(_imageFile!),
+      body: Stack(
+        children: [
+          if (_isLoading)
+            Center(
+              child: CircularProgressIndicator(
+                color: configProvider.iconColor,
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: _imageFile == null
+                            ? Container(
+                                height: 150,
+                                width: 150,
+                                decoration: BoxDecoration(
+                                  color: configProvider.secondaryColor
+                                      .withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(75),
+                                ),
+                                child: const Icon(Icons.camera_alt, size: 40),
+                              )
+                            : CircleAvatar(
+                                radius: 75,
+                                backgroundImage: FileImage(_imageFile!),
+                              ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: InputDecoration(
+                          labelText: 'Título',
+                          labelStyle:
+                              TextStyle(color: configProvider.textColor),
+                          filled: true,
+                          fillColor:
+                              configProvider.secondaryColor.withOpacity(0.1),
                         ),
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _titleController,
-                  decoration: InputDecoration(
-                    labelText: 'Título',
-                    labelStyle: TextStyle(color: configProvider.textColor),
-                    filled: true,
-                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
-                  ),
-                  style: TextStyle(color: configProvider.textColor),
-                  validator: (val) =>
-                      val == null || val.isEmpty ? 'Informe o título' : null,
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _descController,
-                  decoration: InputDecoration(
-                    labelText: 'Descrição',
-                    labelStyle: TextStyle(color: configProvider.textColor),
-                    filled: true,
-                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
-                  ),
-                  style: TextStyle(color: configProvider.textColor),
-                  validator: (val) =>
-                      val == null || val.isEmpty ? 'Informe a descrição' : null,
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Text('Data de Início: ',
-                        style: TextStyle(color: configProvider.textColor)),
-                    const SizedBox(width: 10),
-                    TextButton(
-                      onPressed: () async {
-                        final selected = await showDatePicker(
-                          context: context,
-                          initialDate: _selectedDate,
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime(2100),
-                        );
-                        if (selected != null) {
-                          setState(() {
-                            _selectedDate = DateTime(
-                              selected.year,
-                              selected.month,
-                              selected.day,
-                              _selectedDate.hour,
-                              _selectedDate.minute,
-                            );
-                          });
-                        }
-                      },
-                      child:
-                          Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
-                    ),
-                    const SizedBox(width: 10),
-                    TextButton(
-                      onPressed: () async {
-                        final pickedTime = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay(
-                            hour: _selectedDate.hour,
-                            minute: _selectedDate.minute,
+                        style: TextStyle(color: configProvider.textColor),
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Informe o título'
+                            : null,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _descController,
+                        decoration: InputDecoration(
+                          labelText: 'Descrição',
+                          labelStyle:
+                              TextStyle(color: configProvider.textColor),
+                          filled: true,
+                          fillColor:
+                              configProvider.secondaryColor.withOpacity(0.1),
+                        ),
+                        style: TextStyle(color: configProvider.textColor),
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Informe a descrição'
+                            : null,
+                      ),
+                      const SizedBox(height: 10),
+                      // Data e Hora
+                      Row(
+                        children: [
+                          Text(
+                            'Data de Início: ',
+                            style: TextStyle(color: configProvider.textColor),
                           ),
-                        );
-                        if (pickedTime != null) {
-                          setState(() {
-                            _selectedDate = DateTime(
-                              _selectedDate.year,
-                              _selectedDate.month,
-                              _selectedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                          });
-                        }
-                      },
-                      child: Text(DateFormat('HH:mm').format(_selectedDate)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _locationController,
-                  decoration: InputDecoration(
-                    labelText: 'Local',
-                    labelStyle: TextStyle(color: configProvider.textColor),
-                    filled: true,
-                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
-                  ),
-                  style: TextStyle(color: configProvider.textColor),
-                  validator: (val) =>
-                      val == null || val.isEmpty ? 'Informe o local' : null,
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _instructionsController,
-                  decoration: InputDecoration(
-                    labelText: 'Instruções',
-                    labelStyle: TextStyle(color: configProvider.textColor),
-                    filled: true,
-                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
-                  ),
-                  style: TextStyle(color: configProvider.textColor),
-                  validator: (val) => val == null || val.isEmpty
-                      ? 'Informe as instruções'
-                      : null,
-                ),
-                const SizedBox(height: 10),
-                TextFormField(
-                  initialValue: _duration.toString(),
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Duração (min)',
-                    labelStyle: TextStyle(color: configProvider.textColor),
-                    filled: true,
-                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
-                  ),
-                  style: TextStyle(color: configProvider.textColor),
-                  onChanged: (val) {
-                    if (val.isNotEmpty) {
-                      _duration = int.parse(val);
-                    }
-                  },
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<int>(
-                  value: _type,
-                  items: _partyTypes
-                      .map(
-                        (pt) => DropdownMenuItem<int>(
-                          value: pt["value"],
+                          const SizedBox(width: 10),
+                          TextButton(
+                            onPressed: () async {
+                              final selected = await showDatePicker(
+                                context: context,
+                                initialDate: _selectedDate,
+                                firstDate: DateTime.now(),
+                                lastDate: DateTime(2100),
+                              );
+                              if (selected != null) {
+                                setState(() {
+                                  _selectedDate = DateTime(
+                                    selected.year,
+                                    selected.month,
+                                    selected.day,
+                                    _selectedDate.hour,
+                                    _selectedDate.minute,
+                                  );
+                                });
+                              }
+                            },
+                            child: Text(
+                              DateFormat('dd/MM/yyyy').format(_selectedDate),
+                              style: TextStyle(color: configProvider.textColor),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          TextButton(
+                            onPressed: () async {
+                              final pickedTime = await showTimePicker(
+                                context: context,
+                                initialTime: TimeOfDay(
+                                  hour: _selectedDate.hour,
+                                  minute: _selectedDate.minute,
+                                ),
+                              );
+                              if (pickedTime != null) {
+                                setState(() {
+                                  _selectedDate = DateTime(
+                                    _selectedDate.year,
+                                    _selectedDate.month,
+                                    _selectedDate.day,
+                                    pickedTime.hour,
+                                    pickedTime.minute,
+                                  );
+                                });
+                              }
+                            },
+                            child: Text(
+                              DateFormat('HH:mm').format(_selectedDate),
+                              style: TextStyle(color: configProvider.textColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Local
+                      TextFormField(
+                        controller: _locationController,
+                        decoration: InputDecoration(
+                          labelText: 'Local',
+                          labelStyle:
+                              TextStyle(color: configProvider.textColor),
+                          filled: true,
+                          fillColor:
+                              configProvider.secondaryColor.withOpacity(0.1),
+                        ),
+                        style: TextStyle(color: configProvider.textColor),
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Informe o local'
+                            : null,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _instructionsController,
+                        decoration: InputDecoration(
+                          labelText: 'Instruções',
+                          labelStyle:
+                              TextStyle(color: configProvider.textColor),
+                          filled: true,
+                          fillColor:
+                              configProvider.secondaryColor.withOpacity(0.1),
+                        ),
+                        style: TextStyle(color: configProvider.textColor),
+                        validator: (val) => val == null || val.isEmpty
+                            ? 'Informe as instruções'
+                            : null,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        initialValue: _duration.toString(),
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Duração (min)',
+                          labelStyle:
+                              TextStyle(color: configProvider.textColor),
+                          filled: true,
+                          fillColor:
+                              configProvider.secondaryColor.withOpacity(0.1),
+                        ),
+                        style: TextStyle(color: configProvider.textColor),
+                        onChanged: (val) {
+                          if (val.isNotEmpty) {
+                            _duration = int.parse(val);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<int>(
+                        value: _type,
+                        items: _partyTypes
+                            .map(
+                              (pt) => DropdownMenuItem<int>(
+                                value: pt["value"],
+                                child: Text(
+                                  pt["label"],
+                                  style: TextStyle(
+                                      color: configProvider.textColor),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _type = val;
+                            });
+                          }
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Tipo',
+                          labelStyle:
+                              TextStyle(color: configProvider.textColor),
+                          filled: true,
+                          fillColor:
+                              configProvider.secondaryColor.withOpacity(0.1),
+                        ),
+                        style: TextStyle(color: configProvider.textColor),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: _onSave,
+                        child: Text(
+                          widget.partyId == null
+                              ? 'Criar Festa'
+                              : 'Salvar Alterações',
+                        ),
+                      ),
+                      if (!_locationObtained)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16.0),
                           child: Text(
-                            pt["label"],
+                            'Obtendo localização...',
                             style: TextStyle(color: configProvider.textColor),
                           ),
                         ),
-                      )
-                      .toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _type = val;
-                      });
-                    }
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Tipo',
-                    labelStyle: TextStyle(color: configProvider.textColor),
-                    filled: true,
-                    fillColor: configProvider.secondaryColor.withOpacity(0.1),
-                  ),
-                  style: TextStyle(color: configProvider.textColor),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _onSave,
-                  child: Text(
-                    widget.partyId == null
-                        ? 'Criar Festa'
-                        : 'Salvar Alterações',
+                    ],
                   ),
                 ),
-                if (!_locationObtained)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16.0),
-                    child: Text(
-                      'Obtendo localização...',
-                      style: TextStyle(color: configProvider.textColor),
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
-        ),
+        ],
       ),
     );
   }

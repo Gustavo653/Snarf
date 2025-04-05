@@ -102,22 +102,12 @@ class _PartiesPageState extends State<PartiesPage> {
     }
   }
 
-  /// Edição da festa -> abre a tela CreateEditPartyPage
   Future<void> _editParty(Map<String, dynamic> party) async {
     final partyId = party['id'].toString();
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CreateEditPartyPage(
-          partyId: partyId,
-          title: party['title'],
-          description: party['description'],
-          startDate: DateTime.tryParse(party['startDate']),
-          duration: party['duration'],
-          type: party['type'],
-          location: party['location'],
-          instructions: party['instructions'],
-        ),
+        builder: (_) => CreateEditPartyPage(partyId: partyId),
       ),
     );
     if (result == true) {
@@ -171,7 +161,7 @@ class _PartiesPageState extends State<PartiesPage> {
                 width: 50, height: 50, fit: BoxFit.cover)
             : const Icon(Icons.event),
         title: Text(title),
-        subtitle: Text('Role: $userRole'),
+        subtitle: Text(userRole),
         trailing: _buildTrailingActions(party),
       ),
     );
