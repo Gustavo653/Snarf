@@ -409,13 +409,11 @@ class ApiService {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $userJwtToken',
     };
-
     final body = jsonEncode({
       "subscriptionId": subscriptionId ?? "string",
       "token": tokenFromPurchase ?? "string",
       "minutes": minutes,
     });
-
     try {
       await _analytics.logEvent(
         name: 'api_add_extra_minutes_attempt',
@@ -423,9 +421,7 @@ class ApiService {
           'minutes': minutes,
         },
       );
-
       final response = await http.post(url, headers: headers, body: body);
-
       if (response.statusCode == 200) {
         await _analytics.logEvent(
           name: 'api_add_extra_minutes_success',
@@ -666,6 +662,109 @@ class ApiService {
       return null;
     } catch (e) {
       return null;
+    }
+  }
+
+  static Future<bool> requestPartyParticipation({
+    required String partyId,
+    required String userId,
+  }) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/invite');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = jsonEncode({
+      "userIds": [userId]
+    });
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> confirmUser(String partyId, String userId) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/confirm/$userId');
+    final headers = {
+      'Authorization': 'Bearer $token',
+    };
+    try {
+      final response = await http.post(url, headers: headers);
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> declineUser(String partyId, String userId) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/decline/$userId');
+    final headers = {
+      'Authorization': 'Bearer $token',
+    };
+    try {
+      final response = await http.post(url, headers: headers);
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getAllParticipants(
+      String partyId, String userId) async {
+    final token = await getToken();
+    if (token == null) return null;
+    final url = Uri.parse(
+        '${ApiConstants.baseUrl}/Party/$partyId/participants/$userId');
+    try {
+      final response = await http.get(url, headers: {
+        'accept': '*/*',
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData['object'];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<bool> deleteParty(String partyId, String userId) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/delete/$userId');
+    final headers = {
+      'Authorization': 'Bearer $token',
+    };
+    try {
+      final response = await http.delete(url, headers: headers);
+      if (response.statusCode == 200) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
   }
 }

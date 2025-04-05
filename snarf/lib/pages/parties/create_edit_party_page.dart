@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:snarf/pages/parties/party_details_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
@@ -46,6 +45,14 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
   late int _type;
   String? _base64Image;
   File? _imageFile;
+  final List<Map<String, dynamic>> _partyTypes = [
+    {"value": 0, "label": "Orgia"},
+    {"value": 1, "label": "Bomba e Despejo"},
+    {"value": 2, "label": "Masturbação Coletiva"},
+    {"value": 3, "label": "Grupo de Bukkake"},
+    {"value": 4, "label": "Grupo Fetiche"},
+    {"value": 5, "label": "Evento Especial"},
+  ];
 
   @override
   void initState() {
@@ -287,21 +294,33 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                   },
                 ),
                 const SizedBox(height: 10),
-                TextFormField(
-                  initialValue: _type.toString(),
-                  keyboardType: TextInputType.number,
+                DropdownButtonFormField<int>(
+                  value: _type,
+                  items: _partyTypes
+                      .map(
+                        (pt) => DropdownMenuItem<int>(
+                          value: pt["value"],
+                          child: Text(
+                            pt["label"],
+                            style: TextStyle(color: configProvider.textColor),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _type = val;
+                      });
+                    }
+                  },
                   decoration: InputDecoration(
-                    labelText: 'Tipo (0=Normal, 1=VIP)',
+                    labelText: 'Tipo',
                     labelStyle: TextStyle(color: configProvider.textColor),
                     filled: true,
                     fillColor: configProvider.secondaryColor.withOpacity(0.1),
                   ),
                   style: TextStyle(color: configProvider.textColor),
-                  onChanged: (val) {
-                    if (val.isNotEmpty) {
-                      _type = int.parse(val);
-                    }
-                  },
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(

@@ -10,6 +10,7 @@ namespace Snarf.API.Controllers
         [HttpPost("")]
         public async Task<IActionResult> Create([FromBody] PartyCreateDTO partyCreateDTO)
         {
+            partyCreateDTO.UserId = User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value;
             var party = await partyService.Create(partyCreateDTO);
             return StatusCode(party.Code, party);
         }
@@ -17,7 +18,6 @@ namespace Snarf.API.Controllers
         [HttpPut("{id:guid}")]
         public async Task<IActionResult> UpdateParty([FromRoute] Guid id, [FromBody] PartyUpdateDTO updateDTO)
         {
-            id = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
             var party = await partyService.Update(id, updateDTO);
             return StatusCode(party.Code, party);
         }
@@ -32,7 +32,7 @@ namespace Snarf.API.Controllers
         [HttpPut("{id:guid}/confirm-user/{userId:guid}")]
         public async Task<IActionResult> ConfirmParty([FromRoute] Guid id, [FromRoute] Guid userId)
         {
-            id = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
             var party = await partyService.ConfirmUser(id, userId);
             return StatusCode(party.Code, party);
         }
@@ -40,6 +40,7 @@ namespace Snarf.API.Controllers
         [HttpGet("all{userId:guid}")]
         public async Task<IActionResult> GetAllParties([FromRoute] Guid userId)
         {
+            userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
             var parties = await partyService.GetAll(userId);
             return StatusCode(parties.Code, parties);
         }

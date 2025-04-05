@@ -13,9 +13,9 @@ import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
+import 'package:snarf/pages/parties/party_details_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
-import 'package:snarf/pages/parties/party_details_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -300,13 +300,15 @@ class _HomePageState extends State<HomePage> {
     try {
       final configProvider =
           Provider.of<ConfigProvider>(context, listen: false);
-      await SignalRManager()
-          .sendSignalRMessage(SignalREventType.MapUpdateLocation, {
-        "Latitude": _currentLocation.latitude,
-        "Longitude": _currentLocation.longitude,
-        "FcmToken": _fcmToken,
-        "VideoCall": configProvider.hideVideoCall,
-      });
+      await SignalRManager().sendSignalRMessage(
+        SignalREventType.MapUpdateLocation,
+        {
+          "Latitude": _currentLocation.latitude,
+          "Longitude": _currentLocation.longitude,
+          "FcmToken": _fcmToken,
+          "VideoCall": configProvider.hideVideoCall,
+        },
+      );
       await _analytics.logEvent(
         name: 'location_update_sent',
         parameters: {
@@ -426,8 +428,11 @@ class _HomePageState extends State<HomePage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (context) =>
-              PartyDetailsPage(partyId: partyId, userId: userId)),
+        builder: (context) => PartyDetailsPage(
+          partyId: partyId,
+          userId: userId,
+        ),
+      ),
     );
   }
 
@@ -457,8 +462,10 @@ class _HomePageState extends State<HomePage> {
   void _openProfile(String userId) async {
     await _analytics.logEvent(
         name: 'open_other_user_profile', parameters: {'user_id': userId});
-    Navigator.push(context,
-        MaterialPageRoute(builder: (context) => ViewUserPage(userId: userId)));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ViewUserPage(userId: userId)),
+    );
   }
 
   void _openPrivateChat(BuildContext context) async {
@@ -495,8 +502,9 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(30), bottom: Radius.circular(30)),
                     child: Scaffold(
-                        body: PrivateChatNavigationPage(
-                            scrollController: scrollController)),
+                      body: PrivateChatNavigationPage(
+                          scrollController: scrollController),
+                    ),
                   );
                 },
               ),
@@ -540,8 +548,8 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(30), bottom: Radius.circular(30)),
                     child: Scaffold(
-                        body:
-                            PublicChatPage(scrollController: scrollController)),
+                      body: PublicChatPage(scrollController: scrollController),
+                    ),
                   );
                 },
               ),

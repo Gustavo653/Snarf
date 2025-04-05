@@ -20,8 +20,6 @@ namespace Snarf.DTO
         public string CoverImage { get; set; }
         public double? LastLatitude { get; set; }
         public double? LastLongitude { get; set; }
-        [Required]
-        [EmailAddress]
-        public required string Email { get; set; }
+        public string? UserId { get; set; }
     }
 }
