@@ -37,6 +37,14 @@ namespace Snarf.API.Controllers
             return StatusCode(party.Code, party);
         }
 
+        [HttpPut("{id:guid}/decline-user/{userId:guid}")]
+        public async Task<IActionResult> DeclineUser([FromRoute] Guid id, [FromRoute] Guid userId)
+        {
+            userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var party = await partyService.DeclineUser(id, userId);
+            return StatusCode(party.Code, party);
+        }
+
         [HttpGet("all{userId:guid}")]
         public async Task<IActionResult> GetAllParties([FromRoute] Guid userId)
         {

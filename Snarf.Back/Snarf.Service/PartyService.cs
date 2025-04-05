@@ -182,25 +182,54 @@ namespace Snarf.Service
             ResponseDTO responseDTO = new();
             try
             {
-                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId.ToString());
-                if (userEntity == null)
+                var targetUserEntity = await userRepository.GetTrackedEntities()
+                    .FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (targetUserEntity == null)
                 {
-                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {userId}!");
+                    responseDTO.SetBadInput($"Usuário alvo não encontrado id: {userId}");
                     return responseDTO;
                 }
-                var partyEntity = await partyRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id);
+
+                var whoIsCalling = await userRepository.GetTrackedEntities()
+                    .FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (whoIsCalling == null)
+                {
+                    responseDTO.SetBadInput($"Usuário chamando o método não encontrado id: {userId}");
+                    return responseDTO;
+                }
+
+                var partyEntity = await partyRepository.GetTrackedEntities()
+                    .Include(x => x.InvitedUsers)
+                    .Include(x => x.ConfirmedUsers)
+                    .FirstOrDefaultAsync(x => x.Id == id);
                 if (partyEntity == null)
                 {
                     responseDTO.SetBadInput($"Festa não encontrada com este id: {id}");
                     return responseDTO;
                 }
-                if (partyEntity.InvitedUsers.Contains(userEntity))
+
+                bool isHost = (partyEntity.OwnerId == whoIsCalling.Id);
+
+                if (!isHost && whoIsCalling.Id != targetUserEntity.Id)
                 {
-                    partyEntity.ConfirmedUsers.Add(userEntity);
-                    partyEntity.InvitedUsers.Remove(userEntity);
+                    responseDTO.SetBadInput("Você não tem permissão para confirmar outro usuário.");
+                    return responseDTO;
                 }
-                await partyRepository.SaveChangesAsync();
-                Log.Information("Confirmado presença para id: {id}", userEntity.Id);
+
+                if (partyEntity.InvitedUsers.Contains(targetUserEntity))
+                {
+                    partyEntity.InvitedUsers.Remove(targetUserEntity);
+                    if (!partyEntity.ConfirmedUsers.Contains(targetUserEntity))
+                    {
+                        partyEntity.ConfirmedUsers.Add(targetUserEntity);
+                    }
+                    await partyRepository.SaveChangesAsync();
+                    Log.Information("Confirmado presença para user: {0} na festa {1}", targetUserEntity.Id, partyEntity.Id);
+                }
+                else
+                {
+                    responseDTO.SetBadInput("Usuário não está na lista de convidados para ser confirmado.");
+                }
             }
             catch (Exception ex)
             {
@@ -214,24 +243,52 @@ namespace Snarf.Service
             ResponseDTO responseDTO = new();
             try
             {
-                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == userId.ToString());
-                if (userEntity == null)
+                var targetUserEntity = await userRepository.GetTrackedEntities()
+                    .FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (targetUserEntity == null)
                 {
-                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {userId}!");
+                    responseDTO.SetBadInput($"Usuário alvo não encontrado id: {userId}");
                     return responseDTO;
                 }
-                var partyEntity = await partyRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id);
+
+                var whoIsCalling = await userRepository.GetTrackedEntities()
+                    .FirstOrDefaultAsync(x => x.Id == userId.ToString());
+                if (whoIsCalling == null)
+                {
+                    responseDTO.SetBadInput($"Usuário chamando o método não encontrado id: {userId}");
+                    return responseDTO;
+                }
+
+                var partyEntity = await partyRepository.GetTrackedEntities()
+                    .Include(x => x.InvitedUsers)
+                    .Include(x => x.ConfirmedUsers)
+                    .FirstOrDefaultAsync(x => x.Id == id);
                 if (partyEntity == null)
                 {
                     responseDTO.SetBadInput($"Festa não encontrada com este id: {id}");
                     return responseDTO;
                 }
-                if (partyEntity.InvitedUsers.Contains(userEntity))
+
+                bool isHost = (partyEntity.OwnerId == whoIsCalling.Id);
+
+                if (!isHost && whoIsCalling.Id != targetUserEntity.Id)
                 {
-                    partyEntity.InvitedUsers.Remove(userEntity);
+                    responseDTO.SetBadInput("Você não tem permissão para recusar outro usuário.");
+                    return responseDTO;
                 }
+
+                if (partyEntity.InvitedUsers.Contains(targetUserEntity))
+                {
+                    partyEntity.InvitedUsers.Remove(targetUserEntity);
+                }
+
+                if (partyEntity.ConfirmedUsers.Contains(targetUserEntity))
+                {
+                    partyEntity.ConfirmedUsers.Remove(targetUserEntity);
+                }
+
                 await partyRepository.SaveChangesAsync();
-                Log.Information("Convite recusado para o usuário: {id}", userEntity.Id);
+                Log.Information("Usuário {0} removido/recusado da festa {1}", targetUserEntity.Id, partyEntity.Id);
             }
             catch (Exception ex)
             {

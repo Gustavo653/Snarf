@@ -10,6 +10,7 @@ namespace Snarf.Infrastructure.Service
         Task<ResponseDTO> InviteUsers(Guid id, AddUsersToPartyDTO request);
         Task<ResponseDTO> GetAll(Guid userId);
         Task<ResponseDTO> ConfirmUser(Guid id, Guid userId);
+        Task<ResponseDTO> DeclineUser(Guid id, Guid userId);
         Task<ResponseDTO> GetAllParticipants(Guid id, Guid userId);
         Task<ResponseDTO> GetById(Guid id, Guid userId);
     }
