@@ -7,6 +7,7 @@ import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:location/location.dart';
 
 class CreateEditPartyPage extends StatefulWidget {
   final String? partyId;
@@ -36,6 +37,7 @@ class CreateEditPartyPage extends StatefulWidget {
 
 class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
   final _formKey = GlobalKey<FormState>();
+
   late TextEditingController _titleController;
   late TextEditingController _descController;
   late TextEditingController _locationController;
@@ -45,6 +47,7 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
   late int _type;
   String? _base64Image;
   File? _imageFile;
+
   final List<Map<String, dynamic>> _partyTypes = [
     {"value": 0, "label": "Orgia"},
     {"value": 1, "label": "Bomba e Despejo"},
@@ -53,6 +56,11 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
     {"value": 4, "label": "Grupo Fetiche"},
     {"value": 5, "label": "Evento Especial"},
   ];
+
+  late Location _location;
+  double? _latitude;
+  double? _longitude;
+  bool _locationObtained = false;
 
   @override
   void initState() {
@@ -65,6 +73,44 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
     _selectedDate = widget.startDate ?? DateTime.now();
     _duration = widget.duration ?? 60;
     _type = widget.type ?? 0;
+
+    _obterLocalizacao();
+  }
+
+  Future<void> _obterLocalizacao() async {
+    _location = Location();
+
+    bool serviceEnabled;
+    PermissionStatus permissionGranted;
+
+    serviceEnabled = await _location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await _location.requestService();
+      if (!serviceEnabled) {
+        showErrorSnackbar(context, "Precisamos que seu GPS esteja ligado.");
+        return;
+      }
+    }
+
+    permissionGranted = await _location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await _location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) {
+        showErrorSnackbar(context, "Precisamos da permissão de localização.");
+        return;
+      }
+    }
+
+    try {
+      final locationData = await _location.getLocation();
+      setState(() {
+        _latitude = locationData.latitude;
+        _longitude = locationData.longitude;
+        _locationObtained = true;
+      });
+    } catch (e) {
+      showErrorSnackbar(context, "Erro ao obter localização: $e");
+    }
   }
 
   Future<void> _pickImage() async {
@@ -80,6 +126,7 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
 
   Future<void> _onSave() async {
     if (!_formKey.currentState!.validate()) return;
+
     final userId = await ApiService.getUserIdFromToken();
     if (userId == null) {
       showErrorSnackbar(context, 'Token inválido');
@@ -90,6 +137,7 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
       showErrorSnackbar(context, 'Email não encontrado');
       return;
     }
+
     if (widget.partyId == null) {
       final result = await ApiService.createParty(
         email: email,
@@ -100,8 +148,8 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
         type: _type,
         location: _locationController.text,
         instructions: _instructionsController.text,
-        latitude: 0.0,
-        longitude: 0.0,
+        latitude: _latitude ?? 0.0,
+        longitude: _longitude ?? 0.0,
         coverImageBase64: _base64Image ?? '',
       );
       if (result != null) {
@@ -140,8 +188,10 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
       backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
         backgroundColor: configProvider.primaryColor,
-        title: Text(widget.partyId == null ? 'Criar Festa' : 'Editar Festa',
-            style: TextStyle(color: configProvider.textColor)),
+        title: Text(
+          widget.partyId == null ? 'Criar Festa' : 'Editar Festa',
+          style: TextStyle(color: configProvider.textColor),
+        ),
         iconTheme: IconThemeData(color: configProvider.iconColor),
       ),
       body: Padding(
@@ -230,8 +280,9 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                         final pickedTime = await showTimePicker(
                           context: context,
                           initialTime: TimeOfDay(
-                              hour: _selectedDate.hour,
-                              minute: _selectedDate.minute),
+                            hour: _selectedDate.hour,
+                            minute: _selectedDate.minute,
+                          ),
                         );
                         if (pickedTime != null) {
                           setState(() {
@@ -325,10 +376,20 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: _onSave,
-                  child: Text(widget.partyId == null
-                      ? 'Criar Festa'
-                      : 'Salvar Alterações'),
+                  child: Text(
+                    widget.partyId == null
+                        ? 'Criar Festa'
+                        : 'Salvar Alterações',
+                  ),
                 ),
+                if (!_locationObtained)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Text(
+                      'Obtendo localização...',
+                      style: TextStyle(color: configProvider.textColor),
+                    ),
+                  ),
               ],
             ),
           ),
