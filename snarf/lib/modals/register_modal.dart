@@ -6,11 +6,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:provider/provider.dart'; // <-- Import necessário
+import 'package:provider/provider.dart';
 import 'package:snarf/components/custom_modal.dart';
 import 'package:snarf/components/loading_elevated_button.dart';
 import 'package:snarf/pages/home_page.dart';
-import 'package:snarf/providers/config_provider.dart'; // <-- Import necessário
+import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 
 class RegisterModal extends StatefulWidget {
@@ -128,7 +128,6 @@ class _RegisterModalState extends State<RegisterModal> {
 
   @override
   Widget build(BuildContext context) {
-    // Obtenha seu configProvider para acessar cores e demais atributos de tema
     final configProvider = Provider.of<ConfigProvider>(context);
 
     return BackdropFilter(

@@ -1,5 +1,6 @@
 ﻿using Snarf.Domain.Base;
 using Snarf.Domain.Enum;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Snarf.Domain.Entities
 {
@@ -21,5 +22,22 @@ namespace Snarf.Domain.Entities
 
         public virtual IList<User> InvitedUsers { get; set; } = [];
         public virtual IList<User> ConfirmedUsers { get; set; } = [];
+
+        public string? InvitedByHostJson { get; set; }
+        [NotMapped]
+        public Dictionary<string, bool> InvitedByHostMap
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(InvitedByHostJson))
+                    return new Dictionary<string, bool>();
+                return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, bool>>(InvitedByHostJson)
+                       ?? new Dictionary<string, bool>();
+            }
+            set
+            {
+                InvitedByHostJson = System.Text.Json.JsonSerializer.Serialize(value);
+            }
+        }
     }
 }

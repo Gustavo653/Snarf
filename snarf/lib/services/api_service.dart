@@ -671,7 +671,8 @@ class ApiService {
   }) async {
     final token = await getToken();
     if (token == null) return false;
-    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/invite-users');
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/invite-users');
     final headers = {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
@@ -689,50 +690,12 @@ class ApiService {
     }
   }
 
-  static Future<bool> confirmUser(String partyId, String userId) async {
-    final token = await getToken();
-    if (token == null) return false;
-    final url =
-        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/confirm/$userId');
-    final headers = {
-      'Authorization': 'Bearer $token',
-    };
-    try {
-      final response = await http.post(url, headers: headers);
-      if (response.statusCode == 200) {
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  static Future<bool> declineUser(String partyId, String userId) async {
-    final token = await getToken();
-    if (token == null) return false;
-    final url =
-        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/decline/$userId');
-    final headers = {
-      'Authorization': 'Bearer $token',
-    };
-    try {
-      final response = await http.post(url, headers: headers);
-      if (response.statusCode == 200) {
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
-
   static Future<Map<String, dynamic>?> getAllParticipants(
       String partyId, String userId) async {
     final token = await getToken();
     if (token == null) return null;
-    final url = Uri.parse(
-        '${ApiConstants.baseUrl}/Party/$partyId/participants/$userId');
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/all-users/$userId');
     try {
       final response = await http.get(url, headers: {
         'accept': '*/*',
@@ -762,6 +725,69 @@ class ApiService {
         return true;
       }
       return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> requestParticipation(String partyId) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/request-participation');
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    try {
+      final response = await http.put(url, headers: headers);
+      return (response.statusCode == 200);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> inviteUsers(String partyId, List<String> userIds) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/invite-users');
+    final headers = {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+    final body = jsonEncode(userIds);
+    try {
+      final response = await http.put(url, headers: headers, body: body);
+      return (response.statusCode == 200);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> confirmUser(String partyId, String targetUserId) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/confirm/$targetUserId');
+    final headers = {
+      'Authorization': 'Bearer $token',
+    };
+    try {
+      final response = await http.post(url, headers: headers);
+      return (response.statusCode == 200);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> declineUser(String partyId, String targetUserId) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/decline/$targetUserId');
+    final headers = {
+      'Authorization': 'Bearer $token',
+    };
+    try {
+      final response = await http.post(url, headers: headers);
+      return (response.statusCode == 200);
     } catch (e) {
       return false;
     }

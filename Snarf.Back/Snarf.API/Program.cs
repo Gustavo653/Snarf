@@ -74,11 +74,11 @@ namespace Snarf.API
 
             builder.Services.AddSession();
 
-            builder.Services.AddControllers()
-                            .AddJsonOptions(options =>
-                            {
-                                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                            });
+            builder.Services.AddControllers();
+                            //.AddJsonOptions(options =>
+                            //{
+                            //    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                            //});
 
             builder.Services.AddOutputCache(x =>
             {

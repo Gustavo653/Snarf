@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/config_provider.dart';
@@ -21,6 +24,7 @@ class PartyDetailsPage extends StatefulWidget {
 class _PartyDetailsPageState extends State<PartyDetailsPage> {
   Map<String, dynamic>? _partyData;
   bool _isLoading = true;
+
   bool _loadingRequest = false;
   bool _loadingConfirmation = false;
   bool _loadingDecline = false;
@@ -67,12 +71,12 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
-  Future<void> _confirmParticipation(String userId) async {
+  Future<void> _confirmParticipation(String targetUserId) async {
     if (_loadingConfirmation) return;
     setState(() {
       _loadingConfirmation = true;
     });
-    final result = await ApiService.confirmUser(widget.partyId, userId);
+    final result = await ApiService.confirmUser(widget.partyId, targetUserId);
     setState(() {
       _loadingConfirmation = false;
     });
@@ -84,12 +88,12 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
-  Future<void> _declineParticipation(String userId) async {
+  Future<void> _declineParticipation(String targetUserId) async {
     if (_loadingDecline) return;
     setState(() {
       _loadingDecline = true;
     });
-    final result = await ApiService.declineUser(widget.partyId, userId);
+    final result = await ApiService.declineUser(widget.partyId, targetUserId);
     setState(() {
       _loadingDecline = false;
     });
@@ -132,6 +136,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
+
     return Scaffold(
       backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
@@ -160,11 +165,13 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       ),
       body: _isLoading
           ? Center(
-              child: CircularProgressIndicator(color: configProvider.iconColor))
+              child: CircularProgressIndicator(color: configProvider.iconColor),
+            )
           : _partyData == null
               ? Center(
                   child: Text('Festa não encontrada',
-                      style: TextStyle(color: configProvider.textColor)))
+                      style: TextStyle(color: configProvider.textColor)),
+                )
               : SingleChildScrollView(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -191,7 +198,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Tipo: ${_partyData!['type']}',
+                          'Tipo: ${_mapType(_partyData!['type'])}',
                           style: TextStyle(
                             fontSize: 16,
                             color: configProvider.textColor,
@@ -245,6 +252,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                               color: configProvider.textColor,
                             ),
                           ),
+
                         if (_partyData!['OwnerId'] != widget.userId &&
                             _partyData!['userRole'] ==
                                 'Disponível para Participar')
@@ -254,96 +262,79 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                 ? const CircularProgressIndicator()
                                 : const Text('Solicitar Participação'),
                           ),
-                        if (_partyData!['OwnerId'] == widget.userId)
-                          FutureBuilder(
+
+                        FutureBuilder(
                             future: ApiService.getAllParticipants(
                                 widget.partyId, widget.userId),
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                   ConnectionState.waiting) {
-                                return const SizedBox.shrink();
+                                return CircularProgressIndicator();
                               }
                               if (snapshot.data == null) {
+                                return Text("Erro ao carregar participantes");
+                              }
+                              log(jsonEncode(snapshot.data));
+                              final data = snapshot.data!;
+                              final confirmeds =
+                                  data['confirmeds'] as List<dynamic>?;
+                              final inviteds =
+                                  data['inviteds'] as List<dynamic>?;
+                              log(jsonEncode(inviteds));
+                              log(jsonEncode(_partyData));
+
+                              Padding(
+                                padding: const EdgeInsets.only(top: 16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text("Confirmados:"),
+                                    if (confirmeds != null)
+                                      for (var c in confirmeds) Text(c['name']),
+                                  ],
+                                ),
+                              );
+
+                              if (_partyData!['ownerId'] == widget.userId) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text("Pendentes:"),
+                                      if (inviteds != null)
+                                        for (var i in inviteds)
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(i['name']),
+                                              Row(
+                                                children: [
+                                                  IconButton(
+                                                    icon: Icon(Icons.check),
+                                                    onPressed: () =>
+                                                        _confirmParticipation(
+                                                            i['id']),
+                                                  ),
+                                                  IconButton(
+                                                    icon: Icon(Icons.close),
+                                                    onPressed: () =>
+                                                        _declineParticipation(
+                                                            i['id']),
+                                                  ),
+                                                ],
+                                              )
+                                            ],
+                                          ),
+                                    ],
+                                  ),
+                                );
+                              } else {
                                 return const SizedBox.shrink();
                               }
-                              final data = snapshot.data!;
-                              final inviteds = data['Inviteds'];
-                              final confirmeds = data['Confirmeds'];
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Pendentes:',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: configProvider.textColor,
-                                    ),
-                                  ),
-                                  for (var i in inviteds)
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          i['name'],
-                                          style: TextStyle(
-                                              color: configProvider.textColor),
-                                        ),
-                                        Row(
-                                          children: [
-                                            IconButton(
-                                              onPressed: () {
-                                                _confirmParticipation(i['id']);
-                                              },
-                                              icon: _loadingConfirmation
-                                                  ? const SizedBox(
-                                                      width: 24,
-                                                      height: 24,
-                                                      child:
-                                                          CircularProgressIndicator(),
-                                                    )
-                                                  : const Icon(Icons.check),
-                                            ),
-                                            IconButton(
-                                              onPressed: () {
-                                                _declineParticipation(i['id']);
-                                              },
-                                              icon: _loadingDecline
-                                                  ? const SizedBox(
-                                                      width: 24,
-                                                      height: 24,
-                                                      child:
-                                                          CircularProgressIndicator(),
-                                                    )
-                                                  : const Icon(Icons.close),
-                                            ),
-                                          ],
-                                        )
-                                      ],
-                                    ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Confirmados:',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: configProvider.textColor,
-                                    ),
-                                  ),
-                                  for (var c in confirmeds)
-                                    Row(
-                                      children: [
-                                        Text(
-                                          c['name'],
-                                          style: TextStyle(
-                                              color: configProvider.textColor),
-                                        ),
-                                      ],
-                                    ),
-                                ],
-                              );
-                            },
-                          ),
+                            })
                       ],
                     ),
                   ),

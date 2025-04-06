@@ -375,7 +375,6 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                       ),
                       const SizedBox(height: 10),
 
-                      // Local
                       TextFormField(
                         controller: _locationController,
                         decoration: InputDecoration(
@@ -401,7 +400,6 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                       ),
                       const SizedBox(height: 10),
 
-                      // Instruções (multilinha)
                       TextFormField(
                         controller: _instructionsController,
                         decoration: InputDecoration(
@@ -428,7 +426,6 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                       ),
                       const SizedBox(height: 10),
 
-                      // Duração
                       TextFormField(
                         initialValue: _duration.toString(),
                         keyboardType: TextInputType.number,
@@ -457,7 +454,6 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                       ),
                       const SizedBox(height: 10),
 
-                      // Tipo de festa
                       DropdownButtonFormField<int>(
                         value: _type,
                         items: _partyTypes

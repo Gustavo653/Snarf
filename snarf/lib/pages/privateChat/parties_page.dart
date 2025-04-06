@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
+import 'package:snarf/pages/parties/party_details_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
@@ -25,6 +26,11 @@ class _PartiesPageState extends State<PartiesPage> {
 
   Future<void> _fetchAllParties() async {
     userId = await ApiService.getUserIdFromToken();
+    if (userId == null) {
+      showErrorSnackbar(context, 'Usuário não logado');
+      return;
+    }
+
     setState(() => _isLoading = true);
     final data = await ApiService.getAllParties(userId!);
     setState(() => _isLoading = false);
@@ -155,15 +161,25 @@ class _PartiesPageState extends State<PartiesPage> {
 
     return Card(
       child: ListTile(
-        leading: (party["imageUrl"] != null &&
-                party["imageUrl"].toString().isNotEmpty)
-            ? Image.network(party["imageUrl"],
-                width: 50, height: 50, fit: BoxFit.cover)
-            : const Icon(Icons.event),
-        title: Text(title),
-        subtitle: Text(userRole),
-        trailing: _buildTrailingActions(party),
-      ),
+          leading: (party["imageUrl"] != null &&
+                  party["imageUrl"].toString().isNotEmpty)
+              ? Image.network(party["imageUrl"],
+                  width: 50, height: 50, fit: BoxFit.cover)
+              : const Icon(Icons.event),
+          title: Text(title),
+          subtitle: Text(userRole),
+          trailing: _buildTrailingActions(party),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PartyDetailsPage(
+                  partyId: partyId,
+                  userId: userId!,
+                ),
+              ),
+            );
+          }),
     );
   }
 
@@ -175,16 +191,13 @@ class _PartiesPageState extends State<PartiesPage> {
       case 'Hospedando':
         return PopupMenuButton<String>(
           onSelected: (value) {
-            if (value == 'edit') {
-              _editParty(party);
-            } else if (value == 'invite') {
+            if (value == 'invite') {
               _inviteUserDialog(partyId);
             } else if (value == 'delete') {
               _deleteParty(partyId);
             }
           },
           itemBuilder: (ctx) => [
-            const PopupMenuItem(value: 'edit', child: Text('Editar Festa')),
             const PopupMenuItem(
                 value: 'invite', child: Text('Convidar Usuário')),
             const PopupMenuItem(value: 'delete', child: Text('Excluir Festa')),
@@ -206,6 +219,13 @@ class _PartiesPageState extends State<PartiesPage> {
               onPressed: () => _declineInvite(partyId),
             ),
           ],
+        );
+
+      case 'Solicitante':
+        return IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'Cancelar solicitação',
+          onPressed: () => _declineInvite(partyId),
         );
 
       case 'Confirmado':
