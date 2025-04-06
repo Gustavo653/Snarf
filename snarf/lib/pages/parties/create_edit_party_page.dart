@@ -206,6 +206,33 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
     return userData['email'];
   }
 
+  Future<void> _selectDateTime() async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2100),
+    );
+    if (selected != null) {
+      final pickedTime = await showTimePicker(
+        context: context,
+        initialTime:
+            TimeOfDay(hour: _selectedDate.hour, minute: _selectedDate.minute),
+      );
+      if (pickedTime != null) {
+        setState(() {
+          _selectedDate = DateTime(
+            selected.year,
+            selected.month,
+            selected.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
@@ -238,170 +265,199 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                     children: [
                       GestureDetector(
                         onTap: _pickImage,
-                        child: _imageFile == null
-                            ? Container(
-                                height: 150,
-                                width: 150,
-                                decoration: BoxDecoration(
-                                  color: configProvider.secondaryColor
-                                      .withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(75),
-                                ),
-                                child: const Icon(Icons.camera_alt, size: 40),
-                              )
-                            : CircleAvatar(
-                                radius: 75,
-                                backgroundImage: FileImage(_imageFile!),
-                              ),
+                        child: Column(
+                          children: [
+                            _imageFile == null
+                                ? Container(
+                                    height: 120,
+                                    width: 120,
+                                    decoration: BoxDecoration(
+                                      color: configProvider.secondaryColor
+                                          .withOpacity(0.2),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.camera_alt,
+                                      size: 40,
+                                      color: configProvider.iconColor,
+                                    ),
+                                  )
+                                : CircleAvatar(
+                                    radius: 60,
+                                    backgroundImage: FileImage(_imageFile!),
+                                  ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _imageFile == null
+                                  ? 'Adicionar Imagem'
+                                  : 'Alterar Imagem',
+                              style: TextStyle(color: configProvider.textColor),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 20),
+
                       TextFormField(
                         controller: _titleController,
                         decoration: InputDecoration(
                           labelText: 'Título',
+                          hintText: 'Ex: Bomba e Despejo no Sítio do Juca',
+                          prefixIcon: Icon(
+                            Icons.title,
+                            color: configProvider.iconColor,
+                          ),
                           labelStyle:
                               TextStyle(color: configProvider.textColor),
+                          hintStyle: TextStyle(
+                              color: configProvider.textColor.withOpacity(0.5)),
                           filled: true,
                           fillColor:
                               configProvider.secondaryColor.withOpacity(0.1),
                         ),
                         style: TextStyle(color: configProvider.textColor),
+                        textInputAction: TextInputAction.next,
                         validator: (val) => val == null || val.isEmpty
                             ? 'Informe o título'
                             : null,
                       ),
                       const SizedBox(height: 10),
+
                       TextFormField(
                         controller: _descController,
                         decoration: InputDecoration(
                           labelText: 'Descrição',
+                          hintText: 'Descreva o evento',
+                          prefixIcon: Icon(
+                            Icons.description,
+                            color: configProvider.iconColor,
+                          ),
                           labelStyle:
                               TextStyle(color: configProvider.textColor),
+                          hintStyle: TextStyle(
+                              color: configProvider.textColor.withOpacity(0.5)),
                           filled: true,
                           fillColor:
                               configProvider.secondaryColor.withOpacity(0.1),
                         ),
+                        maxLines: 3,
                         style: TextStyle(color: configProvider.textColor),
+                        textInputAction: TextInputAction.next,
                         validator: (val) => val == null || val.isEmpty
                             ? 'Informe a descrição'
                             : null,
                       ),
                       const SizedBox(height: 10),
-                      // Data e Hora
-                      Row(
-                        children: [
-                          Text(
-                            'Data de Início: ',
-                            style: TextStyle(color: configProvider.textColor),
+
+                      GestureDetector(
+                        onTap: _selectDateTime,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 16, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color:
+                                configProvider.secondaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(width: 10),
-                          TextButton(
-                            onPressed: () async {
-                              final selected = await showDatePicker(
-                                context: context,
-                                initialDate: _selectedDate,
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime(2100),
-                              );
-                              if (selected != null) {
-                                setState(() {
-                                  _selectedDate = DateTime(
-                                    selected.year,
-                                    selected.month,
-                                    selected.day,
-                                    _selectedDate.hour,
-                                    _selectedDate.minute,
-                                  );
-                                });
-                              }
-                            },
-                            child: Text(
-                              DateFormat('dd/MM/yyyy').format(_selectedDate),
-                              style: TextStyle(color: configProvider.textColor),
-                            ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.calendar_today,
+                                  color: configProvider.iconColor),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Data e Hora: ${DateFormat('dd/MM/yyyy HH:mm').format(_selectedDate)}',
+                                style:
+                                    TextStyle(color: configProvider.textColor),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          TextButton(
-                            onPressed: () async {
-                              final pickedTime = await showTimePicker(
-                                context: context,
-                                initialTime: TimeOfDay(
-                                  hour: _selectedDate.hour,
-                                  minute: _selectedDate.minute,
-                                ),
-                              );
-                              if (pickedTime != null) {
-                                setState(() {
-                                  _selectedDate = DateTime(
-                                    _selectedDate.year,
-                                    _selectedDate.month,
-                                    _selectedDate.day,
-                                    pickedTime.hour,
-                                    pickedTime.minute,
-                                  );
-                                });
-                              }
-                            },
-                            child: Text(
-                              DateFormat('HH:mm').format(_selectedDate),
-                              style: TextStyle(color: configProvider.textColor),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                       const SizedBox(height: 10),
+
                       // Local
                       TextFormField(
                         controller: _locationController,
                         decoration: InputDecoration(
                           labelText: 'Local',
+                          hintText: 'Ex: Endereço ou nome do lugar',
+                          prefixIcon: Icon(
+                            Icons.location_on,
+                            color: configProvider.iconColor,
+                          ),
                           labelStyle:
                               TextStyle(color: configProvider.textColor),
+                          hintStyle: TextStyle(
+                              color: configProvider.textColor.withOpacity(0.5)),
                           filled: true,
                           fillColor:
                               configProvider.secondaryColor.withOpacity(0.1),
                         ),
                         style: TextStyle(color: configProvider.textColor),
+                        textInputAction: TextInputAction.next,
                         validator: (val) => val == null || val.isEmpty
                             ? 'Informe o local'
                             : null,
                       ),
                       const SizedBox(height: 10),
+
+                      // Instruções (multilinha)
                       TextFormField(
                         controller: _instructionsController,
                         decoration: InputDecoration(
                           labelText: 'Instruções',
+                          hintText: 'Ex: Levar toalha, bebida, etc.',
+                          prefixIcon: Icon(
+                            Icons.list,
+                            color: configProvider.iconColor,
+                          ),
                           labelStyle:
                               TextStyle(color: configProvider.textColor),
+                          hintStyle: TextStyle(
+                              color: configProvider.textColor.withOpacity(0.5)),
                           filled: true,
                           fillColor:
                               configProvider.secondaryColor.withOpacity(0.1),
                         ),
+                        maxLines: 3,
                         style: TextStyle(color: configProvider.textColor),
+                        textInputAction: TextInputAction.next,
                         validator: (val) => val == null || val.isEmpty
                             ? 'Informe as instruções'
                             : null,
                       ),
                       const SizedBox(height: 10),
+
+                      // Duração
                       TextFormField(
                         initialValue: _duration.toString(),
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           labelText: 'Duração (min)',
+                          hintText: 'Ex: 120',
+                          prefixIcon: Icon(
+                            Icons.access_time,
+                            color: configProvider.iconColor,
+                          ),
                           labelStyle:
                               TextStyle(color: configProvider.textColor),
+                          hintStyle: TextStyle(
+                              color: configProvider.textColor.withOpacity(0.5)),
                           filled: true,
                           fillColor:
                               configProvider.secondaryColor.withOpacity(0.1),
                         ),
                         style: TextStyle(color: configProvider.textColor),
+                        textInputAction: TextInputAction.next,
                         onChanged: (val) {
                           if (val.isNotEmpty) {
-                            _duration = int.parse(val);
+                            _duration = int.tryParse(val) ?? 60;
                           }
                         },
                       ),
                       const SizedBox(height: 10),
+
+                      // Tipo de festa
                       DropdownButtonFormField<int>(
                         value: _type,
                         items: _partyTypes
@@ -424,7 +480,7 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                           }
                         },
                         decoration: InputDecoration(
-                          labelText: 'Tipo',
+                          labelText: 'Tipo de Festa',
                           labelStyle:
                               TextStyle(color: configProvider.textColor),
                           filled: true,
@@ -434,6 +490,7 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                         style: TextStyle(color: configProvider.textColor),
                       ),
                       const SizedBox(height: 20),
+
                       ElevatedButton(
                         onPressed: _onSave,
                         child: Text(
@@ -442,14 +499,6 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
                               : 'Salvar Alterações',
                         ),
                       ),
-                      if (!_locationObtained)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          child: Text(
-                            'Obtendo localização...',
-                            style: TextStyle(color: configProvider.textColor),
-                          ),
-                        ),
                     ],
                   ),
                 ),

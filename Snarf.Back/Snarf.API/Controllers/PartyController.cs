@@ -8,7 +8,7 @@ namespace Snarf.API.Controllers
     public class PartyController(IPartyService partyService) : BaseController
     {
         [HttpPost("")]
-        public async Task<IActionResult> Create([FromBody] PartyCreateDTO partyCreateDTO)
+        public async Task<IActionResult> Create([FromBody] PartyDTO partyCreateDTO)
         {
             partyCreateDTO.UserId = User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value;
             var party = await partyService.Create(partyCreateDTO);
@@ -16,14 +16,14 @@ namespace Snarf.API.Controllers
         }
 
         [HttpPut("{id:guid}")]
-        public async Task<IActionResult> UpdateParty([FromRoute] Guid id, [FromBody] PartyUpdateDTO updateDTO)
+        public async Task<IActionResult> UpdateParty([FromRoute] Guid id, [FromBody] PartyDTO updateDTO)
         {
             var party = await partyService.Update(id, updateDTO);
             return StatusCode(party.Code, party);
         }
 
         [HttpPut("{id:guid}/invite-users")]
-        public async Task<IActionResult> InviteUsersToParty([FromRoute] Guid id, [FromBody] AddUsersToPartyDTO request)
+        public async Task<IActionResult> InviteUsersToParty([FromRoute] Guid id, [FromBody] List<string> request)
         {
             var party = await partyService.InviteUsers(id, request);
             return StatusCode(party.Code, party);
@@ -66,6 +66,14 @@ namespace Snarf.API.Controllers
         {
             userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
             var party = await partyService.GetById(id, userId);
+            return StatusCode(party.Code, party);
+        }
+
+        [HttpDelete("{id:guid}/delete/{userId:guid}")]
+        public async Task<IActionResult> Delete([FromRoute] Guid id, [FromRoute] Guid userId)
+        {
+            userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
+            var party = await partyService.Delete(id, userId);
             return StatusCode(party.Code, party);
         }
     }

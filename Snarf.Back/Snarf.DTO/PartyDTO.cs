@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Snarf.DTO
 {
-    public class PartyCreateDTO
+    public class PartyDTO
     {
         [Required]
         public string Title { get; set; }

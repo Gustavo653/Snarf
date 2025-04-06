@@ -20,7 +20,7 @@ namespace Snarf.Service
     {
         private const double _randomDistance = 0.045;//5km
 
-        public async Task<ResponseDTO> InviteUsers(Guid id, AddUsersToPartyDTO request)
+        public async Task<ResponseDTO> InviteUsers(Guid id, List<string> userIds)
         {
             ResponseDTO responseDTO = new();
             try
@@ -29,15 +29,18 @@ namespace Snarf.Service
                     .GetTrackedEntities()
                     .Include(x => x.InvitedUsers)
                     .FirstOrDefaultAsync(x => x.Id == id);
+
                 if (partyEntity == null)
                 {
                     responseDTO.SetBadInput($"Festa não encontrada com o id: {id}");
                     return responseDTO;
                 }
+
                 var users = await userRepository
                     .GetTrackedEntities()
-                    .Where(x => request.UserIds.Contains(x.Id))
+                    .Where(u => userIds.Contains(u.Id))
                     .ToListAsync();
+
                 foreach (var user in users)
                 {
                     if (!partyEntity.InvitedUsers.Contains(user))
@@ -45,8 +48,8 @@ namespace Snarf.Service
                         partyEntity.InvitedUsers.Add(user);
                     }
                 }
+
                 await partyRepository.SaveChangesAsync();
-                responseDTO.Object = partyEntity;
             }
             catch (Exception ex)
             {
@@ -55,7 +58,7 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        public async Task<ResponseDTO> Create(PartyCreateDTO createDTO)
+        public async Task<ResponseDTO> Create(PartyDTO createDTO)
         {
             ResponseDTO responseDTO = new();
             try
@@ -116,31 +119,33 @@ namespace Snarf.Service
                     responseDTO.SetBadInput($"Usuário não encontrado com este id: {userId}!");
                     return responseDTO;
                 }
+
                 var parties = await partyRepository
                     .GetTrackedEntities()
+                    .Include(p => p.Owner)
+                    .Include(p => p.InvitedUsers)
+                    .Include(p => p.ConfirmedUsers)
+                    .Where(p => p.StartDate.AddHours(p.Duration) >= DateTime.Now)
                     .ToListAsync();
-                var data = new List<PartiesResponseDTO>();
-                foreach (var party in parties)
+
+                var data = parties.Select(p => new
                 {
-                    var newParty = new PartiesResponseDTO
-                    {
-                        Id = party.Id,
-                        Latitude = party.Latitude,
-                        Longitude = party.Longitude,
-                        Title = party.Title,
-                        EventType = party.Type.GetDescription(),
-                        ImageUrl = party.CoverImageUrl
-                    };
-                    if (party.InvitedUsers.Contains(userEntity))
-                        newParty.UserRole = "Convidado";
-                    else if (party.ConfirmedUsers.Contains(userEntity))
-                        newParty.UserRole = "Confirmado";
-                    else if (party.Owner.Id == userEntity.Id)
-                        newParty.UserRole = "Hospedando";
-                    else
-                        newParty.UserRole = "Disponível para Participar";
-                    data.Add(newParty);
-                }
+                    Id = p.Id,
+                    Latitude = p.Latitude,
+                    Longitude = p.Longitude,
+                    Title = p.Title,
+                    EventType = p.Type.GetDescription(),
+                    ImageUrl = p.CoverImageUrl,
+                    UserRole = p.Owner != null && p.Owner.Id == userEntity.Id
+                        ? "Hospedando"
+                        : p.InvitedUsers.Any(u => u.Id == userEntity.Id)
+                            ? "Convidado"
+                            : p.ConfirmedUsers.Any(u => u.Id == userEntity.Id)
+                                ? "Confirmado"
+                                : "Disponível para Participar"
+                })
+                .ToList();
+
                 responseDTO.Object = data;
             }
             catch (Exception ex)
@@ -150,7 +155,7 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        public async Task<ResponseDTO> Update(Guid id, PartyUpdateDTO updateDTO)
+        public async Task<ResponseDTO> Update(Guid id, PartyDTO updateDTO)
         {
             ResponseDTO responseDTO = new();
             try
@@ -431,6 +436,16 @@ namespace Snarf.Service
                 responseDTO.SetError(ex);
             }
             return responseDTO;
+        }
+
+        public Task<ResponseDTO> Remove(Guid id)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<ResponseDTO> GetList()
+        {
+            throw new NotImplementedException();
         }
     }
 }

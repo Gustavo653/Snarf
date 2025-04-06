@@ -671,16 +671,15 @@ class ApiService {
   }) async {
     final token = await getToken();
     if (token == null) return false;
-    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/invite');
+    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/invite-users');
     final headers = {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
-    final body = jsonEncode({
-      "userIds": [userId]
-    });
+    final userIds = [userId];
+    final body = jsonEncode(userIds);
     try {
-      final response = await http.post(url, headers: headers, body: body);
+      final response = await http.put(url, headers: headers, body: body);
       if (response.statusCode == 200) {
         return true;
       }
