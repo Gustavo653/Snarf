@@ -133,6 +133,56 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
+  Widget _buildUserList(String title, List<dynamic>? users,
+      {bool isPending = false}) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+    return users == null || users.isEmpty
+        ? const SizedBox.shrink()
+        : Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: configProvider.textColor,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...users.map((u) => ListTile(
+                      title: Text(
+                        u['name'],
+                        style: TextStyle(color: configProvider.textColor),
+                      ),
+                      trailing:
+                          isPending && _partyData!['ownerId'] == widget.userId
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.check,
+                                          color: Colors.green),
+                                      onPressed: () =>
+                                          _confirmParticipation(u['id']),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.close,
+                                          color: Colors.red),
+                                      onPressed: () =>
+                                          _declineParticipation(u['id']),
+                                    ),
+                                  ],
+                                )
+                              : null,
+                    ))
+              ],
+            ),
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
@@ -252,7 +302,6 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                               color: configProvider.textColor,
                             ),
                           ),
-
                         if (_partyData!['OwnerId'] != widget.userId &&
                             _partyData!['userRole'] ==
                                 'Disponível para Participar')
@@ -262,7 +311,6 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                 ? const CircularProgressIndicator()
                                 : const Text('Solicitar Participação'),
                           ),
-
                         FutureBuilder(
                             future: ApiService.getAllParticipants(
                                 widget.partyId, widget.userId),
@@ -274,66 +322,20 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                               if (snapshot.data == null) {
                                 return Text("Erro ao carregar participantes");
                               }
-                              log(jsonEncode(snapshot.data));
                               final data = snapshot.data!;
                               final confirmeds =
                                   data['confirmeds'] as List<dynamic>?;
                               final inviteds =
                                   data['inviteds'] as List<dynamic>?;
-                              log(jsonEncode(inviteds));
-                              log(jsonEncode(_partyData));
+                              log(jsonEncode(confirmeds));
 
-                              Padding(
-                                padding: const EdgeInsets.only(top: 16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("Confirmados:"),
-                                    if (confirmeds != null)
-                                      for (var c in confirmeds) Text(c['name']),
-                                  ],
-                                ),
+                              return Column(
+                                children: [
+                                  _buildUserList("Confirmados", confirmeds),
+                                  _buildUserList("Convidados", inviteds,
+                                      isPending: true),
+                                ],
                               );
-
-                              if (_partyData!['ownerId'] == widget.userId) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 16),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text("Pendentes:"),
-                                      if (inviteds != null)
-                                        for (var i in inviteds)
-                                          Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(i['name']),
-                                              Row(
-                                                children: [
-                                                  IconButton(
-                                                    icon: Icon(Icons.check),
-                                                    onPressed: () =>
-                                                        _confirmParticipation(
-                                                            i['id']),
-                                                  ),
-                                                  IconButton(
-                                                    icon: Icon(Icons.close),
-                                                    onPressed: () =>
-                                                        _declineParticipation(
-                                                            i['id']),
-                                                  ),
-                                                ],
-                                              )
-                                            ],
-                                          ),
-                                    ],
-                                  ),
-                                );
-                              } else {
-                                return const SizedBox.shrink();
-                              }
                             })
                       ],
                     ),
