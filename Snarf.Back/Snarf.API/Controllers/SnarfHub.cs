@@ -39,6 +39,10 @@ namespace Snarf.API.Controllers
                     await HandlePartyChatSendMessage(message.Data);
                     break;
 
+                case nameof(SignalREventType.PartyChatSendImage):
+                    await HandlePartyChatSendImage(message.Data);
+                    break;
+
                 case nameof(SignalREventType.PartyChatDeleteMessage):
                     await HandlePartyChatDeleteMessage(message.Data);
                     break;
@@ -222,23 +226,85 @@ namespace Snarf.API.Controllers
             await Clients.AllExcept(blockedConnectionIds).SendAsync("ReceiveMessage", jsonResponse);
         }
 
+        private async Task HandlePartyChatSendImage(JsonElement data)
+        {
+            var userId = GetUserId();
+            var base64Image = data.GetProperty("Image").GetString();
+            var fileName = data.GetProperty("FileName").GetString();
+
+            if (string.IsNullOrWhiteSpace(base64Image))
+                return;
+
+            var user = await _userRepository.GetTrackedEntities()
+                .FirstOrDefaultAsync(x => x.Id == userId);
+
+            if (user == null)
+                return;
+
+            var imageBytes = Convert.FromBase64String(base64Image);
+            using var stream = new MemoryStream(imageBytes);
+
+            var s3Service = new S3Service();
+            var imageUrl = await s3Service.UploadFileAsync(
+                $"party_chat_images/{fileName}_{Guid.NewGuid()}.jpg",
+                stream,
+                "image/jpeg"
+            );
+
+            var message = new PartyChatMessage
+            {
+                SenderId = userId,
+                Message = imageUrl
+            };
+
+            await _partyChatMessageRepository.InsertAsync(message);
+            await _partyChatMessageRepository.SaveChangesAsync();
+
+            var jsonResponse = SignalRMessage.Serialize(SignalREventType.PartyChatReceiveMessage, new
+            {
+                message.Id,
+                CreatedAt = DateTime.Now,
+                UserId = userId,
+                UserName = user.Name,
+                UserImage = user.ImageUrl,
+                Latitude = user.LastLatitude,
+                Longitude = user.LastLongitude,
+                Message = imageUrl,
+                IsImage = true
+            });
+
+            await Clients.All.SendAsync("ReceiveMessage", jsonResponse);
+        }
+
         private async Task HandlePartyChatDeleteMessage(JsonElement data)
         {
             var userId = GetUserId();
-            var messageId = data.GetProperty("MessageId").GetString();
+            var messageIdStr = data.GetProperty("MessageId").GetString();
+
+            if (string.IsNullOrWhiteSpace(messageIdStr))
+                return;
+
+            if (!Guid.TryParse(messageIdStr, out Guid messageId))
+                return;
 
             var message = await _partyChatMessageRepository
                 .GetTrackedEntities()
-                .FirstOrDefaultAsync(m => m.Id == Guid.Parse(messageId))
-                ?? throw new Exception("Mensagem não encontrada.");
+                .FirstOrDefaultAsync(m => m.Id == messageId);
+
+            if (message == null)
+                throw new Exception("Mensagem não encontrada.");
 
             if (message.SenderId != userId)
                 throw new Exception("Você não pode excluir mensagens de outro usuário.");
 
-            message.Message = "Mensagem excluída";
+            if (message.Message.StartsWith("https://"))
+            {
+                var s3Service = new S3Service();
+                await s3Service.DeleteFileAsync(message.Message);
+            }
 
+            message.Message = "Mensagem excluída";
             await _partyChatMessageRepository.SaveChangesAsync();
-            Log.Information($"Mensagem {message.Id} do usuário {userId} marcada como excluída.");
 
             var jsonResponse = SignalRMessage.Serialize(SignalREventType.PartyChatReceiveMessageDeleted, new
             {
@@ -1046,7 +1112,6 @@ namespace Snarf.API.Controllers
                 {
                     _userConnections.TryRemove(userId, out _);
 
-                    // 1) Localizar chamadas em aberto (EndTime == null) envolvendo este usuário
                     var ongoingCalls = await _videoCallLogRepository.GetEntities()
                         .Include(x => x.Caller)
                         .Include(x => x.Callee)
@@ -1057,12 +1122,10 @@ namespace Snarf.API.Controllers
 
                     foreach (var call in ongoingCalls)
                     {
-                        // 2) Ajustar EndTime e DurationMinutes
                         call.EndTime = DateTime.Now;
                         call.DurationMinutes = (int)(call.EndTime.Value - call.StartTime).TotalMinutes;
                         await _videoCallLogRepository.SaveChangesAsync();
 
-                        // 3) Opcional: notificar outras partes que a chamada foi finalizada
                         var endMessage = SignalRMessage.Serialize(
                             SignalREventType.VideoCallEnd,
                             new
@@ -1071,8 +1134,6 @@ namespace Snarf.API.Controllers
                                 EndedByUserId = userId
                             }
                         );
-                        // Se quiser notificar só o outro usuário, use Clients.User(...) 
-                        // ou se preferir avisar todo mundo, use Clients.All:
                         await Clients.All.SendAsync("ReceiveMessage", endMessage);
 
                         Log.Information($"Chamada {call.RoomId} encerrada para o usuário {userId} no OnDisconnectedAsync.");
@@ -1080,7 +1141,6 @@ namespace Snarf.API.Controllers
                 }
             }
 
-            // Notificar outros que esse usuário saiu
             var jsonResponse = SignalRMessage.Serialize(SignalREventType.UserDisconnected, new { userId });
             await Clients.Others.SendAsync("ReceiveMessage", jsonResponse);
 

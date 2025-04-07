@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
+import 'package:snarf/pages/parties/party_chat_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
@@ -524,7 +525,6 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-
                         if (_partyData!['ownerId'] != widget.userId &&
                             _partyData!['userRole'] ==
                                 'Disponível para Participar')
@@ -534,7 +534,6 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                 ? const CircularProgressIndicator()
                                 : const Text('Solicitar Participação'),
                           ),
-
                         FutureBuilder(
                           future: ApiService.getAllParticipants(
                               widget.partyId, widget.userId),
@@ -568,6 +567,20 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                     ),
                   ),
                 ),
+      floatingActionButton: FloatingActionButton(
+          backgroundColor: configProvider.secondaryColor,
+          child: Icon(Icons.chat, color: configProvider.iconColor),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PartyChatPage(
+                  partyId: widget.partyId,
+                  userId: widget.userId,
+                ),
+              ),
+            );
+          }),
     );
   }
 }

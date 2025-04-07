@@ -40,5 +40,10 @@ enum SignalREventType {
   VideoCallAccept,
   VideoCallReject,
   VideoCallCanceled,
-  VideoCallEnd
+  VideoCallEnd,
+
+  PartyChatSendMessage,
+  PartyChatGetPreviousMessages,
+  PartyChatSendImage,
+  PartyChatDeleteMessage
 }
