@@ -1,10 +1,15 @@
+import 'dart:convert';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
 import 'package:snarf/pages/parties/party_details_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
+import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/show_snackbar.dart';
+import 'package:snarf/utils/signalr_event_type.dart';
 
 class PartiesPage extends StatefulWidget {
   const PartiesPage({super.key});
@@ -18,10 +23,15 @@ class _PartiesPageState extends State<PartiesPage> {
   List<dynamic> _parties = [];
   String? userId;
 
+  List<Map<String, dynamic>> _recentChats = [];
+
+  bool _isLoadingRecentChats = false;
+
   @override
   void initState() {
     super.initState();
     _fetchAllParties();
+    SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
   }
 
   Future<void> _fetchAllParties() async {
@@ -44,39 +54,163 @@ class _PartiesPageState extends State<PartiesPage> {
     setState(() {});
   }
 
-  Future<void> _inviteUserDialog(String partyId) async {
-    final controller = TextEditingController();
-    final userIdToInvite = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Convidar usuário'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'ID do usuário'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Convidar'),
-          ),
-        ],
-      ),
-    );
-    if (userIdToInvite == null || userIdToInvite.isEmpty) return;
+  Future<void> _loadRecentChats() async {
+    setState(() => _isLoadingRecentChats = true);
 
-    final success = await ApiService.requestPartyParticipation(
-      partyId: partyId,
-      userId: userIdToInvite,
+    await SignalRManager().sendSignalRMessage(
+      SignalREventType.PrivateChatGetRecentChats,
+      {},
     );
-    if (success) {
-      showSuccessSnackbar(context, 'Convite enviado');
-    } else {
-      showErrorSnackbar(context, 'Erro ao convidar usuário');
+
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    setState(() => _isLoadingRecentChats = false);
+  }
+
+  void _handleSignalRMessage(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+
+    try {
+      final Map<String, dynamic> message = jsonDecode(args[0] as String);
+      final SignalREventType type = SignalREventType.values.firstWhere(
+        (e) => e.toString().split('.').last == message['Type'],
+      );
+
+      final dynamic data = message['Data'];
+
+      switch (type) {
+        case SignalREventType.PrivateChatReceiveRecentChats:
+          _handleRecentChats(data);
+          break;
+
+        case SignalREventType.PrivateChatReceiveFavorites:
+        case SignalREventType.PrivateChatReceiveMessage:
+        case SignalREventType.MapReceiveLocation:
+        case SignalREventType.UserDisconnected:
+          break;
+        default:
+          log("Evento não reconhecido: ${message['Type']}");
+      }
+    } catch (e) {
+      log("Erro ao processar mensagem SignalR: $e");
     }
+  }
+
+  void _handleRecentChats(dynamic data) {
+    try {
+      final parsedData = data as List<dynamic>;
+
+      setState(() {
+        _recentChats = parsedData.map((item) {
+          final mapItem = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item);
+
+          return {
+            'UserId': mapItem['UserId'],
+            'UserName': mapItem['UserName'],
+            'UserImage': mapItem['UserImage'],
+            'LastMessage': mapItem['LastMessage'],
+            'LastMessageDate': mapItem['LastMessageDate'],
+            'UnreadCount': mapItem['UnreadCount'],
+          };
+        }).toList();
+      });
+    } catch (e) {
+      showErrorSnackbar(context, "Erro ao processar chats recentes: $e");
+    }
+  }
+
+  Future<void> _openInviteUsersDialog(String partyId) async {
+    await _loadRecentChats();
+    if (!mounted) return;
+
+    if (_recentChats.isEmpty) {
+      showErrorSnackbar(context, "Nenhum chat recente encontrado.");
+      return;
+    }
+
+    final List<String> selectedUserIds = [];
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            if (_isLoadingRecentChats) {
+              return AlertDialog(
+                title: const Text('Convidar Usuários'),
+                content: const SizedBox(
+                  height: 80,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('Convidar Usuários'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 300,
+                child: ListView.builder(
+                  itemCount: _recentChats.length,
+                  itemBuilder: (context, index) {
+                    final chat = _recentChats[index];
+                    final uid = chat['UserId'].toString();
+                    final name = chat['UserName'] ?? 'Sem nome';
+
+                    final isSelected = selectedUserIds.contains(uid);
+
+                    return CheckboxListTile(
+                      title: Text(name),
+                      value: isSelected,
+                      onChanged: (bool? checked) {
+                        setStateDialog(() {
+                          if (checked == true) {
+                            selectedUserIds.add(uid);
+                          } else {
+                            selectedUserIds.remove(uid);
+                          }
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: selectedUserIds.isEmpty
+                      ? null
+                      : () async {
+                          for (final uid in selectedUserIds) {
+                            final success =
+                                await ApiService.requestPartyParticipation(
+                              partyId: partyId,
+                              userId: uid,
+                            );
+                            if (success) {
+                              showSuccessSnackbar(
+                                  context, "Convite enviado para $uid");
+                            } else {
+                              showErrorSnackbar(
+                                  context, "Erro ao convidar $uid");
+                            }
+                          }
+                          if (!mounted) return;
+                          Navigator.pop(dialogCtx);
+                        },
+                  child: const Text('Convidar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _deleteParty(String partyId) async {
@@ -161,25 +295,30 @@ class _PartiesPageState extends State<PartiesPage> {
 
     return Card(
       child: ListTile(
-          leading: (party["imageUrl"] != null &&
-                  party["imageUrl"].toString().isNotEmpty)
-              ? Image.network(party["imageUrl"],
-                  width: 50, height: 50, fit: BoxFit.cover)
-              : const Icon(Icons.event),
-          title: Text(title),
-          subtitle: Text(userRole),
-          trailing: _buildTrailingActions(party),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PartyDetailsPage(
-                  partyId: partyId,
-                  userId: userId!,
-                ),
+        leading: (party["imageUrl"] != null &&
+                party["imageUrl"].toString().isNotEmpty)
+            ? Image.network(
+                party["imageUrl"],
+                width: 50,
+                height: 50,
+                fit: BoxFit.cover,
+              )
+            : const Icon(Icons.event),
+        title: Text(title),
+        subtitle: Text(userRole),
+        trailing: _buildTrailingActions(party),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PartyDetailsPage(
+                partyId: partyId,
+                userId: userId!,
               ),
-            );
-          }),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -192,15 +331,20 @@ class _PartiesPageState extends State<PartiesPage> {
         return PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'invite') {
-              _inviteUserDialog(partyId);
+              _openInviteUsersDialog(partyId);
             } else if (value == 'delete') {
               _deleteParty(partyId);
             }
           },
           itemBuilder: (ctx) => [
             const PopupMenuItem(
-                value: 'invite', child: Text('Convidar Usuário')),
-            const PopupMenuItem(value: 'delete', child: Text('Excluir Festa')),
+              value: 'invite',
+              child: Text('Convidar Usuários'),
+            ),
+            const PopupMenuItem(
+              value: 'delete',
+              child: Text('Excluir Festa'),
+            ),
           ],
         );
 
@@ -275,7 +419,8 @@ class _PartiesPageState extends State<PartiesPage> {
                 final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const CreateEditPartyPage()),
+                    builder: (_) => const CreateEditPartyPage(),
+                  ),
                 );
                 if (result == true) {
                   _fetchAllParties();

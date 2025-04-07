@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/parties/create_edit_party_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
+import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/show_snackbar.dart';
+import 'package:snarf/utils/signalr_event_type.dart';
 
 class PartyDetailsPage extends StatefulWidget {
   final String partyId;
@@ -29,6 +31,9 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
   bool _loadingConfirmation = false;
   bool _loadingDecline = false;
 
+  List<Map<String, dynamic>> _recentChats = [];
+  bool _isLoadingRecentChats = false;
+
   @override
   void initState() {
     super.initState();
@@ -40,29 +45,74 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       partyId: widget.partyId,
       userId: widget.userId,
     );
-    if (data != null) {
-      setState(() {
-        _partyData = data;
-        _isLoading = false;
-      });
-    } else {
+    if (!mounted) return;
+    if (data == null) {
       showErrorSnackbar(context, 'Não foi possível carregar detalhes da festa');
       Navigator.pop(context);
+      return;
+    }
+
+    setState(() {
+      _partyData = data;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _editParty() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateEditPartyPage(partyId: widget.partyId),
+      ),
+    );
+    if (result == true) {
+      await _loadPartyDetails();
+    }
+  }
+
+  Future<void> _deleteParty() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir Festa'),
+        content: const Text('Tem certeza que deseja excluir esta festa?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final result = await ApiService.deleteParty(widget.partyId, widget.userId);
+    if (!mounted) return;
+    if (result == true) {
+      showSuccessSnackbar(context, 'Festa excluída com sucesso!');
+      Navigator.pop(context);
+    } else {
+      showErrorSnackbar(context, 'Erro ao excluir festa');
     }
   }
 
   Future<void> _requestParticipation() async {
     if (_loadingRequest) return;
-    setState(() {
-      _loadingRequest = true;
-    });
+    setState(() => _loadingRequest = true);
+
     final result = await ApiService.requestPartyParticipation(
       partyId: widget.partyId,
       userId: widget.userId,
     );
-    setState(() {
-      _loadingRequest = false;
-    });
+
+    if (!mounted) return;
+    setState(() => _loadingRequest = false);
+
     if (result == true) {
       await _loadPartyDetails();
       showSuccessSnackbar(context, 'Solicitação enviada');
@@ -73,13 +123,13 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
 
   Future<void> _confirmParticipation(String targetUserId) async {
     if (_loadingConfirmation) return;
-    setState(() {
-      _loadingConfirmation = true;
-    });
+    setState(() => _loadingConfirmation = true);
+
     final result = await ApiService.confirmUser(widget.partyId, targetUserId);
-    setState(() {
-      _loadingConfirmation = false;
-    });
+
+    if (!mounted) return;
+    setState(() => _loadingConfirmation = false);
+
     if (result == true) {
       await _loadPartyDetails();
       showSuccessSnackbar(context, 'Convite confirmado');
@@ -90,13 +140,13 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
 
   Future<void> _declineParticipation(String targetUserId) async {
     if (_loadingDecline) return;
-    setState(() {
-      _loadingDecline = true;
-    });
+    setState(() => _loadingDecline = true);
+
     final result = await ApiService.declineUser(widget.partyId, targetUserId);
-    setState(() {
-      _loadingDecline = false;
-    });
+
+    if (!mounted) return;
+    setState(() => _loadingDecline = false);
+
     if (result == true) {
       await _loadPartyDetails();
       showSuccessSnackbar(context, 'Convite recusado');
@@ -105,12 +155,179 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
-  Future<void> _deleteParty() async {
-    final result = await ApiService.deleteParty(widget.partyId, widget.userId);
-    if (result == true) {
-      Navigator.pop(context);
-    } else {
-      showErrorSnackbar(context, 'Erro ao excluir festa');
+  Future<void> _openInviteUsersDialog() async {
+    await _loadRecentChats();
+
+    if (!mounted) return;
+
+    final List<String> selectedUserIds = [];
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogContext, setStateDialog) {
+            if (_isLoadingRecentChats) {
+              return AlertDialog(
+                title: const Text('Convidar usuários'),
+                content: const SizedBox(
+                  height: 80,
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              );
+            }
+
+            if (_recentChats.isEmpty) {
+              return AlertDialog(
+                title: const Text('Convidar usuários'),
+                content: const Text('Nenhum chat recente encontrado.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text('Fechar'),
+                  ),
+                ],
+              );
+            }
+
+            return AlertDialog(
+              title: const Text('Convidar usuários'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 300,
+                child: ListView.builder(
+                  itemCount: _recentChats.length,
+                  itemBuilder: (context, index) {
+                    final chat = _recentChats[index];
+                    final userId = chat['UserId']?.toString() ?? '';
+                    final userName = chat['UserName'] ?? '';
+
+                    final isSelected = selectedUserIds.contains(userId);
+
+                    return CheckboxListTile(
+                      title: Text(userName),
+                      value: isSelected,
+                      onChanged: (checked) {
+                        setStateDialog(() {
+                          if (checked == true) {
+                            selectedUserIds.add(userId);
+                          } else {
+                            selectedUserIds.remove(userId);
+                          }
+                        });
+                      },
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: selectedUserIds.isEmpty
+                      ? null
+                      : () async {
+                          for (final id in selectedUserIds) {
+                            final success =
+                                await ApiService.requestPartyParticipation(
+                              partyId: widget.partyId,
+                              userId: id,
+                            );
+                            if (success) {
+                              showSuccessSnackbar(
+                                context,
+                                'Convite enviado para $id',
+                              );
+                            } else {
+                              showErrorSnackbar(
+                                context,
+                                'Erro ao convidar $id',
+                              );
+                            }
+                          }
+
+                          if (!mounted) return;
+                          Navigator.pop(dialogContext);
+                          _loadPartyDetails();
+                        },
+                  child: const Text('Convidar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _loadRecentChats() async {
+    setState(() => _isLoadingRecentChats = true);
+
+    SignalRManager().listenToEvent('ReceiveMessage', _handleSignalRMessage);
+
+    await SignalRManager().sendSignalRMessage(
+      SignalREventType.PrivateChatGetRecentChats,
+      {},
+    );
+
+    await Future.delayed(const Duration(milliseconds: 400));
+
+    setState(() => _isLoadingRecentChats = false);
+  }
+
+  void _handleSignalRMessage(List<Object?>? args) {
+    if (args == null || args.isEmpty) return;
+
+    try {
+      final Map<String, dynamic> message = jsonDecode(args[0] as String);
+      final SignalREventType type = SignalREventType.values.firstWhere(
+        (e) => e.toString().split('.').last == message['Type'],
+      );
+
+      final dynamic data = message['Data'];
+
+      switch (type) {
+        case SignalREventType.PrivateChatReceiveRecentChats:
+          _handleRecentChats(data);
+          break;
+        case SignalREventType.PrivateChatReceiveFavorites:
+        case SignalREventType.PrivateChatReceiveMessage:
+        case SignalREventType.MapReceiveLocation:
+        case SignalREventType.UserDisconnected:
+          break;
+        default:
+          log("Evento não reconhecido: ${message['Type']}");
+      }
+    } catch (e) {
+      log("Erro ao processar mensagem SignalR: $e");
+    }
+  }
+
+  void _handleRecentChats(dynamic data) {
+    try {
+      final parsedData = data as List<dynamic>;
+      setState(() {
+        _recentChats = parsedData.map((item) {
+          final mapItem = item is Map<String, dynamic>
+              ? item
+              : Map<String, dynamic>.from(item);
+
+          return {
+            'UserId': mapItem['UserId'],
+            'UserName': mapItem['UserName'],
+            'UserImage': mapItem['UserImage'],
+            'LastMessage': mapItem['LastMessage'],
+            'LastMessageDate': mapItem['LastMessageDate'],
+            'UnreadCount': mapItem['UnreadCount'],
+          };
+        }).toList();
+      });
+    } catch (e) {
+      showErrorSnackbar(context, "Erro ao processar chats recentes: $e");
     }
   }
 
@@ -152,32 +369,33 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...users.map((u) => ListTile(
-                      title: Text(
-                        u['name'],
-                        style: TextStyle(color: configProvider.textColor),
-                      ),
-                      trailing:
-                          isPending && _partyData!['ownerId'] == widget.userId
-                              ? Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.check,
-                                          color: Colors.green),
-                                      onPressed: () =>
-                                          _confirmParticipation(u['id']),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.close,
-                                          color: Colors.red),
-                                      onPressed: () =>
-                                          _declineParticipation(u['id']),
-                                    ),
-                                  ],
-                                )
-                              : null,
-                    ))
+                ...users.map((u) {
+                  final userName = u['name'] ?? 'Sem nome';
+                  return ListTile(
+                    title: Text(
+                      userName,
+                      style: TextStyle(color: configProvider.textColor),
+                    ),
+                    trailing: isPending &&
+                            _partyData!['ownerId'] == widget.userId
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.check,
+                                    color: Colors.green),
+                                onPressed: () => _confirmParticipation(u['id']),
+                              ),
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.close, color: Colors.red),
+                                onPressed: () => _declineParticipation(u['id']),
+                              ),
+                            ],
+                          )
+                        : null,
+                  );
+                }).toList()
               ],
             ),
           );
@@ -196,15 +414,27 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
         actions: [
           if (!_isLoading &&
               _partyData != null &&
-              _partyData!['OwnerId'] == widget.userId)
-            PopupMenuButton(
+              _partyData!['ownerId'] == widget.userId)
+            PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: configProvider.iconColor),
               onSelected: (value) {
-                if (value == 'delete') {
+                if (value == 'edit') {
+                  _editParty();
+                } else if (value == 'invite') {
+                  _openInviteUsersDialog();
+                } else if (value == 'delete') {
                   _deleteParty();
                 }
               },
               itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Text('Editar Festa'),
+                ),
+                const PopupMenuItem(
+                  value: 'invite',
+                  child: Text('Convidar Usuários'),
+                ),
                 const PopupMenuItem(
                   value: 'delete',
                   child: Text('Excluir Festa'),
@@ -294,15 +524,8 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        if (_partyData!['OwnerId'] == widget.userId)
-                          Text(
-                            'Gerenciar Convites',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: configProvider.textColor,
-                            ),
-                          ),
-                        if (_partyData!['OwnerId'] != widget.userId &&
+
+                        if (_partyData!['ownerId'] != widget.userId &&
                             _partyData!['userRole'] ==
                                 'Disponível para Participar')
                           ElevatedButton(
@@ -311,32 +534,36 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                                 ? const CircularProgressIndicator()
                                 : const Text('Solicitar Participação'),
                           ),
-                        FutureBuilder(
-                            future: ApiService.getAllParticipants(
-                                widget.partyId, widget.userId),
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return CircularProgressIndicator();
-                              }
-                              if (snapshot.data == null) {
-                                return Text("Erro ao carregar participantes");
-                              }
-                              final data = snapshot.data!;
-                              final confirmeds =
-                                  data['confirmeds'] as List<dynamic>?;
-                              final inviteds =
-                                  data['inviteds'] as List<dynamic>?;
-                              log(jsonEncode(confirmeds));
 
-                              return Column(
-                                children: [
-                                  _buildUserList("Confirmados", confirmeds),
-                                  _buildUserList("Convidados", inviteds,
-                                      isPending: true),
-                                ],
+                        FutureBuilder(
+                          future: ApiService.getAllParticipants(
+                              widget.partyId, widget.userId),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const CircularProgressIndicator();
+                            }
+                            if (snapshot.data == null) {
+                              return Text(
+                                "Erro ao carregar participantes",
+                                style:
+                                    TextStyle(color: configProvider.textColor),
                               );
-                            })
+                            }
+                            final data = snapshot.data!;
+                            final confirmeds =
+                                data['confirmeds'] as List<dynamic>?;
+                            final inviteds = data['inviteds'] as List<dynamic>?;
+
+                            return Column(
+                              children: [
+                                _buildUserList("Confirmados", confirmeds),
+                                _buildUserList("Convidados", inviteds,
+                                    isPending: true),
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
