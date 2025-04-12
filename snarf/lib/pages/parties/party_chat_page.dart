@@ -3,7 +3,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:snarf/pages/account/view_user_page.dart'; // <--- import adicional
+import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
@@ -154,7 +154,6 @@ class _PartyChatPageState extends State<PartyChatPage> {
     final String messageText = msg['message'] ?? '';
     final bool isImage = msg['isImage'] == true;
 
-    // Se for minha mensagem, alinhe à direita
     if (isMine) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -202,11 +201,9 @@ class _PartyChatPageState extends State<PartyChatPage> {
       );
     }
 
-    // Se não for minha, alinhe à esquerda e inclua o clique para abrir a tela de viewuserpage
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Envolve o avatar em um GestureDetector para abrir o ViewUserPage
         GestureDetector(
           onTap: () {
             if (msg['userId'] == null) return;
