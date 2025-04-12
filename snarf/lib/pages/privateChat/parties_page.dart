@@ -24,7 +24,6 @@ class _PartiesPageState extends State<PartiesPage> {
   String? userId;
 
   List<Map<String, dynamic>> _recentChats = [];
-
   bool _isLoadingRecentChats = false;
 
   @override
@@ -73,7 +72,7 @@ class _PartiesPageState extends State<PartiesPage> {
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
       final SignalREventType type = SignalREventType.values.firstWhere(
-        (e) => e.toString().split('.').last == message['Type'],
+            (e) => e.toString().split('.').last == message['Type'],
       );
 
       final dynamic data = message['Data'];
@@ -186,23 +185,23 @@ class _PartiesPageState extends State<PartiesPage> {
                   onPressed: selectedUserIds.isEmpty
                       ? null
                       : () async {
-                          for (final uid in selectedUserIds) {
-                            final success =
-                                await ApiService.requestPartyParticipation(
-                              partyId: partyId,
-                              userId: uid,
-                            );
-                            if (success) {
-                              showSuccessSnackbar(
-                                  context, "Convite enviado para $uid");
-                            } else {
-                              showErrorSnackbar(
-                                  context, "Erro ao convidar $uid");
-                            }
-                          }
-                          if (!mounted) return;
-                          Navigator.pop(dialogCtx);
-                        },
+                    for (final uid in selectedUserIds) {
+                      final success =
+                      await ApiService.requestPartyParticipation(
+                        partyId: partyId,
+                        userId: uid,
+                      );
+                      if (success) {
+                        showSuccessSnackbar(
+                            context, "Convite enviado para $uid");
+                      } else {
+                        showErrorSnackbar(
+                            context, "Erro ao convidar $uid");
+                      }
+                    }
+                    if (!mounted) return;
+                    Navigator.pop(dialogCtx);
+                  },
                   child: const Text('Convidar'),
                 ),
               ],
@@ -289,23 +288,42 @@ class _PartiesPageState extends State<PartiesPage> {
   }
 
   Widget _buildPartyItem(dynamic party) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
     final partyId = party["id"].toString();
     final title = party["title"] ?? '';
     final userRole = party["userRole"] ?? '';
+    final imageUrl = party["imageUrl"] as String? ?? '';
 
     return Card(
+      color: configProvider.secondaryColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       child: ListTile(
-        leading: (party["imageUrl"] != null &&
-                party["imageUrl"].toString().isNotEmpty)
-            ? Image.network(
-                party["imageUrl"],
-                width: 50,
-                height: 50,
-                fit: BoxFit.cover,
-              )
-            : const Icon(Icons.event),
-        title: Text(title),
-        subtitle: Text(userRole),
+        leading: (imageUrl.isNotEmpty)
+            ? ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            imageUrl,
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+          ),
+        )
+            : Icon(Icons.event, color: configProvider.iconColor),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: configProvider.textColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        subtitle: Text(
+          userRole,
+          style: TextStyle(color: configProvider.textColor),
+        ),
         trailing: _buildTrailingActions(party),
         onTap: () {
           Navigator.push(
@@ -323,12 +341,16 @@ class _PartiesPageState extends State<PartiesPage> {
   }
 
   Widget _buildTrailingActions(dynamic party) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+
     final partyId = party["id"].toString();
     final userRole = party["userRole"] ?? '';
 
     switch (userRole) {
       case 'Hospedando':
         return PopupMenuButton<String>(
+          color: configProvider.primaryColor,
+          icon: Icon(Icons.more_vert, color: configProvider.iconColor),
           onSelected: (value) {
             if (value == 'invite') {
               _openInviteUsersDialog(partyId);
@@ -337,13 +359,19 @@ class _PartiesPageState extends State<PartiesPage> {
             }
           },
           itemBuilder: (ctx) => [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'invite',
-              child: Text('Convidar Usuários'),
+              child: Text(
+                'Convidar Usuários',
+                style: TextStyle(color: configProvider.textColor),
+              ),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'delete',
-              child: Text('Excluir Festa'),
+              child: Text(
+                'Excluir Festa',
+                style: TextStyle(color: configProvider.textColor),
+              ),
             ),
           ],
         );
@@ -353,12 +381,12 @@ class _PartiesPageState extends State<PartiesPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.check),
+              icon: Icon(Icons.check, color: configProvider.iconColor),
               tooltip: 'Aceitar',
               onPressed: () => _acceptInvite(partyId),
             ),
             IconButton(
-              icon: const Icon(Icons.close),
+              icon: Icon(Icons.close, color: configProvider.iconColor),
               tooltip: 'Recusar',
               onPressed: () => _declineInvite(partyId),
             ),
@@ -367,14 +395,14 @@ class _PartiesPageState extends State<PartiesPage> {
 
       case 'Solicitante':
         return IconButton(
-          icon: const Icon(Icons.close),
+          icon: Icon(Icons.close, color: configProvider.iconColor),
           tooltip: 'Cancelar solicitação',
           onPressed: () => _declineInvite(partyId),
         );
 
       case 'Confirmado':
         return IconButton(
-          icon: const Icon(Icons.exit_to_app),
+          icon: Icon(Icons.exit_to_app, color: configProvider.iconColor),
           tooltip: 'Sair da festa',
           onPressed: () => _declineInvite(partyId),
         );
@@ -383,7 +411,10 @@ class _PartiesPageState extends State<PartiesPage> {
       default:
         return TextButton(
           onPressed: () => _requestParticipation(partyId),
-          child: const Text('Participar'),
+          child: Text(
+            'Participar',
+            style: TextStyle(color: configProvider.iconColor),
+          ),
         );
     }
   }
@@ -410,6 +441,7 @@ class _PartiesPageState extends State<PartiesPage> {
                 return _buildPartyItem(party);
               },
             ),
+
           Positioned(
             bottom: 16,
             right: 16,
@@ -426,7 +458,7 @@ class _PartiesPageState extends State<PartiesPage> {
                   _fetchAllParties();
                 }
               },
-              child: const Icon(Icons.add),
+              child: Icon(Icons.add, color: configProvider.iconColor),
             ),
           ),
         ],
