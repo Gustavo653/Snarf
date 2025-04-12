@@ -42,7 +42,7 @@ class _PartyChatPageState extends State<PartyChatPage> {
 
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PartyChatGetPreviousMessages,
-      {"partyId": widget.partyId},
+      {"PartyId": widget.partyId},
     );
 
     setState(() {
@@ -105,7 +105,7 @@ class _PartyChatPageState extends State<PartyChatPage> {
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PartyChatSendMessage,
       {
-        "partyId": widget.partyId,
+        "PartyId": widget.partyId,
         "Message": messageText,
       },
     );
@@ -133,7 +133,7 @@ class _PartyChatPageState extends State<PartyChatPage> {
         await SignalRManager().sendSignalRMessage(
           SignalREventType.PartyChatSendImage,
           {
-            "partyId": widget.partyId,
+            "PartyId": widget.partyId,
             "Image": base64Image,
             "FileName": pickedFile.name,
           },
@@ -150,7 +150,7 @@ class _PartyChatPageState extends State<PartyChatPage> {
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PartyChatDeleteMessage,
       {
-        "partyId": widget.partyId,
+        "PartyId": widget.partyId,
         "MessageId": messageId,
       },
     );

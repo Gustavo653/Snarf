@@ -48,7 +48,7 @@ namespace Snarf.API.Controllers
                     break;
 
                 case nameof(SignalREventType.PartyChatGetPreviousMessages):
-                    await HandlePartyChatGetPreviousMessages();
+                    await HandlePartyChatGetPreviousMessages(message.Data);
                     break;
 
                 case nameof(SignalREventType.PublicChatSendMessage):
@@ -179,6 +179,7 @@ namespace Snarf.API.Controllers
         {
             var userId = GetUserId();
             var text = data.GetProperty("Message").GetString();
+            var partyId = data.GetProperty("PartyId").GetString();
             if (string.IsNullOrWhiteSpace(text)) return;
 
             var user = await _userRepository.GetTrackedEntities()
@@ -189,7 +190,8 @@ namespace Snarf.API.Controllers
             var message = new PartyChatMessage
             {
                 SenderId = userId,
-                Message = text
+                Message = text,
+                PartyId = Guid.Parse(partyId)
             };
 
             await _partyChatMessageRepository.InsertAsync(message);
@@ -231,6 +233,7 @@ namespace Snarf.API.Controllers
             var userId = GetUserId();
             var base64Image = data.GetProperty("Image").GetString();
             var fileName = data.GetProperty("FileName").GetString();
+            var partyId = data.GetProperty("PartyId").GetString();
 
             if (string.IsNullOrWhiteSpace(base64Image))
                 return;
@@ -254,7 +257,8 @@ namespace Snarf.API.Controllers
             var message = new PartyChatMessage
             {
                 SenderId = userId,
-                Message = imageUrl
+                Message = imageUrl,
+                PartyId = Guid.Parse(partyId)
             };
 
             await _partyChatMessageRepository.InsertAsync(message);
@@ -315,8 +319,9 @@ namespace Snarf.API.Controllers
             await Clients.All.SendAsync("ReceiveMessage", jsonResponse);
         }
 
-        private async Task HandlePartyChatGetPreviousMessages()
+        private async Task HandlePartyChatGetPreviousMessages(JsonElement data)
         {
+            var partyId = data.GetProperty("PartyId").GetString();
             var userId = GetUserId();
             var previousMessages = await _partyChatMessageRepository
                 .GetEntities()

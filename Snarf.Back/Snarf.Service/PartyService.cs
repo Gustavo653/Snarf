@@ -160,7 +160,9 @@ namespace Snarf.Service
             ResponseDTO responseDTO = new();
             try
             {
-                var partyEntity = await partyRepository.GetTrackedEntities()
+                var partyEntity = await partyRepository
+                    .GetTrackedEntities()
+                    .Include(x => x.Messages)
                     .FirstOrDefaultAsync(x => x.Id == id);
 
                 if (partyEntity == null)
@@ -173,6 +175,22 @@ namespace Snarf.Service
                 {
                     responseDTO.SetBadInput("Apenas o dono da festa pode excluir.");
                     return responseDTO;
+                }
+
+                var urls = partyEntity.Messages.Where(x => x.Message.StartsWith("https://")).Select(x => x.Message).ToList();
+                urls.Add(partyEntity.CoverImageUrl);
+
+                foreach (var url in urls)
+                {
+                    try
+                    {
+                        var s3Service = new S3Service();
+                        await s3Service.DeleteFileAsync(url);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, $"Erro ao deletar arquivo S3: {url}");
+                    }
                 }
 
                 partyRepository.Delete(partyEntity);
