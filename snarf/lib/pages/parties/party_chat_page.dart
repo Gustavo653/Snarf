@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/view_user_page.dart'; // <--- import adicional
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
@@ -150,45 +151,130 @@ class _PartyChatPageState extends State<PartyChatPage> {
     final bool isMine = msg['userId'] == widget.userId;
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
 
-    if (msg['isImage'] == true && msg['message'] != null) {
-      return ListTile(
-        title: Text(
-          msg['userName'] ?? '',
-          style: TextStyle(color: configProvider.textColor),
-        ),
-        subtitle: Image.network(
-          msg['message'],
-          errorBuilder: (_, __, ___) {
-            return Text(
-              'Erro ao carregar imagem',
-              style: TextStyle(color: configProvider.textColor),
-            );
-          },
-        ),
-        trailing: isMine
-            ? IconButton(
-                icon: Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _deleteMessage(msg['id']),
+    final String messageText = msg['message'] ?? '';
+    final bool isImage = msg['isImage'] == true;
+
+    // Se for minha mensagem, alinhe à direita
+    if (isMine) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: configProvider.secondaryColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                  bottomLeft: Radius.circular(12),
+                ),
+              ),
+              child: isImage
+                  ? Image.network(
+                messageText,
+                errorBuilder: (_, __, ___) {
+                  return Text(
+                    'Erro ao carregar imagem',
+                    style: TextStyle(color: configProvider.textColor),
+                  );
+                },
               )
-            : null,
+                  : Text(
+                messageText,
+                style: TextStyle(
+                  color: configProvider.textColor,
+                ),
+              ),
+            ),
+          ),
+          if (messageText != "Mensagem excluída")
+            IconButton(
+              icon: Icon(
+                Icons.delete,
+                size: 18,
+                color: configProvider.iconColor,
+              ),
+              onPressed: () => _deleteMessage(msg['id']),
+            ),
+        ],
       );
     }
 
-    return ListTile(
-      title: Text(
-        msg['userName'] ?? '',
-        style: TextStyle(color: configProvider.textColor),
-      ),
-      subtitle: Text(
-        msg['message'] ?? '',
-        style: TextStyle(color: configProvider.textColor),
-      ),
-      trailing: isMine && msg['message'] != "Mensagem excluída"
-          ? IconButton(
-              icon: Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _deleteMessage(msg['id']),
+    // Se não for minha, alinhe à esquerda e inclua o clique para abrir a tela de viewuserpage
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Envolve o avatar em um GestureDetector para abrir o ViewUserPage
+        GestureDetector(
+          onTap: () {
+            if (msg['userId'] == null) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ViewUserPage(
+                  userId: msg['userId'],
+                ),
+              ),
+            );
+          },
+          child: Container(
+            width: 50,
+            height: 50,
+            margin: const EdgeInsets.only(left: 8, right: 8, top: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              image: (msg['userImage'] != null &&
+                  msg['userImage'].toString().isNotEmpty)
+                  ? DecorationImage(
+                image: NetworkImage(msg['userImage']),
+                fit: BoxFit.cover,
+              )
+                  : null,
+            ),
+            child: (msg['userImage'] == null ||
+                msg['userImage'].toString().isEmpty)
+                ? Center(
+              child: Icon(
+                Icons.person,
+                color: configProvider.iconColor,
+              ),
             )
-          : null,
+                : null,
+          ),
+        ),
+        Flexible(
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: configProvider.secondaryColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+            ),
+            child: isImage
+                ? Image.network(
+              messageText,
+              errorBuilder: (_, __, ___) {
+                return Text(
+                  'Erro ao carregar imagem',
+                  style: TextStyle(color: configProvider.textColor),
+                );
+              },
+            )
+                : Text(
+              messageText,
+              style: TextStyle(
+                color: configProvider.textColor,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -208,63 +294,67 @@ class _PartyChatPageState extends State<PartyChatPage> {
       backgroundColor: configProvider.primaryColor,
       body: _isLoading
           ? Center(
-              child: CircularProgressIndicator(
-                color: configProvider.iconColor,
-              ),
-            )
+        child: CircularProgressIndicator(
+          color: configProvider.iconColor,
+        ),
+      )
           : Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                final msg = _messages[index];
+                return _buildMessageWidget(msg);
+              },
+            ),
+          ),
+          Padding(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            child: Row(
               children: [
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      return _buildMessageWidget(msg);
-                    },
-                  ),
+                IconButton(
+                  icon: Icon(Icons.photo, color: configProvider.iconColor),
+                  onPressed: _sendImage,
                 ),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                  child: Row(
-                    children: [
-                      // Botão para enviar imagem
-                      IconButton(
-                        icon:
-                            Icon(Icons.photo, color: configProvider.iconColor),
-                        onPressed: _sendImage,
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    style: TextStyle(color: configProvider.textColor),
+                    decoration: InputDecoration(
+                      hintText: "Digite sua mensagem",
+                      hintStyle: TextStyle(
+                        color: configProvider.textColor.withOpacity(0.6),
                       ),
-                      Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          style: TextStyle(color: configProvider.textColor),
-                          decoration: InputDecoration(
-                            hintText: "Digite sua mensagem",
-                            hintStyle: TextStyle(
-                              color: configProvider.textColor.withOpacity(0.6),
-                            ),
-                            filled: true,
-                            fillColor:
-                                configProvider.secondaryColor.withOpacity(0.1),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(30),
-                              borderSide: BorderSide(
-                                color: configProvider.secondaryColor,
-                              ),
-                            ),
-                          ),
+                      filled: true,
+                      fillColor:
+                      configProvider.secondaryColor.withOpacity(0.1),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide(
+                          color: configProvider.secondaryColor,
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.send, color: configProvider.iconColor),
-                        onPressed: _sendMessage,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide(
+                          color: configProvider.secondaryColor,
+                        ),
                       ),
-                    ],
+                    ),
                   ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.send, color: configProvider.iconColor),
+                  onPressed: _sendMessage,
                 ),
               ],
             ),
+          ),
+        ],
+      ),
     );
   }
 
