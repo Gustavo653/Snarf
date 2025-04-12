@@ -26,6 +26,7 @@ class _PartyChatPageState extends State<PartyChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
+  bool _isSendingImage = false;
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
 
@@ -123,17 +124,25 @@ class _PartyChatPageState extends State<PartyChatPage> {
     );
 
     if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
-      final base64Image = base64Encode(bytes);
+      try {
+        setState(() => _isSendingImage = true);
 
-      await SignalRManager().sendSignalRMessage(
-        SignalREventType.PartyChatSendImage,
-        {
-          "partyId": widget.partyId,
-          "Image": base64Image,
-          "FileName": pickedFile.name,
-        },
-      );
+        final bytes = await pickedFile.readAsBytes();
+        final base64Image = base64Encode(bytes);
+
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PartyChatSendImage,
+          {
+            "partyId": widget.partyId,
+            "Image": base64Image,
+            "FileName": pickedFile.name,
+          },
+        );
+      } catch (e) {
+        log("Erro ao enviar imagem: $e");
+      } finally {
+        setState(() => _isSendingImage = false);
+      }
     }
   }
 
@@ -182,9 +191,7 @@ class _PartyChatPageState extends State<PartyChatPage> {
               )
                   : Text(
                 messageText,
-                style: TextStyle(
-                  color: configProvider.textColor,
-                ),
+                style: TextStyle(color: configProvider.textColor),
               ),
             ),
           ),
@@ -308,12 +315,24 @@ class _PartyChatPageState extends State<PartyChatPage> {
             ),
           ),
           Padding(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 8, vertical: 12),
             child: Row(
               children: [
-                IconButton(
-                  icon: Icon(Icons.photo, color: configProvider.iconColor),
+                _isSendingImage
+                    ? SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: configProvider.iconColor,
+                  ),
+                )
+                    : IconButton(
+                  icon: Icon(
+                    Icons.photo,
+                    color: configProvider.iconColor,
+                  ),
                   onPressed: _sendImage,
                 ),
                 Expanded(
@@ -323,7 +342,8 @@ class _PartyChatPageState extends State<PartyChatPage> {
                     decoration: InputDecoration(
                       hintText: "Digite sua mensagem",
                       hintStyle: TextStyle(
-                        color: configProvider.textColor.withOpacity(0.6),
+                        color:
+                        configProvider.textColor.withOpacity(0.6),
                       ),
                       filled: true,
                       fillColor:

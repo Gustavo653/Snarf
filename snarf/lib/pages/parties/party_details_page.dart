@@ -475,6 +475,12 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
 
+    final userRole = _partyData?['userRole'] ?? '';
+
+    final canViewSensitive = userRole == 'Hospedando' ||
+        userRole == 'Confirmado' ||
+        userRole == 'Convidado';
+
     return Scaffold(
       backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
@@ -573,32 +579,30 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                         color: configProvider.textColor,
                       ),
                     ),
-                    const Divider(height: 24),
+                    const SizedBox(height: 8),
 
-                    _buildInfoRow(
-                      icon: Icons.category,
-                      label: 'Tipo: ${_mapType(_partyData!['type'])}',
-                      config: configProvider,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      icon: Icons.location_pin,
-                      label: 'Local: ${_partyData!['location']}',
-                      config: configProvider,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      icon: Icons.info_outline,
-                      label:
-                      'Instruções: ${_partyData!['instructions']}',
-                      config: configProvider,
-                    ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      icon: Icons.person,
-                      label: 'Papel: ${_partyData!['userRole']}',
-                      config: configProvider,
-                    ),
+                    if (canViewSensitive) ...[
+                      const Divider(height: 24),
+                      _buildInfoRow(
+                        icon: Icons.category,
+                        label: 'Tipo: ${_mapType(_partyData!['type'])}',
+                        config: configProvider,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildInfoRow(
+                        icon: Icons.location_pin,
+                        label: 'Local: ${_partyData!['location']}',
+                        config: configProvider,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildInfoRow(
+                        icon: Icons.info_outline,
+                        label:
+                        'Instruções: ${_partyData!['instructions']}',
+                        config: configProvider,
+                      ),
+                    ],
+
                     const SizedBox(height: 8),
                     _buildInfoRow(
                       icon: Icons.group,
@@ -620,37 +624,39 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
 
             const SizedBox(height: 16),
 
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: configProvider.secondaryColor,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PartyChatPage(
-                      partyId: widget.partyId,
-                      userId: widget.userId,
+            if (canViewSensitive)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: configProvider.secondaryColor,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PartyChatPage(
+                        partyId: widget.partyId,
+                        userId: widget.userId,
+                      ),
                     ),
-                  ),
-                );
-              },
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.chat, color: configProvider.iconColor),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Abrir Chat',
-                    style: TextStyle(color: configProvider.iconColor),
-                  ),
-                ],
+                  );
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.chat, color: configProvider.iconColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Abrir Chat',
+                      style: TextStyle(color: configProvider.iconColor),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
             const SizedBox(height: 16),
 
-            if (_partyData!['ownerId'] != widget.userId &&
+            if (!canViewSensitive &&
+                _partyData!['ownerId'] != widget.userId &&
                 _partyData!['userRole'] == 'Disponível para Participar')
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -662,42 +668,45 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                     : const Text('Solicitar Participação'),
               ),
 
-            FutureBuilder(
-              future: ApiService.getAllParticipants(
-                widget.partyId,
-                widget.userId,
-              ),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const CircularProgressIndicator();
-                }
-                if (snapshot.data == null) {
-                  return Text(
-                    "Erro ao carregar participantes",
-                    style: TextStyle(color: configProvider.textColor),
-                  );
-                }
-                final data = snapshot.data!;
-                final confirmeds = data['confirmeds'] as List<dynamic>?;
-                final inviteds = data['inviteds'] as List<dynamic>?;
+            if (canViewSensitive)
+              FutureBuilder(
+                future: ApiService.getAllParticipants(
+                  widget.partyId,
+                  widget.userId,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const CircularProgressIndicator();
+                  }
+                  if (snapshot.data == null) {
+                    return Text(
+                      "Erro ao carregar participantes",
+                      style: TextStyle(color: configProvider.textColor),
+                    );
+                  }
+                  final data = snapshot.data!;
+                  final confirmeds =
+                  data['confirmeds'] as List<dynamic>?;
+                  final inviteds = data['inviteds'] as List<dynamic>?;
 
-                return Column(
-                  children: [
-                    _buildUserList(
-                      title: "Confirmados",
-                      users: confirmeds,
-                      isPending: false,
-                    ),
-                    _buildUserList(
-                      title: "Convidados (Pendentes)",
-                      users: inviteds,
-                      isPending: true,
-                    ),
-                  ],
-                );
-              },
-            ),
+                  return Column(
+                    children: [
+                      _buildUserList(
+                        title: "Confirmados",
+                        users: confirmeds,
+                        isPending: false,
+                      ),
+                      if (_partyData!['ownerId'] == widget.userId)
+                        _buildUserList(
+                          title: "Convidados (Pendentes)",
+                          users: inviteds,
+                          isPending: true,
+                        ),
+                    ],
+                  );
+                },
+              ),
           ],
         ),
       ),
