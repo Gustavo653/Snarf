@@ -47,7 +47,6 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
   late Location _location;
   double? _latitude;
   double? _longitude;
-  bool _locationObtained = false;
 
   bool _isLoading = false;
 
@@ -129,7 +128,6 @@ class _CreateEditPartyPageState extends State<CreateEditPartyPage> {
       setState(() {
         _latitude = locationData.latitude;
         _longitude = locationData.longitude;
-        _locationObtained = true;
       });
     } catch (e) {
       showErrorSnackbar(context, "Erro ao obter localização: $e");

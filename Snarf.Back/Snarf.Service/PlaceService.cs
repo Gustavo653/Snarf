@@ -165,6 +165,7 @@ namespace Snarf.Service
                     placeEntity.Description,
                     placeEntity.Latitude,
                     placeEntity.Longitude,
+                    placeEntity.Type,
                     placeEntity.OwnerId,
                     placeEntity.CoverImageUrl
                 };

@@ -14,6 +14,7 @@ import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
 import 'package:snarf/pages/parties/party_details_page.dart';
+import 'package:snarf/pages/places/place_details_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/config_provider.dart';
@@ -40,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   late Marker _userLocationMarker;
   final Map<String, Marker> _userMarkers = {};
   final Map<String, Marker> _partyMarkers = {};
+  final Map<String, Marker> _placeMarkers = {};
   final Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   late String userImage = '';
@@ -71,6 +73,7 @@ class _HomePageState extends State<HomePage> {
     await _setupSignalRConnection();
     await _fetchFirstMessage();
     await _getAllParties();
+    await _getAllPlaces();
     await _analytics
         .logEvent(name: 'app_initialized', parameters: {'screen': 'HomePage'});
   }
@@ -174,7 +177,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 60000);
+    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 20000);
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) async {
       setState(() {
@@ -397,6 +400,22 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _getAllPlaces() async {
+    final result = await ApiService.getAllPlaces();
+    if (result != null && result['data'] != null) {
+      final List places = result['data'];
+      for (var place in places) {
+        final id = place['id'].toString();
+        final lat = place['latitude'] is double ? place['latitude'] : 0.0;
+        final lon = place['longitude'] is double ? place['longitude'] : 0.0;
+        final title = place['title'].toString();
+        final imageUrl = place['imageUrl'].toString();
+        _addPlaceMarker(id, lat, lon, title, imageUrl);
+      }
+      setState(() {});
+    }
+  }
+
   void _addPartyMarker(String partyId, double lat, double lon, String title,
       String imageUrl, String userRole) {
     final config = Provider.of<ConfigProvider>(context, listen: false);
@@ -406,6 +425,30 @@ class _HomePageState extends State<HomePage> {
       height: 70,
       child: GestureDetector(
         onTap: () => _openPartyDetails(partyId),
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: config.customOrange, width: 3),
+          ),
+          child: CircleAvatar(
+            backgroundImage: InterceptedImageProvider(
+              originalProvider: NetworkImage(imageUrl),
+              hideImages: config.hideImages,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _addPlaceMarker(String placeId, double lat, double lon, String title, String imageUrl) {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+    _placeMarkers[placeId] = Marker(
+      point: LatLng(lat, lon),
+      width: 70,
+      height: 70,
+      child: GestureDetector(
+        onTap: () => _openPlaceDetails(placeId),
         child: Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -432,6 +475,15 @@ class _HomePageState extends State<HomePage> {
           partyId: partyId,
           userId: userId,
         ),
+      ),
+    );
+  }
+
+  void _openPlaceDetails(String placeId) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PlaceDetailsPage(placeId: placeId),
       ),
     );
   }
@@ -784,6 +836,7 @@ class _HomePageState extends State<HomePage> {
                         _userLocationMarker,
                         ..._userMarkers.values,
                         ..._partyMarkers.values,
+                        ..._placeMarkers.values,
                       ],
                     ),
                   ],

@@ -108,8 +108,8 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
     try {
       final locationData = await _location.getLocation();
       setState(() {
-        _latitude ??= locationData.latitude;
-        _longitude ??= locationData.longitude;
+        _latitude = locationData.latitude;
+        _longitude = locationData.longitude;
       });
     } catch (e) {
       showErrorSnackbar(context, "Erro ao obter localização: $e");
@@ -227,7 +227,6 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     TextFormField(
                       controller: _titleController,
                       decoration: InputDecoration(
@@ -248,7 +247,6 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                           : null,
                     ),
                     const SizedBox(height: 16),
-
                     TextFormField(
                       controller: _descController,
                       decoration: InputDecoration(
@@ -270,7 +268,6 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                           : null,
                     ),
                     const SizedBox(height: 16),
-
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -306,12 +303,11 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                                 });
                               },
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
-
                     ElevatedButton(
                       onPressed: _onSave,
                       child: Text(
