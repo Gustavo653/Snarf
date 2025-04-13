@@ -1,6 +1,7 @@
 ﻿using Snarf.Domain.Base;
 using Snarf.Domain.Enum;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Security.AccessControl;
 
 namespace Snarf.Domain.Entities
 {
@@ -13,5 +14,6 @@ namespace Snarf.Domain.Entities
         public required string OwnerId { get; set; }
         public virtual User? Owner { get; set; }
         public required string CoverImageUrl { get; set; }
+        public required PlaceType Type { get; set; }
     }
 }

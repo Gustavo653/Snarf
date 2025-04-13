@@ -841,6 +841,7 @@ class ApiService {
     required double latitude,
     required double longitude,
     required String coverImageBase64,
+    int type = 0,
   }) async {
     final token = await getToken();
     if (token == null) return false;
@@ -854,7 +855,8 @@ class ApiService {
       "description": description,
       "latitude": latitude,
       "longitude": longitude,
-      "coverImage": coverImageBase64
+      "coverImage": coverImageBase64,
+      "type": type
     });
     try {
       final response = await http.post(url, headers: headers, body: body);
@@ -871,6 +873,7 @@ class ApiService {
     required double latitude,
     required double longitude,
     String? coverImageBase64,
+    int type = 0,
   }) async {
     final token = await getToken();
     if (token == null) return false;
@@ -883,7 +886,8 @@ class ApiService {
       "title": title,
       "description": description,
       "latitude": latitude,
-      "longitude": longitude
+      "longitude": longitude,
+      "type": type
     };
     if (coverImageBase64 != null && coverImageBase64.isNotEmpty) {
       body["coverImage"] = coverImageBase64;

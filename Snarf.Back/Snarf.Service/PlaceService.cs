@@ -44,7 +44,8 @@ namespace Snarf.Service
                     Latitude = createDTO.Latitude,
                     Longitude = createDTO.Longitude,
                     OwnerId = user.Id,
-                    CoverImageUrl = imageUrl
+                    CoverImageUrl = imageUrl,
+                    Type = createDTO.Type
                 };
 
                 await placeRepository.InsertAsync(placeEntity);
@@ -80,6 +81,7 @@ namespace Snarf.Service
                 placeEntity.Description = updateDTO.Description;
                 placeEntity.Latitude = updateDTO.Latitude;
                 placeEntity.Longitude = updateDTO.Longitude;
+                placeEntity.Type = updateDTO.Type;
 
                 if (!string.IsNullOrWhiteSpace(updateDTO.CoverImage))
                 {

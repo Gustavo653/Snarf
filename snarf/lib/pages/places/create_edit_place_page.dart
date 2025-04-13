@@ -31,7 +31,24 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
   bool _isLoading = false;
 
   late Location _location;
-  bool _locationObtained = false;
+
+  int _selectedType = 0;
+
+  final List<Map<String, dynamic>> _placeTypes = [
+    {'value': 0, 'label': 'Academia'},
+    {'value': 1, 'label': 'Banheiro'},
+    {'value': 2, 'label': 'Bar/Clube'},
+    {'value': 3, 'label': 'Café/Restaurante'},
+    {'value': 4, 'label': 'Duchas/Sauna'},
+    {'value': 5, 'label': 'Evento Recorrente'},
+    {'value': 6, 'label': 'Fliperama/Teatro'},
+    {'value': 7, 'label': 'Hotel/Resort'},
+    {'value': 8, 'label': 'Outro'},
+    {'value': 9, 'label': 'Parada de Caminhões'},
+    {'value': 10, 'label': 'Parque'},
+    {'value': 11, 'label': 'Praia de Nudismo'},
+    {'value': 12, 'label': 'Sauna'},
+  ];
 
   @override
   void initState() {
@@ -56,12 +73,12 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
       Navigator.pop(context);
       return;
     }
-
     setState(() {
       _titleController.text = data['title'] ?? '';
       _descController.text = data['description'] ?? '';
       _latitude = data['latitude']?.toDouble() ?? 0.0;
       _longitude = data['longitude']?.toDouble() ?? 0.0;
+      _selectedType = data['type'] ?? 0;
     });
   }
 
@@ -93,7 +110,6 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
       setState(() {
         _latitude ??= locationData.latitude;
         _longitude ??= locationData.longitude;
-        _locationObtained = true;
       });
     } catch (e) {
       showErrorSnackbar(context, "Erro ao obter localização: $e");
@@ -104,6 +120,7 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile == null) return;
+
     _imageFile = File(pickedFile.path);
     final bytes = await _imageFile!.readAsBytes();
     _base64Image = base64Encode(bytes);
@@ -117,6 +134,7 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
       showErrorSnackbar(context, 'Usuário não logado');
       return;
     }
+
     setState(() => _isLoading = true);
 
     if (widget.placeId == null) {
@@ -126,6 +144,7 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
         latitude: _latitude ?? 0.0,
         longitude: _longitude ?? 0.0,
         coverImageBase64: _base64Image ?? '',
+        type: _selectedType,
       );
       setState(() => _isLoading = false);
       if (created) {
@@ -143,8 +162,8 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
       latitude: _latitude ?? 0.0,
       longitude: _longitude ?? 0.0,
       coverImageBase64: _base64Image,
+      type: _selectedType,
     );
-
     setState(() => _isLoading = false);
     if (updated) {
       Navigator.pop(context, true);
@@ -156,7 +175,6 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
   @override
   Widget build(BuildContext context) {
     final config = Provider.of<ConfigProvider>(context);
-
     return Scaffold(
       backgroundColor: config.primaryColor,
       appBar: AppBar(
@@ -209,11 +227,12 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                       ),
                     ),
                     const SizedBox(height: 20),
+
                     TextFormField(
                       controller: _titleController,
                       decoration: InputDecoration(
                         labelText: 'Título',
-                        hintText: 'Ex: Ponto de Encontro XYZ',
+                        hintText: 'Ex: Banheiro do Shopping X',
                         prefixIcon: Icon(Icons.title, color: config.iconColor),
                         labelStyle: TextStyle(color: config.textColor),
                         hintStyle: TextStyle(
@@ -228,7 +247,8 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                           ? 'Informe o título'
                           : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+
                     TextFormField(
                       controller: _descController,
                       decoration: InputDecoration(
@@ -249,7 +269,49 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                           ? 'Informe a descrição'
                           : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 8, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: config.secondaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Selecione o tipo de local:",
+                            style: TextStyle(
+                              color: config.textColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ..._placeTypes.map((pt) {
+                            return RadioListTile<int>(
+                              title: Text(
+                                pt['label'] as String,
+                                style: TextStyle(color: config.textColor),
+                              ),
+                              activeColor: config.iconColor,
+                              value: pt['value'] as int,
+                              groupValue: _selectedType,
+                              onChanged: (val) {
+                                setState(() {
+                                  _selectedType = val ?? 0;
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
                     ElevatedButton(
                       onPressed: _onSave,
                       child: Text(
