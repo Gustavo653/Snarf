@@ -145,6 +145,19 @@ namespace Snarf.Service
                 partyEntity.StartDate = updateDTO.StartDate;
                 partyEntity.Duration = updateDTO.Duration;
 
+                if (!string.IsNullOrWhiteSpace(updateDTO.CoverImage))
+                {
+                    var s3Service = new S3Service();
+                    if (!string.IsNullOrWhiteSpace(partyEntity.CoverImageUrl) && partyEntity.CoverImageUrl.StartsWith("https://"))
+                    {
+                        await s3Service.DeleteFileAsync(partyEntity.CoverImageUrl);
+                    }
+                    var imageBytes = Convert.FromBase64String(updateDTO.CoverImage);
+                    using var imageStream = new MemoryStream(imageBytes);
+                    var newCoverUrl = await s3Service.UploadFileAsync($"placeImages/{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
+                    partyEntity.CoverImageUrl = newCoverUrl;
+                }
+
                 await partyRepository.SaveChangesAsync();
                 Log.Information("Festa com Id: {id} atualizada com sucesso.", partyEntity.Id);
             }

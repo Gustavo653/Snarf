@@ -253,6 +253,8 @@ namespace Snarf.API
             builder.Services.AddScoped<IPartyRepository, PartyRepository>();
             builder.Services.AddScoped<IFavoriteChatRepository, FavoriteChatRepository>();
             builder.Services.AddScoped<IBlockedUserRepository, BlockedUserRepository>();
+            builder.Services.AddScoped<IPlaceRepository, PlaceRepository>();
+            builder.Services.AddScoped<IPlaceChatMessageRepository, PlaceChatMessageRepository>();
         }
 
         private static void InjectServiceDependencies(WebApplicationBuilder builder)
@@ -262,6 +264,7 @@ namespace Snarf.API
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<ITokenService, TokenService>();
             builder.Services.AddScoped<IPartyService, PartyService>();
+            builder.Services.AddScoped<IPlaceService, PlaceService>();
         }
 
         private static async Task SeedAdminUser(IServiceProvider serviceProvider)

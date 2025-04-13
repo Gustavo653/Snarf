@@ -27,7 +27,6 @@ namespace Snarf.API.Controllers
         [HttpGet("all{userId:guid}")]
         public async Task<IActionResult> GetAllParties([FromRoute] Guid userId)
         {
-            // No seu código, você chama de novo o token:
             userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
 
             var parties = await partyService.GetAll(userId);
@@ -37,7 +36,6 @@ namespace Snarf.API.Controllers
         [HttpGet("{id:guid}/all-users/{userId:guid}")]
         public async Task<IActionResult> GetAllParticipants([FromRoute] Guid id, [FromRoute] Guid userId)
         {
-            // Você sobrescreve aqui de novo, mas pode ficar se a regra é usar só o do token.
             userId = Guid.Parse(User.Claims.First(x => x.Type == ClaimTypes.NameIdentifier.ToString()).Value);
 
             var parties = await partyService.GetAllParticipants(id, userId);
@@ -64,7 +62,7 @@ namespace Snarf.API.Controllers
         public async Task<IActionResult> InviteUsersToParty([FromRoute] Guid id, [FromBody] List<string> userIds)
         {
             var whoIsCallingId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var result = await partyService.InviteUsers(id, userIds, whoIsCallingId);
+            var result = await partyService.InviteUsers(id, userIds, whoIsCallingId!);
             return StatusCode(result.Code, result);
         }
 
@@ -73,7 +71,7 @@ namespace Snarf.API.Controllers
         {
             var whoIsCallingId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var result = await partyService.RequestParticipation(id, whoIsCallingId);
+            var result = await partyService.RequestParticipation(id, whoIsCallingId!);
             return StatusCode(result.Code, result);
         }
 
@@ -82,7 +80,7 @@ namespace Snarf.API.Controllers
         {
             var whoIsCallingId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var result = await partyService.ConfirmUser(id, whoIsCallingId, targetUserId.ToString());
+            var result = await partyService.ConfirmUser(id, whoIsCallingId!, targetUserId.ToString());
             return StatusCode(result.Code, result);
         }
 
@@ -91,7 +89,7 @@ namespace Snarf.API.Controllers
         {
             var whoIsCallingId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var result = await partyService.DeclineUser(id, whoIsCallingId, targetUserId.ToString());
+            var result = await partyService.DeclineUser(id, whoIsCallingId!, targetUserId.ToString());
             return StatusCode(result.Code, result);
         }
     }

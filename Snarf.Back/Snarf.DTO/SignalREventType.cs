@@ -50,6 +50,12 @@
         PartyChatDeleteMessage,
         PartyChatReceiveMessageDeleted,
         PartyChatGetPreviousMessages,
-        PartyChatSendImage
+        PartyChatSendImage,
+
+        PlaceChatSendMessage,
+        PlaceChatDeleteMessage,
+        PlaceChatGetPreviousMessages,
+        PlaceChatReceiveMessage,
+        PlaceChatReceiveMessageDeleted
     }
 }

@@ -9,11 +9,13 @@ namespace Snarf.Persistence
     {
         public DbSet<PrivateChatMessage> PrivateChatMessages { get; set; }
         public DbSet<PublicChatMessage> PublicChatMessages { get; set; }
-        public DbSet<PartyChatMessage> PartyChatMessages { get; set; }
         public DbSet<FavoriteChat> FavoriteChats { get; set; }
         public DbSet<BlockedUser> BlockedUsers { get; set; }
         public DbSet<VideoCallLog> VideoCallLogs { get; set; }
         public DbSet<Party> Parties { get; set; }
+        public DbSet<PartyChatMessage> PartyChatMessages { get; set; }
+        public DbSet<Place> Places { get; set; }
+        public DbSet<PlaceChatMessage> PlaceChatMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
