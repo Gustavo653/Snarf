@@ -8,7 +8,7 @@ import 'package:snarf/utils/show_snackbar.dart';
 class PlaceDetailsPage extends StatefulWidget {
   final String placeId;
 
-  const PlaceDetailsPage({Key? key, required this.placeId}) : super(key: key);
+  const PlaceDetailsPage({super.key, required this.placeId});
 
   @override
   State<PlaceDetailsPage> createState() => _PlaceDetailsPageState();

@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
+import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
 
 class PlaceChatPage extends StatefulWidget {
@@ -31,12 +33,16 @@ class _PlaceChatPageState extends State<PlaceChatPage> {
 
   Future<void> _initChat() async {
     _userId = await ApiService.getUserIdFromToken();
-    SignalRManager()
-        .listenToEvent('ReceiveMessage', _onReceivePlaceChatMessage);
+    SignalRManager().listenToEvent(
+      'ReceiveMessage',
+      _onReceivePlaceChatMessage,
+    );
+
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PlaceChatGetPreviousMessages,
       {"PlaceId": widget.placeId},
     );
+
     setState(() => _isLoading = false);
   }
 
@@ -55,7 +61,7 @@ class _PlaceChatPageState extends State<PlaceChatPage> {
             'userName': data['UserName'],
             'userImage': data['UserImage'],
             'message': data['Message'],
-            'isImage': data['Message'].toString().startsWith('https://')
+            'isImage': data['Message'].toString().startsWith('https://'),
           });
         });
         _scrollToBottom();
@@ -109,20 +115,126 @@ class _PlaceChatPageState extends State<PlaceChatPage> {
     final bool isMine = (msg['userId'] == _userId);
     final String text = msg['message'] ?? '';
     final bool isDeleted = (text == 'Mensagem excluída');
+
+    // Pega a data de criação e converte para "Há x tempo" via DateJSONUtils
+    final DateTime createdAt = msg['createdAt'] ?? DateTime.now();
+    final String relativeTime =
+        DateJSONUtils.formatRelativeTime(createdAt.toString());
+
     if (isMine) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+      // Mensagem do usuário atual
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          // Texto "Há x tempo" acima do bubble
+          Padding(
+            padding: const EdgeInsets.only(right: 12, top: 8, bottom: 2),
+            child: Text(
+              relativeTime,
+              style: TextStyle(
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+                color: config.textColor,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Container(
+                  margin:
+                      const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: config.secondaryColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    text,
+                    style: TextStyle(color: config.textColor),
+                  ),
+                ),
+              ),
+              if (!isDeleted)
+                IconButton(
+                  icon: Icon(
+                    Icons.delete,
+                    size: 18,
+                    color: config.iconColor,
+                  ),
+                  onPressed: () => _deleteMessage(msg['id']),
+                ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      // Mensagem de outro usuário
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Coloca a data/hora acima da foto do usuário
+          Padding(
+            padding: const EdgeInsets.only(left: 8, right: 8),
+            child: Column(
+              children: [
+                Text(
+                  relativeTime,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                    color: config.textColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () {
+                    final userId = msg['userId'];
+                    if (userId == null) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ViewUserPage(userId: userId),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      image: (msg['userImage'] != null &&
+                              msg['userImage'].toString().isNotEmpty)
+                          ? DecorationImage(
+                              image: NetworkImage(msg['userImage']),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: (msg['userImage'] == null ||
+                            msg['userImage'].toString().isEmpty)
+                        ? Icon(Icons.person, color: config.iconColor)
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
           Flexible(
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              margin: const EdgeInsets.symmetric(vertical: 18),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: config.secondaryColor,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
-                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
                 ),
               ),
               child: Text(
@@ -131,51 +243,9 @@ class _PlaceChatPageState extends State<PlaceChatPage> {
               ),
             ),
           ),
-          if (!isDeleted)
-            IconButton(
-              icon: Icon(Icons.delete, size: 18, color: config.iconColor),
-              onPressed: () => _deleteMessage(msg['id']),
-            )
         ],
       );
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            image: (msg['userImage'] != null &&
-                    msg['userImage'].toString().isNotEmpty)
-                ? DecorationImage(
-                    image: NetworkImage(msg['userImage']), fit: BoxFit.cover)
-                : null,
-          ),
-          child:
-              (msg['userImage'] == null || msg['userImage'].toString().isEmpty)
-                  ? Icon(Icons.person, color: config.iconColor)
-                  : null,
-        ),
-        Flexible(
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: config.secondaryColor,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-                bottomRight: Radius.circular(12),
-              ),
-            ),
-            child: Text(text, style: TextStyle(color: config.textColor)),
-          ),
-        ),
-      ],
-    );
   }
 
   @override
@@ -185,7 +255,10 @@ class _PlaceChatPageState extends State<PlaceChatPage> {
       appBar: AppBar(
         backgroundColor: config.primaryColor,
         iconTheme: IconThemeData(color: config.iconColor),
-        title: Text('Chat do Lugar', style: TextStyle(color: config.textColor)),
+        title: Text(
+          'Chat do Lugar',
+          style: TextStyle(color: config.textColor),
+        ),
       ),
       backgroundColor: config.primaryColor,
       body: _isLoading
@@ -211,7 +284,8 @@ class _PlaceChatPageState extends State<PlaceChatPage> {
                           decoration: InputDecoration(
                             hintText: "Digite sua mensagem",
                             hintStyle: TextStyle(
-                                color: config.textColor.withOpacity(0.6)),
+                              color: config.textColor.withOpacity(0.6),
+                            ),
                             filled: true,
                             fillColor: config.secondaryColor.withOpacity(0.1),
                             border: OutlineInputBorder(
@@ -228,8 +302,9 @@ class _PlaceChatPageState extends State<PlaceChatPage> {
                         ),
                       ),
                       IconButton(
-                          icon: Icon(Icons.send, color: config.iconColor),
-                          onPressed: _sendMessage),
+                        icon: Icon(Icons.send, color: config.iconColor),
+                        onPressed: _sendMessage,
+                      ),
                     ],
                   ),
                 ),
