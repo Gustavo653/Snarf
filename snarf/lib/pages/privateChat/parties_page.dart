@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
@@ -55,14 +54,11 @@ class _PartiesPageState extends State<PartiesPage> {
 
   Future<void> _loadRecentChats() async {
     setState(() => _isLoadingRecentChats = true);
-
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PrivateChatGetRecentChats,
       {},
     );
-
     await Future.delayed(const Duration(milliseconds: 500));
-
     setState(() => _isLoadingRecentChats = false);
   }
 
@@ -72,16 +68,14 @@ class _PartiesPageState extends State<PartiesPage> {
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
       final SignalREventType type = SignalREventType.values.firstWhere(
-            (e) => e.toString().split('.').last == message['Type'],
+        (e) => e.toString().split('.').last == message['Type'],
       );
-
       final dynamic data = message['Data'];
 
       switch (type) {
         case SignalREventType.PrivateChatReceiveRecentChats:
           _handleRecentChats(data);
           break;
-
         case SignalREventType.PrivateChatReceiveFavorites:
         case SignalREventType.PrivateChatReceiveMessage:
         case SignalREventType.MapReceiveLocation:
@@ -98,7 +92,6 @@ class _PartiesPageState extends State<PartiesPage> {
   void _handleRecentChats(dynamic data) {
     try {
       final parsedData = data as List<dynamic>;
-
       setState(() {
         _recentChats = parsedData.map((item) {
           final mapItem = item is Map<String, dynamic>
@@ -123,14 +116,11 @@ class _PartiesPageState extends State<PartiesPage> {
   Future<void> _openInviteUsersDialog(String partyId) async {
     await _loadRecentChats();
     if (!mounted) return;
-
     if (_recentChats.isEmpty) {
       showErrorSnackbar(context, "Nenhum chat recente encontrado.");
       return;
     }
-
     final List<String> selectedUserIds = [];
-
     await showDialog(
       context: context,
       builder: (BuildContext dialogCtx) {
@@ -145,7 +135,6 @@ class _PartiesPageState extends State<PartiesPage> {
                 ),
               );
             }
-
             return AlertDialog(
               title: const Text('Convidar Usuários'),
               content: SizedBox(
@@ -157,9 +146,7 @@ class _PartiesPageState extends State<PartiesPage> {
                     final chat = _recentChats[index];
                     final uid = chat['UserId'].toString();
                     final name = chat['UserName'] ?? 'Sem nome';
-
                     final isSelected = selectedUserIds.contains(uid);
-
                     return CheckboxListTile(
                       title: Text(name),
                       value: isSelected,
@@ -185,23 +172,23 @@ class _PartiesPageState extends State<PartiesPage> {
                   onPressed: selectedUserIds.isEmpty
                       ? null
                       : () async {
-                    for (final uid in selectedUserIds) {
-                      final success =
-                      await ApiService.requestPartyParticipation(
-                        partyId: partyId,
-                        userId: uid,
-                      );
-                      if (success) {
-                        showSuccessSnackbar(
-                            context, "Convite enviado para $uid");
-                      } else {
-                        showErrorSnackbar(
-                            context, "Erro ao convidar $uid");
-                      }
-                    }
-                    if (!mounted) return;
-                    Navigator.pop(dialogCtx);
-                  },
+                          for (final uid in selectedUserIds) {
+                            final success =
+                                await ApiService.requestPartyParticipation(
+                              partyId: partyId,
+                              userId: uid,
+                            );
+                            if (success) {
+                              showSuccessSnackbar(
+                                  context, "Convite enviado para $uid");
+                            } else {
+                              showErrorSnackbar(
+                                  context, "Erro ao convidar $uid");
+                            }
+                          }
+                          if (!mounted) return;
+                          Navigator.pop(dialogCtx);
+                        },
                   child: const Text('Convidar'),
                 ),
               ],
@@ -231,26 +218,12 @@ class _PartiesPageState extends State<PartiesPage> {
       ),
     );
     if (confirm != true) return;
-
     final result = await ApiService.deleteParty(partyId, userId!);
     if (result) {
       showSuccessSnackbar(context, 'Festa excluída com sucesso!');
       _fetchAllParties();
     } else {
       showErrorSnackbar(context, 'Erro ao excluir festa');
-    }
-  }
-
-  Future<void> _editParty(Map<String, dynamic> party) async {
-    final partyId = party['id'].toString();
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CreateEditPartyPage(partyId: partyId),
-      ),
-    );
-    if (result == true) {
-      _fetchAllParties();
     }
   }
 
@@ -289,12 +262,10 @@ class _PartiesPageState extends State<PartiesPage> {
 
   Widget _buildPartyItem(dynamic party) {
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
-
     final partyId = party["id"].toString();
     final title = party["title"] ?? '';
     final userRole = party["userRole"] ?? '';
     final imageUrl = party["imageUrl"] as String? ?? '';
-
     return Card(
       color: configProvider.secondaryColor,
       shape: RoundedRectangleBorder(
@@ -304,14 +275,14 @@ class _PartiesPageState extends State<PartiesPage> {
       child: ListTile(
         leading: (imageUrl.isNotEmpty)
             ? ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            imageUrl,
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
-          ),
-        )
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  imageUrl,
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.cover,
+                ),
+              )
             : Icon(Icons.event, color: configProvider.iconColor),
         title: Text(
           title,
@@ -342,10 +313,8 @@ class _PartiesPageState extends State<PartiesPage> {
 
   Widget _buildTrailingActions(dynamic party) {
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
-
     final partyId = party["id"].toString();
     final userRole = party["userRole"] ?? '';
-
     switch (userRole) {
       case 'Hospedando':
         return PopupMenuButton<String>(
@@ -375,7 +344,6 @@ class _PartiesPageState extends State<PartiesPage> {
             ),
           ],
         );
-
       case 'Convidado':
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -392,21 +360,18 @@ class _PartiesPageState extends State<PartiesPage> {
             ),
           ],
         );
-
       case 'Solicitante':
         return IconButton(
           icon: Icon(Icons.close, color: configProvider.iconColor),
           tooltip: 'Cancelar solicitação',
           onPressed: () => _declineInvite(partyId),
         );
-
       case 'Confirmado':
         return IconButton(
           icon: Icon(Icons.exit_to_app, color: configProvider.iconColor),
           tooltip: 'Sair da festa',
           onPressed: () => _declineInvite(partyId),
         );
-
       case 'Disponível para Participar':
       default:
         return TextButton(
@@ -422,7 +387,6 @@ class _PartiesPageState extends State<PartiesPage> {
   @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
-
     return Container(
       color: configProvider.primaryColor,
       child: Stack(
@@ -433,6 +397,13 @@ class _PartiesPageState extends State<PartiesPage> {
                 color: configProvider.iconColor,
               ),
             )
+          else if (_parties.isEmpty)
+            Center(
+              child: Text(
+                "Nenhuma festa encontrada",
+                style: TextStyle(color: configProvider.textColor, fontSize: 16),
+              ),
+            )
           else
             ListView.builder(
               itemCount: _parties.length,
@@ -441,7 +412,6 @@ class _PartiesPageState extends State<PartiesPage> {
                 return _buildPartyItem(party);
               },
             ),
-
           Positioned(
             bottom: 16,
             right: 16,

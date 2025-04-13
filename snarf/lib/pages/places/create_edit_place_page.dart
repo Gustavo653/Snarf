@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
@@ -18,39 +19,85 @@ class CreateEditPlacePage extends StatefulWidget {
 
 class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
   final _formKey = GlobalKey<FormState>();
+
   late TextEditingController _titleController;
   late TextEditingController _descController;
+
   double? _latitude;
   double? _longitude;
+
   File? _imageFile;
   String? _base64Image;
   bool _isLoading = false;
+
+  late Location _location;
+  bool _locationObtained = false;
 
   @override
   void initState() {
     super.initState();
     _titleController = TextEditingController();
     _descController = TextEditingController();
+
     if (widget.placeId != null) {
       _loadPlace(widget.placeId!);
     }
+
+    _obterLocalizacao();
   }
 
   Future<void> _loadPlace(String placeId) async {
     setState(() => _isLoading = true);
     final data = await ApiService.getPlaceDetails(placeId);
     setState(() => _isLoading = false);
+
     if (data == null) {
       showErrorSnackbar(context, 'Erro ao carregar informações do local');
       Navigator.pop(context);
       return;
     }
+
     setState(() {
       _titleController.text = data['title'] ?? '';
       _descController.text = data['description'] ?? '';
-      _latitude = data['latitude']?.toDouble() ?? 0;
-      _longitude = data['longitude']?.toDouble() ?? 0;
+      _latitude = data['latitude']?.toDouble() ?? 0.0;
+      _longitude = data['longitude']?.toDouble() ?? 0.0;
     });
+  }
+
+  Future<void> _obterLocalizacao() async {
+    _location = Location();
+    bool serviceEnabled;
+    PermissionStatus permissionGranted;
+
+    serviceEnabled = await _location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await _location.requestService();
+      if (!serviceEnabled) {
+        showErrorSnackbar(context, "Precisamos que seu GPS esteja ligado.");
+        return;
+      }
+    }
+
+    permissionGranted = await _location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await _location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) {
+        showErrorSnackbar(context, "Precisamos da permissão de localização.");
+        return;
+      }
+    }
+
+    try {
+      final locationData = await _location.getLocation();
+      setState(() {
+        _latitude ??= locationData.latitude;
+        _longitude ??= locationData.longitude;
+        _locationObtained = true;
+      });
+    } catch (e) {
+      showErrorSnackbar(context, "Erro ao obter localização: $e");
+    }
   }
 
   Future<void> _pickImage() async {
@@ -71,6 +118,7 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
       return;
     }
     setState(() => _isLoading = true);
+
     if (widget.placeId == null) {
       final created = await ApiService.createPlace(
         title: _titleController.text,
@@ -87,6 +135,7 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
       }
       return;
     }
+
     final updated = await ApiService.updatePlace(
       placeId: widget.placeId!,
       title: _titleController.text,
@@ -95,6 +144,7 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
       longitude: _longitude ?? 0.0,
       coverImageBase64: _base64Image,
     );
+
     setState(() => _isLoading = false);
     if (updated) {
       Navigator.pop(context, true);
@@ -106,6 +156,7 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
   @override
   Widget build(BuildContext context) {
     final config = Provider.of<ConfigProvider>(context);
+
     return Scaffold(
       backgroundColor: config.primaryColor,
       appBar: AppBar(
@@ -145,7 +196,8 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                                 )
                               : CircleAvatar(
                                   radius: 60,
-                                  backgroundImage: FileImage(_imageFile!)),
+                                  backgroundImage: FileImage(_imageFile!),
+                                ),
                           const SizedBox(height: 8),
                           Text(
                             _imageFile == null
@@ -164,8 +216,9 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                         hintText: 'Ex: Ponto de Encontro XYZ',
                         prefixIcon: Icon(Icons.title, color: config.iconColor),
                         labelStyle: TextStyle(color: config.textColor),
-                        hintStyle:
-                            TextStyle(color: config.textColor.withOpacity(0.5)),
+                        hintStyle: TextStyle(
+                          color: config.textColor.withOpacity(0.5),
+                        ),
                         filled: true,
                         fillColor: config.secondaryColor.withOpacity(0.1),
                       ),
@@ -197,55 +250,14 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
                           : null,
                     ),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      keyboardType: TextInputType.number,
-                      initialValue: _latitude?.toString(),
-                      decoration: InputDecoration(
-                        labelText: 'Latitude',
-                        prefixIcon: Icon(Icons.location_searching,
-                            color: config.iconColor),
-                        labelStyle: TextStyle(color: config.textColor),
-                        hintStyle:
-                            TextStyle(color: config.textColor.withOpacity(0.5)),
-                        filled: true,
-                        fillColor: config.secondaryColor.withOpacity(0.1),
-                      ),
-                      style: TextStyle(color: config.textColor),
-                      onChanged: (val) {
-                        _latitude = double.tryParse(val);
-                      },
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Informe a latitude'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      keyboardType: TextInputType.number,
-                      initialValue: _longitude?.toString(),
-                      decoration: InputDecoration(
-                        labelText: 'Longitude',
-                        prefixIcon:
-                            Icon(Icons.location_on, color: config.iconColor),
-                        labelStyle: TextStyle(color: config.textColor),
-                        hintStyle:
-                            TextStyle(color: config.textColor.withOpacity(0.5)),
-                        filled: true,
-                        fillColor: config.secondaryColor.withOpacity(0.1),
-                      ),
-                      style: TextStyle(color: config.textColor),
-                      onChanged: (val) {
-                        _longitude = double.tryParse(val);
-                      },
-                      validator: (val) => val == null || val.isEmpty
-                          ? 'Informe a longitude'
-                          : null,
-                    ),
-                    const SizedBox(height: 20),
                     ElevatedButton(
-                        onPressed: _onSave,
-                        child: Text(widget.placeId == null
+                      onPressed: _onSave,
+                      child: Text(
+                        widget.placeId == null
                             ? 'Criar Local'
-                            : 'Salvar Alterações')),
+                            : 'Salvar Alterações',
+                      ),
+                    ),
                   ],
                 ),
               ),

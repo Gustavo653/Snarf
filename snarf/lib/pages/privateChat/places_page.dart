@@ -51,8 +51,9 @@ class _PlacesPageState extends State<PlacesPage> {
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
       final SignalREventType type = SignalREventType.values.firstWhere(
-          (e) => e.toString().split('.').last == message['Type'],
-          orElse: () => SignalREventType.UserDisconnected);
+        (e) => e.toString().split('.').last == message['Type'],
+        orElse: () => SignalREventType.UserDisconnected,
+      );
       if (type == SignalREventType.PlaceChatReceiveMessage ||
           type == SignalREventType.PlaceChatReceiveMessageDeleted) {}
     } catch (e) {
@@ -68,11 +69,13 @@ class _PlacesPageState extends State<PlacesPage> {
         content: const Text('Tem certeza que deseja excluir este lugar?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Excluir')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Excluir'),
+          ),
         ],
       ),
     );
@@ -83,6 +86,15 @@ class _PlacesPageState extends State<PlacesPage> {
       _fetchAllPlaces();
     } else {
       showErrorSnackbar(context, 'Erro ao excluir lugar');
+    }
+  }
+
+  Future<void> _signalToRemovePlace(String placeId) async {
+    final success = await ApiService.signalToRemovePlace(placeId);
+    if (success) {
+      showSuccessSnackbar(context, 'Lugar sinalizado para remoção');
+    } else {
+      showErrorSnackbar(context, 'Erro ao sinalizar remoção');
     }
   }
 
@@ -126,8 +138,8 @@ class _PlacesPageState extends State<PlacesPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) =>
-                              CreateEditPlacePage(placeId: placeId)),
+                        builder: (_) => CreateEditPlacePage(placeId: placeId),
+                      ),
                     ).then((updated) {
                       if (updated == true) _fetchAllPlaces();
                     });
@@ -160,15 +172,6 @@ class _PlacesPageState extends State<PlacesPage> {
     );
   }
 
-  Future<void> _signalToRemovePlace(String placeId) async {
-    final success = await ApiService.signalToRemovePlace(placeId);
-    if (success) {
-      showSuccessSnackbar(context, 'Lugar sinalizado para remoção');
-    } else {
-      showErrorSnackbar(context, 'Erro ao sinalizar remoção');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final config = Provider.of<ConfigProvider>(context);
@@ -176,6 +179,13 @@ class _PlacesPageState extends State<PlacesPage> {
       children: [
         if (_isLoading)
           Center(child: CircularProgressIndicator(color: config.iconColor))
+        else if (_places.isEmpty)
+          Center(
+            child: Text(
+              "Nenhum local encontrado",
+              style: TextStyle(color: config.textColor, fontSize: 16),
+            ),
+          )
         else
           ListView.builder(
             itemCount: _places.length,
