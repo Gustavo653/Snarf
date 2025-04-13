@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Hangfire;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Snarf.Domain.Base;
@@ -13,7 +14,7 @@ namespace Snarf.Service
     public class PlaceService(
         UserManager<User> userManager,
         IPlaceRepository placeRepository,
-        IUserRepository userRepository
+        IEmailService emailService
     ) : IPlaceService
     {
         public async Task<ResponseDTO> Create(PlaceDTO createDTO)
@@ -203,7 +204,44 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        public Task<ResponseDTO> SignalToRemove(Guid id, Guid userId) => throw new NotImplementedException();
+        public async Task<ResponseDTO> SignalToRemove(Guid id, Guid userId)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var placeEntity = await placeRepository
+                    .GetTrackedEntities()
+                    .Include(p => p.Owner)
+                    .FirstOrDefaultAsync(p => p.Id == id);
+
+                if (placeEntity == null)
+                {
+                    responseDTO.SetBadInput($"Lugar não encontrado com este id: {id}");
+                    return responseDTO;
+                }
+
+                var subject = "Solicitação de Remoção de Local - Snarf";
+                var body = emailService.BuildRemovePlaceText(
+                    placeEntity.Title,
+                    placeEntity.Id,
+                    placeEntity.Owner?.Name ?? "Usuário desconhecido",
+                    placeEntity.Owner?.Email ?? "Email desconhecido"
+                );
+
+                BackgroundJob.Enqueue(() => emailService.SendEmail(
+                    subject,
+                    body,
+                    "oficial.snarf@gmail.com"
+                ));
+
+                responseDTO.Message = "Solicitação de remoção enviada com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
 
         public Task<ResponseDTO> Update(Guid id, PlaceDTO objectDTO)
         {

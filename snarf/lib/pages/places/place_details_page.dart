@@ -40,6 +40,39 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
     });
   }
 
+  Future<void> _signalRemovePlace() async {
+    final bool confirmar = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Sinalizar para Remoção'),
+            content: const Text(
+                'Tem certeza que deseja sinalizar este lugar para remoção?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Confirmar'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmar) return;
+
+    final success = await ApiService.signalToRemovePlace(widget.placeId);
+    if (!mounted) return;
+
+    if (success) {
+      showSuccessSnackbar(context, 'Lugar sinalizado para remoção com sucesso!');
+    } else {
+      showErrorSnackbar(context, 'Falha ao sinalizar para remoção.');
+    }
+  }
+
   String _mapPlaceType(int type) {
     switch (type) {
       case 0:
@@ -156,7 +189,7 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Divider(),
+                              const Divider(),
                               const SizedBox(height: 8),
                               if (_placeData!.containsKey('type'))
                                 _buildInfoRow(
@@ -193,6 +226,20 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
                               style: TextStyle(color: config.iconColor),
                             ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: config.secondaryColor,
+                        ),
+                        onPressed: _signalRemovePlace,
+                        icon:
+                            Icon(Icons.delete_outline, color: config.iconColor),
+                        label: Text(
+                          'Sinalizar para Remoção',
+                          style: TextStyle(color: config.iconColor),
                         ),
                       ),
                     ],
