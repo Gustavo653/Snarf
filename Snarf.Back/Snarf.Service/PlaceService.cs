@@ -165,7 +165,8 @@ namespace Snarf.Service
                     placeEntity.Description,
                     placeEntity.Latitude,
                     placeEntity.Longitude,
-                    placeEntity.OwnerId
+                    placeEntity.OwnerId,
+                    placeEntity.CoverImageUrl
                 };
             }
             catch (Exception ex)

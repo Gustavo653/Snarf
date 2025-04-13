@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/places/place_chat_page.dart';
@@ -157,7 +155,9 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
                                   color: config.textColor,
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 8),
+                              Divider(),
+                              const SizedBox(height: 8),
                               if (_placeData!.containsKey('type'))
                                 _buildInfoRow(
                                   icon: Icons.info_outline,

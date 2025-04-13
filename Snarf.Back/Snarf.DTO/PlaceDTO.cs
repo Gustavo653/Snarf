@@ -1,4 +1,5 @@
-﻿using Snarf.DTO.Base;
+﻿using Snarf.Domain.Enum;
+using Snarf.DTO.Base;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
