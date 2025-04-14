@@ -14,6 +14,7 @@ import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
 import 'package:snarf/pages/parties/party_details_page.dart';
+import 'package:snarf/pages/places/create_edit_place_page.dart';
 import 'package:snarf/pages/places/place_details_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
@@ -686,6 +687,18 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
+          value: 'create_place',
+          child: Row(
+            children: [
+              Icon(Icons.add, color: configProvider.iconColor),
+              const SizedBox(width: 10),
+              Text("Criar local",
+                  style:
+                      TextStyle(fontSize: 16, color: configProvider.textColor)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
           enabled: true,
           child: SwitchListTile(
             title: Text("Modo Noturno",
@@ -753,6 +766,12 @@ class _HomePageState extends State<HomePage> {
             context,
             MaterialPageRoute(
                 builder: (context) => const CreateEditPartyPage()));
+      } else if (value == 'create_place') {
+        await _analytics.logEvent(name: 'open_create_place');
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const CreateEditPlacePage()));
       } else if (value == 'logout') {
         await _logout(context);
       }

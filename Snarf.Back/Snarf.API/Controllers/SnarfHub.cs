@@ -209,21 +209,15 @@ namespace Snarf.API.Controllers
                         _placeVisitLogRepository.Insert(visitLog);
                         await _placeVisitLogRepository.SaveChangesAsync();
 
-                        var jsonResponse = SignalRMessage.Serialize(
-                            SignalREventType.PublicChatReceiveMessage,
-                            new
-                            {
-                                Id = Guid.NewGuid(),
-                                CreatedAt = DateTime.Now,
-                                UserId = userId,
-                                UserName = user.Name,
-                                UserImage = user.ImageUrl,
-                                Latitude = user.LastLatitude,
-                                Longitude = user.LastLongitude,
-                                Message = $"O usuário {user.Name} chegou em {place.Title}"
-                            }
-                        );
-                        await Clients.All.SendAsync("ReceiveMessage", jsonResponse);
+                        var fakeData = new
+                        {
+                            Message = $"{user.Name} chegou em {place.Title}"
+                        };
+
+                        var jsonString = JsonSerializer.Serialize(fakeData);
+                        var jsonElement = JsonDocument.Parse(jsonString).RootElement;
+
+                        await HandlePublicChatSendMessage(jsonElement);
                     }
                 }
                 else
@@ -1284,6 +1278,19 @@ namespace Snarf.API.Controllers
                 if (connections.Count == 0)
                 {
                     _userConnections.TryRemove(userId, out _);
+
+                    var ongoingVisits = await _placeVisitLogRepository
+                        .GetTrackedEntities()
+                        .Where(v => v.UserId == userId && v.ExitTime == null)
+                        .ToListAsync();
+
+                    foreach (var visit in ongoingVisits)
+                    {
+                        visit.ExitTime = DateTime.Now;
+                        visit.TotalDurationInMinutes =
+                            (visit.ExitTime.Value - visit.EntryTime).TotalMinutes;
+                    }
+                    await _placeVisitLogRepository.SaveChangesAsync();
 
                     var ongoingCalls = await _videoCallLogRepository.GetEntities()
                         .Include(x => x.Caller)
