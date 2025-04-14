@@ -120,7 +120,6 @@ class _InitialPageState extends State<InitialPage> {
         await _secureStorage.write(key: 'password', value: 'Senha@123');
         if (loginResponse == null) {
           await _analytics.logEvent(name: 'anonymous_registration_success');
-          // Navega para HomePage
           if (mounted) {
             Navigator.pushReplacement(
               context,

@@ -20,5 +20,9 @@ namespace Snarf.Domain.Base
 
         public virtual IList<FavoriteChat> FavoriteChats { get; set; } = [];
         public virtual IList<FavoriteChat> FavoritedBy { get; set; } = [];
+
+        public virtual IList<Party> Invitations { get; set; } = [];
+        public virtual IList<Party> ConfirmedParties { get; set; } = [];
+        public virtual IList<Party> OwnedParties { get; set; } = [];
     }
 }

@@ -74,11 +74,11 @@ namespace Snarf.API
 
             builder.Services.AddSession();
 
-            builder.Services.AddControllers()
-                            .AddJsonOptions(options =>
-                            {
-                                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                            });
+            builder.Services.AddControllers();
+                            //.AddJsonOptions(options =>
+                            //{
+                            //    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+                            //});
 
             builder.Services.AddOutputCache(x =>
             {
@@ -96,7 +96,7 @@ namespace Snarf.API
                 x.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(databaseSnarf));
             });
 
-            builder.Services.AddHangfireServer(x => x.WorkerCount = 10);
+            builder.Services.AddHangfireServer(x => x.WorkerCount = 1);
 
             builder.Services.AddMvc();
             builder.Services.AddRouting();
@@ -249,8 +249,13 @@ namespace Snarf.API
             builder.Services.AddScoped<IVideoCallLogRepository, VideoCallLogRepository>();
             builder.Services.AddScoped<IPrivateChatMessageRepository, PrivateChatMessageRepository>();
             builder.Services.AddScoped<IPublicChatMessageRepository, PublicChatMessageRepository>();
+            builder.Services.AddScoped<IPartyChatMessageRepository, PartyChatMessageRepository>();
+            builder.Services.AddScoped<IPartyRepository, PartyRepository>();
             builder.Services.AddScoped<IFavoriteChatRepository, FavoriteChatRepository>();
             builder.Services.AddScoped<IBlockedUserRepository, BlockedUserRepository>();
+            builder.Services.AddScoped<IPlaceRepository, PlaceRepository>();
+            builder.Services.AddScoped<IPlaceChatMessageRepository, PlaceChatMessageRepository>();
+            builder.Services.AddScoped<IPlaceVisitLogRepository, PlaceVisitLogRepository>();
         }
 
         private static void InjectServiceDependencies(WebApplicationBuilder builder)
@@ -259,6 +264,8 @@ namespace Snarf.API
             builder.Services.AddScoped<S3Service>();
             builder.Services.AddScoped<IEmailService, EmailService>();
             builder.Services.AddScoped<ITokenService, TokenService>();
+            builder.Services.AddScoped<IPartyService, PartyService>();
+            builder.Services.AddScoped<IPlaceService, PlaceService>();
         }
 
         private static async Task SeedAdminUser(IServiceProvider serviceProvider)

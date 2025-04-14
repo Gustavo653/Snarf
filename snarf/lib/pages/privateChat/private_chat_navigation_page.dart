@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:snarf/pages/privateChat/locations_page.dart';
 import 'package:snarf/pages/privateChat/parties_page.dart';
+import 'package:snarf/pages/privateChat/places_page.dart';
 import 'package:snarf/pages/privateChat/recent_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 
@@ -22,7 +22,7 @@ class _PrivateChatNavigationPageState extends State<PrivateChatNavigationPage>
   final List<Widget> _pages = [
     const RecentPage(showFavorites: false),
     const RecentPage(showFavorites: true),
-    const LocationsPage(),
+    const PlacesPage(),
     const PartiesPage(),
   ];
 
