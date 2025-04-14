@@ -338,7 +338,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
       });
     }
 
-    // if (configProvider.isSubscriber) {
     return Scaffold(
       backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
@@ -465,9 +464,6 @@ class _PublicChatPageState extends State<PublicChatPage> {
               ],
             ),
     );
-    // } else{
-    //   return SizedBox.shrink();
-    // }
   }
 
   Widget _buildMessageWidget(

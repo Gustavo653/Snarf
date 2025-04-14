@@ -77,6 +77,20 @@ class ConfigProvider with ChangeNotifier {
 
   bool get isSubscriber => _isSubscriber;
 
+  int _countNotificationMessage = 0;
+
+  int get countNotificationMessage => _countNotificationMessage;
+
+  void AddNotificationMessage(){
+    _countNotificationMessage ++;
+    notifyListeners();
+  }
+
+  void ClearNotification(){
+    _countNotificationMessage = 0;
+    notifyListeners();
+  }
+
   DateTime? _firstMessageToday;
 
   void setFirstMessageToday(DateTime date){

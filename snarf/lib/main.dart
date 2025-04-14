@@ -40,7 +40,6 @@ void main() async {
         ChangeNotifierProvider<ConfigProvider>(
           create: (_) => configProvider,
         ),
-
         ChangeNotifierProxyProvider<ConfigProvider, CallManager>(
           create: (context) => CallManager(context.read<ConfigProvider>()),
           update: (context, config, previous) => CallManager(config),

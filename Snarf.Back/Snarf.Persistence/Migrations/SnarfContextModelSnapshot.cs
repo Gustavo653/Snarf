@@ -341,14 +341,12 @@ namespace Snarf.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("CoverImageUrl")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("Duration")
@@ -356,6 +354,9 @@ namespace Snarf.Persistence.Migrations
 
                     b.Property<string>("Instructions")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("InvitedByHostJson")
                         .HasColumnType("text");
 
                     b.Property<double?>("Latitude")
@@ -390,6 +391,151 @@ namespace Snarf.Persistence.Migrations
                     b.HasIndex("OwnerId");
 
                     b.ToTable("Parties");
+                });
+
+            modelBuilder.Entity("Snarf.Domain.Entities.PartyChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("PartyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SenderId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartyId");
+
+                    b.HasIndex("SenderId");
+
+                    b.ToTable("PartyChatMessages");
+                });
+
+            modelBuilder.Entity("Snarf.Domain.Entities.Place", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CoverImageUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("Places");
+                });
+
+            modelBuilder.Entity("Snarf.Domain.Entities.PlaceChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("PlaceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SenderId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaceId");
+
+                    b.HasIndex("SenderId");
+
+                    b.ToTable("PlaceChatMessages");
+                });
+
+            modelBuilder.Entity("Snarf.Domain.Entities.PlaceVisitLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("EntryTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime?>("ExitTime")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("PlaceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("TotalDurationInMinutes")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlaceId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PlaceVisitLogs");
                 });
 
             modelBuilder.Entity("Snarf.Domain.Entities.PrivateChatMessage", b =>
@@ -631,6 +777,74 @@ namespace Snarf.Persistence.Migrations
                     b.Navigation("Owner");
                 });
 
+            modelBuilder.Entity("Snarf.Domain.Entities.PartyChatMessage", b =>
+                {
+                    b.HasOne("Snarf.Domain.Entities.Party", "Party")
+                        .WithMany("Messages")
+                        .HasForeignKey("PartyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Snarf.Domain.Base.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Party");
+
+                    b.Navigation("Sender");
+                });
+
+            modelBuilder.Entity("Snarf.Domain.Entities.Place", b =>
+                {
+                    b.HasOne("Snarf.Domain.Base.User", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("Snarf.Domain.Entities.PlaceChatMessage", b =>
+                {
+                    b.HasOne("Snarf.Domain.Entities.Place", "Place")
+                        .WithMany()
+                        .HasForeignKey("PlaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Snarf.Domain.Base.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Place");
+
+                    b.Navigation("Sender");
+                });
+
+            modelBuilder.Entity("Snarf.Domain.Entities.PlaceVisitLog", b =>
+                {
+                    b.HasOne("Snarf.Domain.Entities.Place", "Place")
+                        .WithMany()
+                        .HasForeignKey("PlaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Snarf.Domain.Base.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Place");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Snarf.Domain.Entities.PrivateChatMessage", b =>
                 {
                     b.HasOne("Snarf.Domain.Base.User", "Receiver")
@@ -687,6 +901,11 @@ namespace Snarf.Persistence.Migrations
                     b.Navigation("FavoritedBy");
 
                     b.Navigation("OwnedParties");
+                });
+
+            modelBuilder.Entity("Snarf.Domain.Entities.Party", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

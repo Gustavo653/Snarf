@@ -127,6 +127,8 @@ class _RecentChatPageState extends State<RecentPage> {
   }
 
   Future<void> _receiveNewMessages(dynamic data) async {
+    final configProvider = Provider.of<ConfigProvider>(context);
+    configProvider.AddNotificationMessage();
     await SignalRManager()
         .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
   }
