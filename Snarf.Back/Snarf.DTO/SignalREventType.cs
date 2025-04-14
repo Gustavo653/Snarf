@@ -44,5 +44,18 @@
         VideoCallReject,
         VideoCallCanceled,
         VideoCallEnd,
+
+        PartyChatSendMessage,
+        PartyChatReceiveMessage,
+        PartyChatDeleteMessage,
+        PartyChatReceiveMessageDeleted,
+        PartyChatGetPreviousMessages,
+        PartyChatSendImage,
+
+        PlaceChatSendMessage,
+        PlaceChatDeleteMessage,
+        PlaceChatGetPreviousMessages,
+        PlaceChatReceiveMessage,
+        PlaceChatReceiveMessageDeleted
     }
 }

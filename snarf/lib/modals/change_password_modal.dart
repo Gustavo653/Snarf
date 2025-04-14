@@ -39,7 +39,7 @@ class _ChangePasswordModalState extends State<ChangePasswordModal> {
 
       if (result == null) {
         showSuccessSnackbar(context, 'Senha alterada com sucesso!');
-        Navigator.pop(context); // Fecha o modal
+        Navigator.pop(context);
       } else {
         setState(() {
           _errorMessage = result;
