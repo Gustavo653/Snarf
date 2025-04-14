@@ -22,7 +22,9 @@ namespace Snarf.API.Controllers
         IBlockedUserRepository _blockedUserRepository,
         IVideoCallLogRepository _videoCallLogRepository,
         IFavoriteChatRepository _favoriteChatRepository,
-        IPlaceChatMessageRepository _placeChatMessageRepository) : Hub
+        IPlaceChatMessageRepository _placeChatMessageRepository,
+        IPlaceRepository _placeRepository,
+        IPlaceVisitLogRepository _placeVisitLogRepository) : Hub
     {
         private static ConcurrentDictionary<string, List<string>> _userConnections = new();
 
@@ -160,7 +162,6 @@ namespace Snarf.API.Controllers
         {
             var userId = GetUserId();
             var location = JsonSerializer.Deserialize<LocationModel>(data.ToString());
-
             var user = await _userRepository.GetTrackedEntities()
                 .Where(x => x.Id == userId)
                 .FirstOrDefaultAsync();
@@ -173,9 +174,72 @@ namespace Snarf.API.Controllers
             user.FcmToken = location.FcmToken;
             await _userRepository.SaveChangesAsync();
 
-            Log.Information($"Localização atualizada: {userId} - ({location.Latitude}, {location.Longitude})");
+            double lat = location.Latitude;
+            double lon = location.Longitude;
+            double latDegreeRadius = 0.009;
+            double lonDegreeRadius = 0.009;
+            var places = await _placeRepository.GetEntities()
+                .Where(p =>
+                    p.Latitude >= lat - latDegreeRadius &&
+                    p.Latitude <= lat + latDegreeRadius &&
+                    p.Longitude >= lon - lonDegreeRadius &&
+                    p.Longitude <= lon + lonDegreeRadius)
+                .ToListAsync();
+            var ongoingVisits = await _placeVisitLogRepository.GetTrackedEntities()
+                .Where(v => v.UserId == userId && v.ExitTime == null)
+                .ToListAsync();
 
-            var jsonResponse = SignalRMessage.Serialize(SignalREventType.MapReceiveLocation, new
+            foreach (var place in places)
+            {
+                double distance = DistanceInMeters(location.Latitude, location.Longitude, place.Latitude, place.Longitude);
+
+                var visitLog = ongoingVisits.FirstOrDefault(v => v.PlaceId == place.Id);
+
+                if (distance <= 50)
+                {
+                    if (visitLog == null)
+                    {
+                        visitLog = new PlaceVisitLog
+                        {
+                            UserId = userId,
+                            PlaceId = place.Id,
+                            EntryTime = DateTime.Now
+                        };
+
+                        _placeVisitLogRepository.Insert(visitLog);
+                        await _placeVisitLogRepository.SaveChangesAsync();
+
+                        var jsonResponse = SignalRMessage.Serialize(
+                            SignalREventType.PublicChatReceiveMessage,
+                            new
+                            {
+                                Id = Guid.NewGuid(),
+                                CreatedAt = DateTime.Now,
+                                UserId = userId,
+                                UserName = user.Name,
+                                UserImage = user.ImageUrl,
+                                Latitude = user.LastLatitude,
+                                Longitude = user.LastLongitude,
+                                Message = $"O usuário {user.Name} chegou em {place.Title}"
+                            }
+                        );
+                        await Clients.All.SendAsync("ReceiveMessage", jsonResponse);
+                    }
+                }
+                else
+                {
+                    if (visitLog != null)
+                    {
+                        visitLog.ExitTime = DateTime.Now;
+                        visitLog.TotalDurationInMinutes =
+                            (visitLog.ExitTime.Value - visitLog.EntryTime).TotalMinutes;
+
+                        await _placeVisitLogRepository.SaveChangesAsync();
+                    }
+                }
+            }
+
+            var jsonResponse2 = SignalRMessage.Serialize(SignalREventType.MapReceiveLocation, new
             {
                 userId,
                 Latitude = location.Latitude,
@@ -184,8 +248,7 @@ namespace Snarf.API.Controllers
                 userImage = user.ImageUrl,
                 videoCall = location.VideoCall
             });
-
-            await Clients.Others.SendAsync("ReceiveMessage", jsonResponse);
+            await Clients.Others.SendAsync("ReceiveMessage", jsonResponse2);
         }
 
         private async Task HandlePlaceChatSendMessage(JsonElement data)
@@ -1277,6 +1340,29 @@ namespace Snarf.API.Controllers
 
             return totalMinutesUsedThisMonth >= totalMonthlyLimit;
         }
+
+        private double DistanceInMeters(double lat1, double lon1, double lat2, double lon2)
+        {
+            const double R = 6371000;
+
+            double dLat = ToRadians(lat2 - lat1);
+            double dLon = ToRadians(lon2 - lon1);
+
+            double a =
+                Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+
+            double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            double distance = R * c;
+            return distance;
+        }
+
+        private double ToRadians(double angle)
+        {
+            return Math.PI * angle / 180.0;
+        }
+
 
 
         private string GetUserId()

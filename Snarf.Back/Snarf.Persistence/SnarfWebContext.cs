@@ -16,6 +16,7 @@ namespace Snarf.Persistence
         public DbSet<PartyChatMessage> PartyChatMessages { get; set; }
         public DbSet<Place> Places { get; set; }
         public DbSet<PlaceChatMessage> PlaceChatMessages { get; set; }
+        public DbSet<PlaceVisitLog> PlaceVisitLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

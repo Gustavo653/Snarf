@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/places/place_chat_page.dart';
+import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
@@ -17,6 +21,9 @@ class PlaceDetailsPage extends StatefulWidget {
 class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
   Map<String, dynamic>? _placeData;
   bool _isLoading = true;
+
+  Map<String, dynamic>? _visitorsData;
+  bool _isLoadingVisitors = true;
 
   @override
   void initState() {
@@ -37,6 +44,20 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
     setState(() {
       _placeData = data;
       _isLoading = false;
+    });
+
+    _loadVisitorsAndStats();
+  }
+
+  Future<void> _loadVisitorsAndStats() async {
+    setState(() => _isLoadingVisitors = true);
+
+    final result = await ApiService.getPlaceVisitorsAndStats(widget.placeId);
+    if (!mounted) return;
+
+    setState(() {
+      _visitorsData = result!['object'];
+      _isLoadingVisitors = false;
     });
   }
 
@@ -67,7 +88,8 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
     if (!mounted) return;
 
     if (success) {
-      showSuccessSnackbar(context, 'Lugar sinalizado para remoção com sucesso!');
+      showSuccessSnackbar(
+          context, 'Lugar sinalizado para remoção com sucesso!');
     } else {
       showErrorSnackbar(context, 'Falha ao sinalizar para remoção.');
     }
@@ -122,6 +144,106 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildVisitorsList({
+    required List<dynamic> visitors,
+    required ConfigProvider config,
+  }) {
+    if (visitors.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      color: config.secondaryColor,
+      margin: const EdgeInsets.only(top: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Usuários no Local",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: config.textColor,
+                fontSize: 16,
+              ),
+            ),
+            const Divider(),
+            ...visitors.map((u) {
+              final userId = u['id']?.toString() ?? '';
+              final userName = u['name'] ?? 'Sem nome';
+              final userImage = u['imageUrl'] ?? '';
+
+              return ListTile(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ViewUserPage(userId: userId),
+                    ),
+                  );
+                },
+                leading: CircleAvatar(
+                  backgroundImage:
+                      (userImage.isNotEmpty) ? NetworkImage(userImage) : null,
+                  child: (userImage.isEmpty)
+                      ? Icon(Icons.person, color: config.iconColor)
+                      : null,
+                ),
+                title: Text(
+                  userName,
+                  style: TextStyle(color: config.textColor),
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceStats(ConfigProvider config) {
+    if (_visitorsData == null) return const SizedBox.shrink();
+
+    final avg = _visitorsData!['averageStayMinutes'] ?? 0.0;
+    final last7 = _visitorsData!['visitsLast7Days'] ?? 0;
+
+    return Card(
+      color: config.secondaryColor,
+      margin: const EdgeInsets.only(top: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Estatísticas do Local",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: config.textColor,
+                fontSize: 16,
+              ),
+            ),
+            const Divider(),
+            _buildInfoRow(
+              icon: Icons.timer,
+              label: 'Média de Permanência: ${avg.toStringAsFixed(1)} min',
+              config: config,
+            ),
+            const SizedBox(height: 8),
+            _buildInfoRow(
+              icon: Icons.bar_chart,
+              label: 'Visitas (últimos 7 dias): $last7',
+              config: config,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -229,7 +351,6 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: config.secondaryColor,
@@ -242,6 +363,24 @@ class _PlaceDetailsPageState extends State<PlaceDetailsPage> {
                           style: TextStyle(color: config.iconColor),
                         ),
                       ),
+                      if (_isLoadingVisitors)
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: CircularProgressIndicator(
+                            color: config.iconColor,
+                          ),
+                        )
+                      else ...[
+                        if (_visitorsData != null &&
+                            _visitorsData!['currentVisitors'] != null)
+                          _buildVisitorsList(
+                            visitors: List<Map<String, dynamic>>.from(
+                              _visitorsData!['currentVisitors'] as List,
+                            ),
+                            config: config,
+                          ),
+                        if (_visitorsData != null) _buildPlaceStats(config),
+                      ],
                     ],
                   ),
                 ),

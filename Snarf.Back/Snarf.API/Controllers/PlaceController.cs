@@ -53,5 +53,12 @@ namespace Snarf.API.Controllers
             var result = await placeService.SignalToRemove(id, Guid.Parse(whoIsCallingId));
             return StatusCode(result.Code, result);
         }
+
+        [HttpGet("{id:guid}/visitors-and-stats")]
+        public async Task<IActionResult> GetVisitorsAndStats([FromRoute] Guid id)
+        {
+            var result = await placeService.GetVisitorsAndStats(id);
+            return StatusCode(result.Code, result);
+        }
     }
 }

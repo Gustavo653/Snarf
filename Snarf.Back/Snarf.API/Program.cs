@@ -255,6 +255,7 @@ namespace Snarf.API
             builder.Services.AddScoped<IBlockedUserRepository, BlockedUserRepository>();
             builder.Services.AddScoped<IPlaceRepository, PlaceRepository>();
             builder.Services.AddScoped<IPlaceChatMessageRepository, PlaceChatMessageRepository>();
+            builder.Services.AddScoped<IPlaceVisitLogRepository, PlaceVisitLogRepository>();
         }
 
         private static void InjectServiceDependencies(WebApplicationBuilder builder)

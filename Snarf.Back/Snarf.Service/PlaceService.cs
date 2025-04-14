@@ -14,6 +14,7 @@ namespace Snarf.Service
     public class PlaceService(
         UserManager<User> userManager,
         IPlaceRepository placeRepository,
+        IPlaceVisitLogRepository placeVisitLogRepository,
         IEmailService emailService
     ) : IPlaceService
     {
@@ -235,6 +236,64 @@ namespace Snarf.Service
                 ));
 
                 responseDTO.Message = "Solicitação de remoção enviada com sucesso!";
+            }
+            catch (Exception ex)
+            {
+                responseDTO.SetError(ex);
+            }
+            return responseDTO;
+        }
+
+        public async Task<ResponseDTO> GetVisitorsAndStats(Guid id)
+        {
+            ResponseDTO responseDTO = new();
+            try
+            {
+                var place = await placeRepository.GetEntities().FirstOrDefaultAsync(p => p.Id == id);
+
+                if (place == null)
+                {
+                    responseDTO.SetBadInput($"Lugar não encontrado com este id: {id}.");
+                    return responseDTO;
+                }
+
+                var sevenDaysAgo = DateTime.Now.AddDays(-7);
+                var visitLogs = await placeVisitLogRepository.GetEntities()
+                    .Include(x => x.User)
+                    .Where(v => v.PlaceId == place.Id)
+                    .ToListAsync();
+
+                var currentVisitors = visitLogs
+                    .Where(v => v.ExitTime == null)
+                    .Select(v => v.User)
+                    .Distinct()
+                    .Select(u => new
+                    {
+                        id = u.Id,
+                        name = u.Name,
+                        imageUrl = u.ImageUrl
+                    })
+                    .ToList();
+
+                var recentVisits = visitLogs
+                    .Where(v => v.ExitTime != null && v.ExitTime >= sevenDaysAgo)
+                    .ToList();
+
+                var visitsLast7Days = recentVisits.Count;
+                double averageStayMinutes = 0;
+                if (recentVisits.Any(v => v.TotalDurationInMinutes.HasValue))
+                {
+                    averageStayMinutes = recentVisits
+                        .Where(v => v.TotalDurationInMinutes.HasValue)
+                        .Average(v => v.TotalDurationInMinutes.Value);
+                }
+
+                responseDTO.Object = new
+                {
+                    currentVisitors,
+                    averageStayMinutes,
+                    visitsLast7Days
+                };
             }
             catch (Exception ex)
             {

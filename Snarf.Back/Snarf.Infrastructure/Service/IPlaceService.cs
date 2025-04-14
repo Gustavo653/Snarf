@@ -9,6 +9,7 @@ namespace Snarf.Infrastructure.Service
         Task<ResponseDTO> Update(Guid id, PlaceDTO updateDTO, Guid userId);
         Task<ResponseDTO> Delete(Guid id, Guid userId);
         Task<ResponseDTO> GetById(Guid id);
+        Task<ResponseDTO> GetVisitorsAndStats(Guid id);
         Task<ResponseDTO> GetAll();
         Task<ResponseDTO> SignalToRemove(Guid id, Guid userId);
     }

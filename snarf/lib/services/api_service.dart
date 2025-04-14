@@ -930,4 +930,21 @@ class ApiService {
       return false;
     }
   }
+
+  static Future<Map<String, dynamic>?> getPlaceVisitorsAndStats(
+      String placeId) async {
+    final token = await getToken();
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Place/$placeId/visitors-and-stats');
+    final headers = {
+      'Authorization': 'Bearer $token',
+    };
+    try {
+      final response = await http.get(url, headers: headers);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
 }
