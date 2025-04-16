@@ -73,6 +73,11 @@ class _HomePageState extends State<HomePage> {
     await _getAllParties();
     await _analytics
         .logEvent(name: 'app_initialized', parameters: {'screen': 'HomePage'});
+    
+    await Future.wait([
+      SignalRManager()
+          .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {})
+    ]);
   }
 
   Future<void> _getFcmToken() async {
@@ -841,7 +846,7 @@ class _HomePageState extends State<HomePage> {
         showUnselectedLabels: false,
         onTap: (index) async {
           if (index == 0) {
-            configProvider.ClearNotification();
+            configProvider.SetNotificationMessage(false);
             _openPrivateChat(context);
           } else if (index == 1) {
             _openPublicChat(context);
@@ -854,7 +859,7 @@ class _HomePageState extends State<HomePage> {
               clipBehavior: Clip.none,
               children: [
                 const Icon(Icons.chat),
-                if (configProvider.countNotificationMessage > 0)
+                if (configProvider.notificationMessage)
                   Positioned(
                     right: -4,
                     top: -6,
@@ -867,16 +872,7 @@ class _HomePageState extends State<HomePage> {
                       constraints: const BoxConstraints(
                         minWidth: 16,
                         minHeight: 16,
-                      ),
-                      child: Text(
-                        configProvider.countNotificationMessage.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+                      )
                     ),
                   ),
               ],
