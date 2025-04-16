@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Snarf.Persistence;
@@ -12,9 +13,11 @@ using Snarf.Persistence;
 namespace Snarf.Persistence.Migrations
 {
     [DbContext(typeof(SnarfContext))]
-    partial class SnarfContextModelSnapshot : ModelSnapshot
+    [Migration("20250412125418_18")]
+    partial class _18
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -425,119 +428,6 @@ namespace Snarf.Persistence.Migrations
                     b.ToTable("PartyChatMessages");
                 });
 
-            modelBuilder.Entity("Snarf.Domain.Entities.Place", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("CoverImageUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("Latitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("Longitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("OwnerId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OwnerId");
-
-                    b.ToTable("Places");
-                });
-
-            modelBuilder.Entity("Snarf.Domain.Entities.PlaceChatMessage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("PlaceId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("SenderId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlaceId");
-
-                    b.HasIndex("SenderId");
-
-                    b.ToTable("PlaceChatMessages");
-                });
-
-            modelBuilder.Entity("Snarf.Domain.Entities.PlaceVisitLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime>("EntryTime")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<DateTime?>("ExitTime")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<Guid>("PlaceId")
-                        .HasColumnType("uuid");
-
-                    b.Property<double?>("TotalDurationInMinutes")
-                        .HasColumnType("double precision");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlaceId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("PlaceVisitLogs");
-                });
-
             modelBuilder.Entity("Snarf.Domain.Entities.PrivateChatMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -794,55 +684,6 @@ namespace Snarf.Persistence.Migrations
                     b.Navigation("Party");
 
                     b.Navigation("Sender");
-                });
-
-            modelBuilder.Entity("Snarf.Domain.Entities.Place", b =>
-                {
-                    b.HasOne("Snarf.Domain.Base.User", "Owner")
-                        .WithMany()
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Owner");
-                });
-
-            modelBuilder.Entity("Snarf.Domain.Entities.PlaceChatMessage", b =>
-                {
-                    b.HasOne("Snarf.Domain.Entities.Place", "Place")
-                        .WithMany()
-                        .HasForeignKey("PlaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Snarf.Domain.Base.User", "Sender")
-                        .WithMany()
-                        .HasForeignKey("SenderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Place");
-
-                    b.Navigation("Sender");
-                });
-
-            modelBuilder.Entity("Snarf.Domain.Entities.PlaceVisitLog", b =>
-                {
-                    b.HasOne("Snarf.Domain.Entities.Place", "Place")
-                        .WithMany()
-                        .HasForeignKey("PlaceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Snarf.Domain.Base.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Place");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Snarf.Domain.Entities.PrivateChatMessage", b =>

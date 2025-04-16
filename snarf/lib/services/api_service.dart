@@ -733,7 +733,8 @@ class ApiService {
   static Future<bool> requestParticipation(String partyId) async {
     final token = await getToken();
     if (token == null) return false;
-    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/request-participation');
+    final url = Uri.parse(
+        '${ApiConstants.baseUrl}/Party/$partyId/request-participation');
     final headers = {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
@@ -749,7 +750,8 @@ class ApiService {
   static Future<bool> inviteUsers(String partyId, List<String> userIds) async {
     final token = await getToken();
     if (token == null) return false;
-    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/invite-users');
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/invite-users');
     final headers = {
       'Authorization': 'Bearer $token',
       'Content-Type': 'application/json',
@@ -766,7 +768,8 @@ class ApiService {
   static Future<bool> confirmUser(String partyId, String targetUserId) async {
     final token = await getToken();
     if (token == null) return false;
-    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/confirm/$targetUserId');
+    final url = Uri.parse(
+        '${ApiConstants.baseUrl}/Party/$partyId/confirm/$targetUserId');
     final headers = {
       'Authorization': 'Bearer $token',
     };
@@ -781,7 +784,8 @@ class ApiService {
   static Future<bool> declineUser(String partyId, String targetUserId) async {
     final token = await getToken();
     if (token == null) return false;
-    final url = Uri.parse('${ApiConstants.baseUrl}/Party/$partyId/decline/$targetUserId');
+    final url = Uri.parse(
+        '${ApiConstants.baseUrl}/Party/$partyId/decline/$targetUserId');
     final headers = {
       'Authorization': 'Bearer $token',
     };
@@ -790,6 +794,157 @@ class ApiService {
       return (response.statusCode == 200);
     } catch (e) {
       return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getAllPlaces() async {
+    final token = await getToken();
+    if (token == null) return null;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Place/all');
+    try {
+      final response = await http.get(url, headers: {
+        'accept': '*/*',
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return {"data": responseData['object']};
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getPlaceDetails(String placeId) async {
+    final token = await getToken();
+    if (token == null) return null;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Place/$placeId');
+    try {
+      final response = await http.get(url, headers: {
+        'accept': '*/*',
+        'Authorization': 'Bearer $token',
+      });
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData['object'];
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<bool> createPlace({
+    required String title,
+    required String description,
+    required double latitude,
+    required double longitude,
+    required String coverImageBase64,
+    int type = 0,
+  }) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Place');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = jsonEncode({
+      "title": title,
+      "description": description,
+      "latitude": latitude,
+      "longitude": longitude,
+      "coverImage": coverImageBase64,
+      "type": type
+    });
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+      return (response.statusCode == 200);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> updatePlace({
+    required String placeId,
+    required String title,
+    required String description,
+    required double latitude,
+    required double longitude,
+    String? coverImageBase64,
+    int type = 0,
+  }) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Place/$placeId');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+    final body = {
+      "title": title,
+      "description": description,
+      "latitude": latitude,
+      "longitude": longitude,
+      "type": type
+    };
+    if (coverImageBase64 != null && coverImageBase64.isNotEmpty) {
+      body["coverImage"] = coverImageBase64;
+    }
+    try {
+      final response =
+          await http.put(url, headers: headers, body: jsonEncode(body));
+      return (response.statusCode == 200);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> deletePlace(String placeId) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url = Uri.parse('${ApiConstants.baseUrl}/Place/$placeId');
+    try {
+      final response = await http.delete(url, headers: {
+        'Authorization': 'Bearer $token',
+      });
+      return (response.statusCode == 200);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<bool> signalToRemovePlace(String placeId) async {
+    final token = await getToken();
+    if (token == null) return false;
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Place/$placeId/signal-to-remove');
+    final headers = {
+      'Authorization': 'Bearer $token',
+    };
+    try {
+      final response = await http.put(url, headers: headers);
+      return (response.statusCode == 200);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getPlaceVisitorsAndStats(
+      String placeId) async {
+    final token = await getToken();
+    final url =
+        Uri.parse('${ApiConstants.baseUrl}/Place/$placeId/visitors-and-stats');
+    final headers = {
+      'Authorization': 'Bearer $token',
+    };
+    try {
+      final response = await http.get(url, headers: headers);
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data;
+    } catch (e) {
+      return null;
     }
   }
 }

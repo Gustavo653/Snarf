@@ -23,6 +23,8 @@ namespace Snarf.Domain.Entities
         public virtual IList<User> InvitedUsers { get; set; } = [];
         public virtual IList<User> ConfirmedUsers { get; set; } = [];
 
+        public virtual IList<PartyChatMessage> Messages { get; set; } = [];
+
         public string? InvitedByHostJson { get; set; }
         [NotMapped]
         public Dictionary<string, bool> InvitedByHostMap

@@ -14,6 +14,8 @@ import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
 import 'package:snarf/pages/parties/party_details_page.dart';
+import 'package:snarf/pages/places/create_edit_place_page.dart';
+import 'package:snarf/pages/places/place_details_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_navigation_page.dart';
 import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/config_provider.dart';
@@ -37,9 +39,10 @@ class _HomePageState extends State<HomePage> {
   late LocationData _currentLocation;
   bool _isLocationLoaded = false;
   late MapController _mapController;
-  late Marker _userLocationMarker;
+  Marker? _userLocationMarker;
   final Map<String, Marker> _userMarkers = {};
   final Map<String, Marker> _partyMarkers = {};
+  final Map<String, Marker> _placeMarkers = {};
   final Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
   late String userImage = '';
@@ -47,6 +50,59 @@ class _HomePageState extends State<HomePage> {
   late Timer _timer;
   String? _fcmToken;
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  final Map<String, int> _markerOverlap = {};
+
+  IconData getPartyTypeIcon(int type) {
+    switch (type) {
+      case 0:
+        return Icons.local_fire_department;
+      case 1:
+        return Icons.bolt;
+      case 2:
+        return Icons.handshake;
+      case 3:
+        return Icons.emoji_people;
+      case 4:
+        return Icons.favorite;
+      case 5:
+        return Icons.star;
+      default:
+        return Icons.event;
+    }
+  }
+
+  IconData getPlaceTypeIcon(int type) {
+    switch (type) {
+      case 0:
+        return Icons.fitness_center;
+      case 1:
+        return Icons.wc;
+      case 2:
+        return Icons.local_bar;
+      case 3:
+        return Icons.local_cafe;
+      case 4:
+        return Icons.shower;
+      case 5:
+        return Icons.event;
+      case 6:
+        return Icons.videogame_asset;
+      case 7:
+        return Icons.hotel;
+      case 8:
+        return Icons.device_unknown;
+      case 9:
+        return Icons.local_shipping;
+      case 10:
+        return Icons.park;
+      case 11:
+        return Icons.beach_access;
+      case 12:
+        return Icons.hot_tub;
+      default:
+        return Icons.place;
+    }
+  }
 
   @override
   void initState() {
@@ -71,6 +127,7 @@ class _HomePageState extends State<HomePage> {
     await _setupSignalRConnection();
     await _fetchFirstMessage();
     await _getAllParties();
+    await _getAllPlaces();
     await _analytics
         .logEvent(name: 'app_initialized', parameters: {'screen': 'HomePage'});
     
@@ -112,13 +169,10 @@ class _HomePageState extends State<HomePage> {
       userImage = userInfo['imageUrl'];
     } else {
       showErrorSnackbar(context, 'Erro ao carregar informações do usuário');
-      await _analytics.logEvent(
-        name: 'error',
-        parameters: {
-          'message': 'Falha ao carregar informações do usuário',
-          'user_id': userId
-        },
-      );
+      await _analytics.logEvent(name: 'error', parameters: {
+        'message': 'Falha ao carregar informações do usuário',
+        'user_id': userId
+      });
       await _logout(context);
     }
   }
@@ -164,13 +218,10 @@ class _HomePageState extends State<HomePage> {
         _updateUserMarker(
             _currentLocation.latitude!, _currentLocation.longitude!);
       });
-      await _analytics.logEvent(
-        name: 'location_obtained',
-        parameters: {
-          'latitude': _currentLocation.latitude!,
-          'longitude': _currentLocation.longitude!,
-        },
-      );
+      await _analytics.logEvent(name: 'location_obtained', parameters: {
+        'latitude': _currentLocation.latitude!,
+        'longitude': _currentLocation.longitude!
+      });
     } catch (err) {
       showErrorSnackbar(context, "Erro ao recuperar localização: $err");
       await _analytics.logEvent(
@@ -179,7 +230,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 60000);
+    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 20000);
     _locationSubscription =
         _location.onLocationChanged.listen((LocationData newLocation) async {
       setState(() {
@@ -324,9 +375,7 @@ class _HomePageState extends State<HomePage> {
       );
     } catch (e) {
       await _analytics.logEvent(
-        name: 'location_update_failed',
-        parameters: {'error': e.toString()},
-      );
+          name: 'location_update_failed', parameters: {'error': e.toString()});
     }
   }
 
@@ -396,32 +445,57 @@ class _HomePageState extends State<HomePage> {
         final title = p['title'].toString();
         final imageUrl = p['imageUrl'].toString();
         final userRole = p['userRole'].toString();
-        _addPartyMarker(id, lat, lon, title, imageUrl, userRole);
+        final partyType = p['type'] ?? 0;
+        _addPartyMarker(id, lat, lon, title, imageUrl, userRole, partyType);
+      }
+      setState(() {});
+    }
+  }
+
+  Future<void> _getAllPlaces() async {
+    final result = await ApiService.getAllPlaces();
+    if (result != null && result['data'] != null) {
+      final List places = result['data'];
+      for (var place in places) {
+        final id = place['id'].toString();
+        final lat = place['latitude'] is double ? place['latitude'] : 0.0;
+        final lon = place['longitude'] is double ? place['longitude'] : 0.0;
+        final title = place['title'].toString();
+        final imageUrl = place['imageUrl'].toString();
+        final placeType = place['type'] ?? 0;
+        _addPlaceMarker(id, lat, lon, title, imageUrl, placeType);
       }
       setState(() {});
     }
   }
 
   void _addPartyMarker(String partyId, double lat, double lon, String title,
-      String imageUrl, String userRole) {
-    final config = Provider.of<ConfigProvider>(context, listen: false);
+      String imageUrl, String userRole, int type) {
     _partyMarkers[partyId] = Marker(
       point: LatLng(lat, lon),
-      width: 70,
-      height: 70,
+      width: 60,
+      height: 60,
       child: GestureDetector(
         onTap: () => _openPartyDetails(partyId),
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: config.customOrange, width: 3),
-          ),
-          child: CircleAvatar(
-            backgroundImage: InterceptedImageProvider(
-              originalProvider: NetworkImage(imageUrl),
-              hideImages: config.hideImages,
-            ),
-          ),
+        child: CircleAvatar(
+          backgroundColor: Colors.red,
+          child: Icon(getPartyTypeIcon(type), color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  void _addPlaceMarker(String placeId, double lat, double lon, String title,
+      String imageUrl, int type) {
+    _placeMarkers[placeId] = Marker(
+      point: LatLng(lat, lon),
+      width: 60,
+      height: 60,
+      child: GestureDetector(
+        onTap: () => _openPlaceDetails(placeId),
+        child: CircleAvatar(
+          backgroundColor: Colors.blue,
+          child: Icon(getPlaceTypeIcon(type), color: Colors.white),
         ),
       ),
     );
@@ -441,19 +515,24 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _openPlaceDetails(String placeId) async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PlaceDetailsPage(placeId: placeId),
+      ),
+    );
+  }
+
   void _recenterMap() async {
     if (_isLocationLoaded) {
       _mapController.move(
-        LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
-        15.0,
-      );
-      await _analytics.logEvent(
-        name: 'map_recentering',
-        parameters: {
-          'latitude': _currentLocation.latitude!,
-          'longitude': _currentLocation.longitude!,
-        },
-      );
+          LatLng(_currentLocation.latitude!, _currentLocation.longitude!),
+          15.0);
+      await _analytics.logEvent(name: 'map_recentering', parameters: {
+        'latitude': _currentLocation.latitude!,
+        'longitude': _currentLocation.longitude!
+      });
     }
   }
 
@@ -539,9 +618,8 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(30.0),
                 border: Border.symmetric(
-                  horizontal: BorderSide(
-                      color: configProvider.secondaryColor, width: 5),
-                ),
+                    horizontal: BorderSide(
+                        color: configProvider.secondaryColor, width: 5)),
               ),
               child: DraggableScrollableSheet(
                 initialChildSize: 0.9,
@@ -614,6 +692,18 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         PopupMenuItem(
+          value: 'create_place',
+          child: Row(
+            children: [
+              Icon(Icons.add, color: configProvider.iconColor),
+              const SizedBox(width: 10),
+              Text("Criar local",
+                  style:
+                      TextStyle(fontSize: 16, color: configProvider.textColor)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
           enabled: true,
           child: SwitchListTile(
             title: Text("Modo Noturno",
@@ -626,9 +716,8 @@ class _HomePageState extends State<HomePage> {
               Navigator.pop(context);
               configProvider.toggleTheme();
               await _analytics.logEvent(
-                name: 'toggle_dark_mode',
-                parameters: {'value': configProvider.isDarkMode},
-              );
+                  name: 'toggle_dark_mode',
+                  parameters: {'value': configProvider.isDarkMode});
             },
           ),
         ),
@@ -639,19 +728,17 @@ class _HomePageState extends State<HomePage> {
                 style:
                     TextStyle(fontSize: 16, color: configProvider.textColor)),
             secondary: Icon(
-              configProvider.hideImages
-                  ? Icons.image_not_supported
-                  : Icons.image,
-              color: configProvider.iconColor,
-            ),
+                configProvider.hideImages
+                    ? Icons.image_not_supported
+                    : Icons.image,
+                color: configProvider.iconColor),
             value: configProvider.hideImages,
             onChanged: (_) async {
               Navigator.pop(context);
               configProvider.toggleHideImages();
               await _analytics.logEvent(
-                name: 'toggle_hide_images',
-                parameters: {'value': configProvider.hideImages},
-              );
+                  name: 'toggle_hide_images',
+                  parameters: {'value': configProvider.hideImages});
             },
           ),
         ),
@@ -681,11 +768,15 @@ class _HomePageState extends State<HomePage> {
       } else if (value == 'create_party') {
         await _analytics.logEvent(name: 'open_create_party');
         Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const CreateEditPartyPage(),
-          ),
-        );
+            context,
+            MaterialPageRoute(
+                builder: (context) => const CreateEditPartyPage()));
+      } else if (value == 'create_place') {
+        await _analytics.logEvent(name: 'open_create_place');
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const CreateEditPlacePage()));
       } else if (value == 'logout') {
         await _logout(context);
       }
@@ -725,6 +816,13 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
+    final markersToDisplay = <Marker>[];
+    if (_userLocationMarker != null) {
+      markersToDisplay.add(_userLocationMarker!);
+    }
+    markersToDisplay.addAll(_userMarkers.values);
+    markersToDisplay.addAll(_partyMarkers.values);
+    markersToDisplay.addAll(_placeMarkers.values);
     return Scaffold(
       backgroundColor: configProvider.primaryColor,
       appBar: AppBar(
@@ -769,9 +867,10 @@ class _HomePageState extends State<HomePage> {
                         if (widget.initialLatitude != null &&
                             widget.initialLongitude != null) {
                           _mapController.move(
-                              LatLng(widget.initialLatitude!,
-                                  widget.initialLongitude!),
-                              15.0);
+                            LatLng(widget.initialLatitude!,
+                                widget.initialLongitude!),
+                            15.0,
+                          );
                         }
                       });
                     },
@@ -784,13 +883,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   children: [
                     TileLayer(urlTemplate: _getMapUrl(context)),
-                    MarkerLayer(
-                      markers: [
-                        _userLocationMarker,
-                        ..._userMarkers.values,
-                        ..._partyMarkers.values,
-                      ],
-                    ),
+                    MarkerLayer(markers: markersToDisplay),
                   ],
                 ),
               ],
@@ -853,7 +946,6 @@ class _HomePageState extends State<HomePage> {
           }
         },
         items: [
-          // BottomNavigationBarItem(icon: Icon(Icons.chat), label: ''),
           BottomNavigationBarItem(
             icon: Stack(
               clipBehavior: Clip.none,

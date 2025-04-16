@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/parties/create_edit_party_page.dart';
 import 'package:snarf/pages/parties/party_chat_page.dart';
 import 'package:snarf/providers/config_provider.dart';
@@ -15,10 +16,10 @@ class PartyDetailsPage extends StatefulWidget {
   final String userId;
 
   const PartyDetailsPage({
-    super.key,
+    Key? key,
     required this.partyId,
     required this.userId,
-  });
+  }) : super(key: key);
 
   @override
   State<PartyDetailsPage> createState() => _PartyDetailsPageState();
@@ -168,6 +169,9 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (dialogContext, setStateDialog) {
+            final configProvider =
+            Provider.of<ConfigProvider>(context, listen: false);
+
             if (_isLoadingRecentChats) {
               return AlertDialog(
                 title: const Text('Convidar usuários'),
@@ -194,7 +198,11 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
             }
 
             return AlertDialog(
-              title: const Text('Convidar usuários'),
+              backgroundColor: configProvider.primaryColor,
+              title: Text(
+                'Convidar usuários',
+                style: TextStyle(color: configProvider.textColor),
+              ),
               content: SizedBox(
                 width: double.maxFinite,
                 height: 300,
@@ -207,18 +215,24 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
 
                     final isSelected = selectedUserIds.contains(userId);
 
-                    return CheckboxListTile(
-                      title: Text(userName),
-                      value: isSelected,
-                      onChanged: (checked) {
-                        setStateDialog(() {
-                          if (checked == true) {
-                            selectedUserIds.add(userId);
-                          } else {
-                            selectedUserIds.remove(userId);
-                          }
-                        });
-                      },
+                    return Card(
+                      color: configProvider.secondaryColor,
+                      child: CheckboxListTile(
+                        title: Text(
+                          userName,
+                          style: TextStyle(color: configProvider.textColor),
+                        ),
+                        value: isSelected,
+                        onChanged: (checked) {
+                          setStateDialog(() {
+                            if (checked == true) {
+                              selectedUserIds.add(userId);
+                            } else {
+                              selectedUserIds.remove(userId);
+                            }
+                          });
+                        },
+                      ),
                     );
                   },
                 ),
@@ -226,35 +240,41 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancelar'),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(color: configProvider.textColor),
+                  ),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: configProvider.secondaryColor,
+                  ),
                   onPressed: selectedUserIds.isEmpty
                       ? null
                       : () async {
-                          for (final id in selectedUserIds) {
-                            final success =
-                                await ApiService.requestPartyParticipation(
-                              partyId: widget.partyId,
-                              userId: id,
-                            );
-                            if (success) {
-                              showSuccessSnackbar(
-                                context,
-                                'Convite enviado para $id',
-                              );
-                            } else {
-                              showErrorSnackbar(
-                                context,
-                                'Erro ao convidar $id',
-                              );
-                            }
-                          }
+                    for (final id in selectedUserIds) {
+                      final success =
+                      await ApiService.requestPartyParticipation(
+                        partyId: widget.partyId,
+                        userId: id,
+                      );
+                      if (success) {
+                        showSuccessSnackbar(
+                          context,
+                          'Convite enviado para $id',
+                        );
+                      } else {
+                        showErrorSnackbar(
+                          context,
+                          'Erro ao convidar $id',
+                        );
+                      }
+                    }
 
-                          if (!mounted) return;
-                          Navigator.pop(dialogContext);
-                          _loadPartyDetails();
-                        },
+                    if (!mounted) return;
+                    Navigator.pop(dialogContext);
+                    _loadPartyDetails();
+                  },
                   child: const Text('Convidar'),
                 ),
               ],
@@ -286,7 +306,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     try {
       final Map<String, dynamic> message = jsonDecode(args[0] as String);
       final SignalREventType type = SignalREventType.values.firstWhere(
-        (e) => e.toString().split('.').last == message['Type'],
+            (e) => e.toString().split('.').last == message['Type'],
       );
 
       final dynamic data = message['Data'];
@@ -351,60 +371,115 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
     }
   }
 
-  Widget _buildUserList(String title, List<dynamic>? users,
-      {bool isPending = false}) {
-    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
-    return users == null || users.isEmpty
-        ? const SizedBox.shrink()
-        : Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: configProvider.textColor,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...users.map((u) {
-                  final userName = u['name'] ?? 'Sem nome';
-                  return ListTile(
-                    title: Text(
-                      userName,
-                      style: TextStyle(color: configProvider.textColor),
-                    ),
-                    trailing: isPending &&
-                            _partyData!['ownerId'] == widget.userId
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.check,
-                                    color: Colors.green),
-                                onPressed: () => _confirmParticipation(u['id']),
-                              ),
-                              IconButton(
-                                icon:
-                                    const Icon(Icons.close, color: Colors.red),
-                                onPressed: () => _declineParticipation(u['id']),
-                              ),
-                            ],
-                          )
-                        : null,
-                  );
-                }).toList()
-              ],
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String label,
+    required ConfigProvider config,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: config.iconColor),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 16, color: config.textColor),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserList({
+    required String title,
+    required List<dynamic>? users,
+    required bool isPending,
+  }) {
+    final config = Provider.of<ConfigProvider>(context, listen: false);
+
+    if (users == null || users.isEmpty) return const SizedBox.shrink();
+
+    return Card(
+      color: config.secondaryColor,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: config.textColor,
+                fontSize: 16,
+              ),
             ),
-          );
+            const Divider(),
+            ...users.map((u) {
+              final userName = u['name'] ?? 'Sem nome';
+              final userId = u['id']?.toString() ?? '';
+              final userImage = u['imageUrl'];
+
+              return ListTile(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ViewUserPage(
+                        userId: userId,
+                      ),
+                    ),
+                  );
+                },
+                leading: CircleAvatar(
+                  backgroundImage: (userImage != null && userImage.isNotEmpty)
+                      ? NetworkImage(userImage)
+                      : null,
+                  child: (userImage == null || userImage.isEmpty)
+                      ? Icon(
+                    Icons.person,
+                    color: config.iconColor,
+                  )
+                      : null,
+                ),
+                title: Text(
+                  userName,
+                  style: TextStyle(color: config.textColor),
+                ),
+                trailing: isPending && _partyData!['ownerId'] == widget.userId
+                    ? Wrap(
+                  spacing: 0,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.check, color: config.customGreen),
+                      onPressed: () => _confirmParticipation(userId),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: config.customRed),
+                      onPressed: () => _declineParticipation(userId),
+                    ),
+                  ],
+                )
+                    : null,
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final configProvider = Provider.of<ConfigProvider>(context);
+
+    final userRole = _partyData?['userRole'] ?? '';
+
+    final canViewSensitive = userRole == 'Hospedando' ||
+        userRole == 'Confirmado' ||
+        userRole == 'Convidado';
 
     return Scaffold(
       backgroundColor: configProvider.primaryColor,
@@ -417,6 +492,7 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
               _partyData != null &&
               _partyData!['ownerId'] == widget.userId)
             PopupMenuButton<String>(
+              color: configProvider.primaryColor,
               icon: Icon(Icons.more_vert, color: configProvider.iconColor),
               onSelected: (value) {
                 if (value == 'edit') {
@@ -428,17 +504,26 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'edit',
-                  child: Text('Editar Festa'),
+                  child: Text(
+                    'Editar Festa',
+                    style: TextStyle(color: configProvider.textColor),
+                  ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'invite',
-                  child: Text('Convidar Usuários'),
+                  child: Text(
+                    'Convidar Usuários',
+                    style: TextStyle(color: configProvider.textColor),
+                  ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
-                  child: Text('Excluir Festa'),
+                  child: Text(
+                    'Excluir Festa',
+                    style: TextStyle(color: configProvider.textColor),
+                  ),
                 ),
               ],
             )
@@ -446,141 +531,185 @@ class _PartyDetailsPageState extends State<PartyDetailsPage> {
       ),
       body: _isLoading
           ? Center(
-              child: CircularProgressIndicator(color: configProvider.iconColor),
-            )
+        child: CircularProgressIndicator(color: configProvider.iconColor),
+      )
           : _partyData == null
-              ? Center(
-                  child: Text('Festa não encontrada',
-                      style: TextStyle(color: configProvider.textColor)),
-                )
-              : SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        if (_partyData!['coverImageUrl'] != null &&
-                            _partyData!['coverImageUrl'].toString().isNotEmpty)
-                          Image.network(_partyData!['coverImageUrl']),
-                        const SizedBox(height: 16),
-                        Text(
-                          _partyData!['title'] ?? '',
-                          style: TextStyle(
-                            fontSize: 20,
-                            color: configProvider.textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _partyData!['description'] ?? '',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: configProvider.textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tipo: ${_mapType(_partyData!['type'])}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: configProvider.textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Local: ${_partyData!['location']}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: configProvider.textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Instruções: ${_partyData!['instructions']}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: configProvider.textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Papel: ${_partyData!['userRole']}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: configProvider.textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Convidados: ${_partyData!['invitedCount']}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: configProvider.textColor,
-                          ),
-                        ),
-                        Text(
-                          'Confirmados: ${_partyData!['confirmedCount']}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: configProvider.textColor,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (_partyData!['ownerId'] != widget.userId &&
-                            _partyData!['userRole'] ==
-                                'Disponível para Participar')
-                          ElevatedButton(
-                            onPressed: _requestParticipation,
-                            child: _loadingRequest
-                                ? const CircularProgressIndicator()
-                                : const Text('Solicitar Participação'),
-                          ),
-                        FutureBuilder(
-                          future: ApiService.getAllParticipants(
-                              widget.partyId, widget.userId),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const CircularProgressIndicator();
-                            }
-                            if (snapshot.data == null) {
-                              return Text(
-                                "Erro ao carregar participantes",
-                                style:
-                                    TextStyle(color: configProvider.textColor),
-                              );
-                            }
-                            final data = snapshot.data!;
-                            final confirmeds =
-                                data['confirmeds'] as List<dynamic>?;
-                            final inviteds = data['inviteds'] as List<dynamic>?;
+          ? Center(
+        child: Text(
+          'Festa não encontrada',
+          style: TextStyle(color: configProvider.textColor),
+        ),
+      )
+          : SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            if (_partyData!['coverImageUrl'] != null &&
+                _partyData!['coverImageUrl'].toString().isNotEmpty &&
+                !configProvider.hideImages)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(_partyData!['coverImageUrl']),
+              ),
+            const SizedBox(height: 16),
 
-                            return Column(
-                              children: [
-                                _buildUserList("Confirmados", confirmeds),
-                                _buildUserList("Convidados", inviteds,
-                                    isPending: true),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
+            Card(
+              color: configProvider.secondaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _partyData!['title'] ?? '',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: configProvider.textColor,
+                      ),
                     ),
-                  ),
-                ),
-      floatingActionButton: FloatingActionButton(
-          backgroundColor: configProvider.secondaryColor,
-          child: Icon(Icons.chat, color: configProvider.iconColor),
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PartyChatPage(
-                  partyId: widget.partyId,
-                  userId: widget.userId,
+                    const SizedBox(height: 8),
+                    Text(
+                      _partyData!['description'] ?? '',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: configProvider.textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    if (canViewSensitive) ...[
+                      const Divider(height: 24),
+                      _buildInfoRow(
+                        icon: Icons.category,
+                        label: 'Tipo: ${_mapType(_partyData!['type'])}',
+                        config: configProvider,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildInfoRow(
+                        icon: Icons.location_pin,
+                        label: 'Local: ${_partyData!['location']}',
+                        config: configProvider,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildInfoRow(
+                        icon: Icons.info_outline,
+                        label:
+                        'Instruções: ${_partyData!['instructions']}',
+                        config: configProvider,
+                      ),
+                    ],
+
+                    const SizedBox(height: 8),
+                    _buildInfoRow(
+                      icon: Icons.group,
+                      label:
+                      'Convidados: ${_partyData!['invitedCount']}',
+                      config: configProvider,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildInfoRow(
+                      icon: Icons.check_circle_outline,
+                      label:
+                      'Confirmados: ${_partyData!['confirmedCount']}',
+                      config: configProvider,
+                    ),
+                  ],
                 ),
               ),
-            );
-          }),
+            ),
+
+            const SizedBox(height: 16),
+
+            if (canViewSensitive)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: configProvider.secondaryColor,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PartyChatPage(
+                        partyId: widget.partyId,
+                        userId: widget.userId,
+                      ),
+                    ),
+                  );
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.chat, color: configProvider.iconColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Abrir Chat',
+                      style: TextStyle(color: configProvider.iconColor),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 16),
+
+            if (!canViewSensitive &&
+                _partyData!['ownerId'] != widget.userId &&
+                _partyData!['userRole'] == 'Disponível para Participar')
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: configProvider.secondaryColor,
+                ),
+                onPressed: _requestParticipation,
+                child: _loadingRequest
+                    ? const CircularProgressIndicator()
+                    : const Text('Solicitar Participação'),
+              ),
+
+            if (canViewSensitive)
+              FutureBuilder(
+                future: ApiService.getAllParticipants(
+                  widget.partyId,
+                  widget.userId,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState ==
+                      ConnectionState.waiting) {
+                    return const CircularProgressIndicator();
+                  }
+                  if (snapshot.data == null) {
+                    return Text(
+                      "Erro ao carregar participantes",
+                      style: TextStyle(color: configProvider.textColor),
+                    );
+                  }
+                  final data = snapshot.data!;
+                  final confirmeds =
+                  data['confirmeds'] as List<dynamic>?;
+                  final inviteds = data['inviteds'] as List<dynamic>?;
+
+                  return Column(
+                    children: [
+                      _buildUserList(
+                        title: "Confirmados",
+                        users: confirmeds,
+                        isPending: false,
+                      ),
+                      if (_partyData!['ownerId'] == widget.userId)
+                        _buildUserList(
+                          title: "Convidados (Pendentes)",
+                          users: inviteds,
+                          isPending: true,
+                        ),
+                    ],
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

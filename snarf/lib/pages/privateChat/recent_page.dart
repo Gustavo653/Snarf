@@ -79,6 +79,7 @@ class _RecentChatPageState extends State<RecentPage> {
   }
 
   void _handleRecentChats(List<Object?>? data) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
     try {
       final parsedData = data as List<dynamic>;
       setState(() {
@@ -95,6 +96,11 @@ class _RecentChatPageState extends State<RecentPage> {
             } catch (_) {
               lastActivity = null;
             }
+          }
+
+          var unread = mapItem['UnreadCount'];
+          if(unread > 0){
+            configProvider.SetNotificationMessage(true);
           }
           
           return {

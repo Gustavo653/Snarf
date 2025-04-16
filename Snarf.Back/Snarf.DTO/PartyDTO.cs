@@ -6,20 +6,25 @@ namespace Snarf.DTO
     public class PartyDTO
     {
         [Required]
-        public string Title { get; set; }
+        public required string Title { get; set; }
         [Required]
-        public string Description { get; set; }
+        public required string Description { get; set; }
         [Required]
-        public DateTime StartDate { get; set; }
+        public required DateTime StartDate { get; set; }
         [Required]
-        public int Duration { get; set; }
+        public required int Duration { get; set; }
         [Required]
-        public PartyType Type { get; set; }
-        public string Location { get; set; }
-        public string Instructions { get; set; }
-        public string CoverImage { get; set; }
-        public double? LastLatitude { get; set; }
-        public double? LastLongitude { get; set; }
+        public required PartyType Type { get; set; }
+        [Required]
+        public required string Location { get; set; }
+        [Required]
+        public required string Instructions { get; set; }
+        [Required]
+        public required string CoverImage { get; set; }
+        [Required]
+        public required double LastLatitude { get; set; }
+        [Required]
+        public required double LastLongitude { get; set; }
         public string? UserId { get; set; }
     }
 }

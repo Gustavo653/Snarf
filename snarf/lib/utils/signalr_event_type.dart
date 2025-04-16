@@ -45,5 +45,11 @@ enum SignalREventType {
   PartyChatSendMessage,
   PartyChatGetPreviousMessages,
   PartyChatSendImage,
-  PartyChatDeleteMessage
+  PartyChatDeleteMessage,
+
+  PlaceChatSendMessage,
+  PlaceChatReceiveMessage,
+  PlaceChatDeleteMessage,
+  PlaceChatReceiveMessageDeleted,
+  PlaceChatGetPreviousMessages,
 }

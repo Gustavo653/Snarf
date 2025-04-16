@@ -17,7 +17,6 @@ namespace Snarf.Service
         IUserRepository userRepository
     ) : IPartyService
     {
-        // A distância para gerar latitude e longitude aleatória (você que definiu)
         private const double _randomDistance = 0.045; // 5km (aprox)
 
         public async Task<ResponseDTO> Create(PartyDTO createDTO)
@@ -32,12 +31,10 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Gera deslocamento aleatório (seu critério) para "esconder" a localização
                 var random = new Random();
                 var offsetLat = (random.NextDouble() - 0.5) * 2 * _randomDistance;
                 var offsetLon = (random.NextDouble() - 0.5) * 2 * _randomDistance;
 
-                // Faz upload da imagem da capa (coverImage) para o S3
                 var imageBytes = Convert.FromBase64String(createDTO.CoverImage);
                 using var imageStream = new MemoryStream(imageBytes);
                 var s3Service = new S3Service();
@@ -47,7 +44,6 @@ namespace Snarf.Service
                     "image/jpeg"
                 );
 
-                // Cria a festa
                 var partyEntity = new Party
                 {
                     Title = createDTO.Title,
@@ -92,7 +88,6 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Retorna todas as festas que ainda não expiraram
                 var parties = await partyRepository
                     .GetTrackedEntities()
                     .Include(p => p.Owner)
@@ -101,7 +96,6 @@ namespace Snarf.Service
                     .Where(p => p.StartDate.AddHours(p.Duration) >= DateTime.Now)
                     .ToListAsync();
 
-                // Mapeia para um objeto anônimo e define a “userRole”
                 var data = parties.Select(p => new
                 {
                     p.Id,
@@ -144,13 +138,25 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Atualiza os campos editáveis
                 partyEntity.Title = updateDTO.Title;
                 partyEntity.Description = updateDTO.Description;
                 partyEntity.Location = updateDTO.Location;
                 partyEntity.Instructions = updateDTO.Instructions;
                 partyEntity.StartDate = updateDTO.StartDate;
                 partyEntity.Duration = updateDTO.Duration;
+
+                if (!string.IsNullOrWhiteSpace(updateDTO.CoverImage))
+                {
+                    var s3Service = new S3Service();
+                    if (!string.IsNullOrWhiteSpace(partyEntity.CoverImageUrl) && partyEntity.CoverImageUrl.StartsWith("https://"))
+                    {
+                        await s3Service.DeleteFileAsync(partyEntity.CoverImageUrl);
+                    }
+                    var imageBytes = Convert.FromBase64String(updateDTO.CoverImage);
+                    using var imageStream = new MemoryStream(imageBytes);
+                    var newCoverUrl = await s3Service.UploadFileAsync($"placeImages/{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
+                    partyEntity.CoverImageUrl = newCoverUrl;
+                }
 
                 await partyRepository.SaveChangesAsync();
                 Log.Information("Festa com Id: {id} atualizada com sucesso.", partyEntity.Id);
@@ -167,7 +173,9 @@ namespace Snarf.Service
             ResponseDTO responseDTO = new();
             try
             {
-                var partyEntity = await partyRepository.GetTrackedEntities()
+                var partyEntity = await partyRepository
+                    .GetTrackedEntities()
+                    .Include(x => x.Messages)
                     .FirstOrDefaultAsync(x => x.Id == id);
 
                 if (partyEntity == null)
@@ -182,6 +190,22 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
+                var urls = partyEntity.Messages.Where(x => x.Message.StartsWith("https://")).Select(x => x.Message).ToList();
+                urls.Add(partyEntity.CoverImageUrl);
+
+                foreach (var url in urls)
+                {
+                    try
+                    {
+                        var s3Service = new S3Service();
+                        await s3Service.DeleteFileAsync(url);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, $"Erro ao deletar arquivo S3: {url}");
+                    }
+                }
+
                 partyRepository.Delete(partyEntity);
                 await partyRepository.SaveChangesAsync();
 
@@ -194,7 +218,6 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        // 1) Host convida explicitamente
         public async Task<ResponseDTO> InviteUsers(Guid id, List<string> userIds, string whoIsCallingId)
         {
             var responseDTO = new ResponseDTO();
@@ -212,13 +235,6 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Verifica se quem chama é o host
-                //if (partyEntity.OwnerId != whoIsCallingId)
-                //{
-                //    responseDTO.SetBadInput("Apenas o anfitrião pode convidar.");
-                //    return responseDTO;
-                //}
-
                 var usersToInvite = await userRepository
                     .GetTrackedEntities()
                     .Where(u => userIds.Contains(u.Id))
@@ -226,15 +242,12 @@ namespace Snarf.Service
 
                 foreach (var user in usersToInvite)
                 {
-                    // se já estiver confirmado ou convidado, não precisa
                     if (partyEntity.ConfirmedUsers.Contains(user) ||
                         partyEntity.InvitedUsers.Contains(user))
                         continue;
 
-                    // adiciona na lista de convidados
                     partyEntity.InvitedUsers.Add(user);
 
-                    // marca no dicionário que foi convidado pelo host
                     partyEntity.InvitedByHostMap[user.Id] = true;
                 }
 
@@ -247,7 +260,6 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        // 2) Usuário solicita participação (auto-solicitação)
         public async Task<ResponseDTO> RequestParticipation(Guid partyId, string userId)
         {
             var responseDTO = new ResponseDTO();
@@ -265,7 +277,6 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // se já está convidado ou confirmado, não faz nada
                 if (partyEntity.InvitedUsers.Any(u => u.Id == userId) ||
                     partyEntity.ConfirmedUsers.Any(u => u.Id == userId))
                 {
@@ -283,10 +294,8 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Adiciona na lista de convidados como "solicitação"
                 partyEntity.InvitedUsers.Add(user);
 
-                // marca que NÃO foi convidado pelo host
                 partyEntity.InvitedByHostMap[user.Id] = false;
 
                 await partyRepository.SaveChangesAsync();
@@ -298,7 +307,6 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        // Confirmar (aceitar)
         public async Task<ResponseDTO> ConfirmUser(Guid partyId, string whoIsCallingId, string targetUserId)
         {
             var responseDTO = new ResponseDTO();
@@ -326,14 +334,12 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Verifica se o user alvo está mesmo em Invited
                 if (!partyEntity.InvitedUsers.Contains(targetUser))
                 {
                     responseDTO.SetBadInput("O usuário não está na lista de convidados pendentes.");
                     return responseDTO;
                 }
 
-                // Descobre se foi convidado pelo host
                 bool wasInvitedByHost = false;
                 if (partyEntity.InvitedByHostMap.ContainsKey(targetUserId))
                 {
@@ -343,10 +349,6 @@ namespace Snarf.Service
                 bool isHost = (partyEntity.OwnerId == whoIsCallingId);
                 bool isSameUser = (targetUserId == whoIsCallingId);
 
-                // Regras:
-                // - Se foi convidado pelo host (wasInvitedByHost=true), então o próprio user pode se confirmar
-                //   OU o host pode confirmar ele.
-                // - Se foi "solicitação" (wasInvitedByHost=false), só o host pode confirmar.
                 if (wasInvitedByHost)
                 {
                     // Convidado => user pode se confirmar, ou o host confirma
@@ -358,7 +360,6 @@ namespace Snarf.Service
                 }
                 else
                 {
-                    // Solicitante => apenas o anfitrião pode confirmar
                     if (!isHost)
                     {
                         responseDTO.SetBadInput("Apenas o anfitrião pode aceitar uma solicitação de participação.");
@@ -366,7 +367,6 @@ namespace Snarf.Service
                     }
                 }
 
-                // -> tudo ok, remove de Invited e põe em Confirmed
                 partyEntity.InvitedUsers.Remove(targetUser);
                 if (!partyEntity.ConfirmedUsers.Contains(targetUser))
                 {
@@ -382,7 +382,6 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        // Recusar (declinar)
         public async Task<ResponseDTO> DeclineUser(Guid partyId, string whoIsCallingId, string targetUserId)
         {
             var responseDTO = new ResponseDTO();
@@ -410,7 +409,6 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Se não está nem convidado nem confirmado, não faz sentido
                 bool isInvited = partyEntity.InvitedUsers.Contains(targetUser);
                 bool isConfirmed = partyEntity.ConfirmedUsers.Contains(targetUser);
                 if (!isInvited && !isConfirmed)
@@ -419,9 +417,6 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Regras de permissão de recusa:
-                // - O próprio usuário pode se recusar (caso tenha sido convidado ou solicitou)
-                // - O anfitrião pode recusar qualquer um
                 bool isHost = (partyEntity.OwnerId == whoIsCallingId);
                 bool isSameUser = (targetUserId == whoIsCallingId);
                 if (!isHost && !isSameUser)
@@ -430,7 +425,6 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Remove de Invited/Confirmed
                 if (isInvited)
                 {
                     partyEntity.InvitedUsers.Remove(targetUser);
@@ -440,7 +434,6 @@ namespace Snarf.Service
                     partyEntity.ConfirmedUsers.Remove(targetUser);
                 }
 
-                // Se quiser, remove do dictionary InvitedByHostMap também
                 if (partyEntity.InvitedByHostMap.ContainsKey(targetUserId))
                 {
                     partyEntity.InvitedByHostMap.Remove(targetUserId);
@@ -455,7 +448,6 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        // Exibir detalhes e atribuir userRole
         public async Task<ResponseDTO> GetById(Guid id, Guid userId)
         {
             var responseDTO = new ResponseDTO();
@@ -485,7 +477,6 @@ namespace Snarf.Service
                 }
                 else if (partyEntity.InvitedUsers.Any(u => u.Id == userId.ToString()))
                 {
-                    // Se estiver em InvitedUsers, checa se InvitedByHostMap = true/false
                     bool wasInvitedByHost = false;
                     if (partyEntity.InvitedByHostMap.TryGetValue(userId.ToString(), out var flag))
                     {
@@ -520,8 +511,6 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        // Para exibir a lista de pendentes (Invited) e confirmados (Confirmed)
-        // de modo que todos vejam os confirmados e só o host veja os pendentes
         public async Task<ResponseDTO> GetAllParticipants(Guid partyId, Guid whoIsCalling)
         {
             var responseDTO = new ResponseDTO();
@@ -539,7 +528,6 @@ namespace Snarf.Service
                     return responseDTO;
                 }
 
-                // Pega confirmados (sempre exibimos)
                 var confirmeds = partyEntity.ConfirmedUsers.Select(u => new
                 {
                     u.Id,
@@ -547,9 +535,6 @@ namespace Snarf.Service
                     u.ImageUrl
                 }).ToList();
 
-                // Pega pendentes (Invited)
-                // Se o chamador for o dono, exibe todos.
-                // Se não for o dono, a critério seu exibir apenas "Convidado" ou "Solicitante" do próprio user etc.
                 var inviteds = new List<object>();
                 bool isHost = (partyEntity.OwnerId == whoIsCalling.ToString());
                 if (isHost)
@@ -575,7 +560,6 @@ namespace Snarf.Service
             return responseDTO;
         }
 
-        // Métodos não implementados...
         public Task<ResponseDTO> Remove(Guid id) => throw new NotImplementedException();
         public Task<ResponseDTO> GetList() => throw new NotImplementedException();
     }

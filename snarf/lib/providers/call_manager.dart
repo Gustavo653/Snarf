@@ -111,8 +111,9 @@ class CallManager extends ChangeNotifier {
         final mapItem = item is Map<String, dynamic>
             ? item
             : Map<String, dynamic>.from(item);
-
+        
         var count = mapItem['UnreadCount'];
+        
         if(count > 0){
           configProvider.SetNotificationMessage(true);
         }

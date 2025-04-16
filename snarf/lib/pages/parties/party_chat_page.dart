@@ -3,8 +3,10 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/signalr_manager.dart';
+import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
 
 class PartyChatPage extends StatefulWidget {
@@ -25,6 +27,7 @@ class _PartyChatPageState extends State<PartyChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final List<Map<String, dynamic>> _messages = [];
   bool _isLoading = true;
+  bool _isSendingImage = false;
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _picker = ImagePicker();
 
@@ -35,12 +38,14 @@ class _PartyChatPageState extends State<PartyChatPage> {
   }
 
   Future<void> _setupSignalRConnection() async {
-    SignalRManager()
-        .listenToEvent("ReceiveMessage", _onReceivePartyChatMessage);
+    SignalRManager().listenToEvent(
+      "ReceiveMessage",
+      _onReceivePartyChatMessage,
+    );
 
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PartyChatGetPreviousMessages,
-      {"partyId": widget.partyId},
+      {"PartyId": widget.partyId},
     );
 
     setState(() {
@@ -103,7 +108,7 @@ class _PartyChatPageState extends State<PartyChatPage> {
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PartyChatSendMessage,
       {
-        "partyId": widget.partyId,
+        "PartyId": widget.partyId,
         "Message": messageText,
       },
     );
@@ -122,17 +127,25 @@ class _PartyChatPageState extends State<PartyChatPage> {
     );
 
     if (pickedFile != null) {
-      final bytes = await pickedFile.readAsBytes();
-      final base64Image = base64Encode(bytes);
+      try {
+        setState(() => _isSendingImage = true);
 
-      await SignalRManager().sendSignalRMessage(
-        SignalREventType.PartyChatSendImage,
-        {
-          "partyId": widget.partyId,
-          "Image": base64Image,
-          "FileName": pickedFile.name,
-        },
-      );
+        final bytes = await pickedFile.readAsBytes();
+        final base64Image = base64Encode(bytes);
+
+        await SignalRManager().sendSignalRMessage(
+          SignalREventType.PartyChatSendImage,
+          {
+            "PartyId": widget.partyId,
+            "Image": base64Image,
+            "FileName": pickedFile.name,
+          },
+        );
+      } catch (e) {
+        log("Erro ao enviar imagem: $e");
+      } finally {
+        setState(() => _isSendingImage = false);
+      }
     }
   }
 
@@ -140,56 +153,181 @@ class _PartyChatPageState extends State<PartyChatPage> {
     await SignalRManager().sendSignalRMessage(
       SignalREventType.PartyChatDeleteMessage,
       {
-        "partyId": widget.partyId,
+        "PartyId": widget.partyId,
         "MessageId": messageId,
       },
     );
   }
 
   Widget _buildMessageWidget(Map<String, dynamic> msg) {
-    final bool isMine = msg['userId'] == widget.userId;
+    final bool isMine = (msg['userId'] == widget.userId);
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
 
-    if (msg['isImage'] == true && msg['message'] != null) {
-      return ListTile(
-        title: Text(
-          msg['userName'] ?? '',
-          style: TextStyle(color: configProvider.textColor),
-        ),
-        subtitle: Image.network(
-          msg['message'],
-          errorBuilder: (_, __, ___) {
-            return Text(
-              'Erro ao carregar imagem',
-              style: TextStyle(color: configProvider.textColor),
-            );
-          },
-        ),
-        trailing: isMine
-            ? IconButton(
-                icon: Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _deleteMessage(msg['id']),
-              )
-            : null,
+    final String messageText = msg['message'] ?? '';
+    final bool isImage = msg['isImage'] == true;
+
+    // Pega a data de criação e converte para "Há x tempo"
+    final DateTime createdAt = msg['createdAt'] ?? DateTime.now();
+    final String relativeTime =
+        DateJSONUtils.formatRelativeTime(createdAt.toString());
+
+    if (isMine) {
+      // Mensagem do usuário atual
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // "Há x tempo" em cima do bubble
+          Padding(
+            padding: const EdgeInsets.only(right: 12, top: 8, bottom: 2),
+            child: Text(
+              relativeTime,
+              style: TextStyle(
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+                color: configProvider.textColor,
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 18,
+                    horizontal: 8,
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: configProvider.secondaryColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
+                    ),
+                  ),
+                  child: isImage
+                      ? Image.network(
+                          messageText,
+                          errorBuilder: (_, __, ___) {
+                            return Text(
+                              'Erro ao carregar imagem',
+                              style: TextStyle(color: configProvider.textColor),
+                            );
+                          },
+                        )
+                      : Text(
+                          messageText,
+                          style: TextStyle(color: configProvider.textColor),
+                        ),
+                ),
+              ),
+              if (messageText != "Mensagem excluída")
+                IconButton(
+                  icon: Icon(
+                    Icons.delete,
+                    size: 18,
+                    color: configProvider.iconColor,
+                  ),
+                  onPressed: () => _deleteMessage(msg['id']),
+                ),
+            ],
+          ),
+        ],
+      );
+    } else {
+      // Mensagem de outro usuário
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Coloca a data/hora acima do avatar
+          Padding(
+            padding: const EdgeInsets.only(left: 8, right: 8),
+            child: Column(
+              children: [
+                Text(
+                  relativeTime,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontStyle: FontStyle.italic,
+                    color: configProvider.textColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () {
+                    if (msg['userId'] == null) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ViewUserPage(
+                          userId: msg['userId'],
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(30),
+                      image: (msg['userImage'] != null &&
+                              msg['userImage'].toString().isNotEmpty)
+                          ? DecorationImage(
+                              image: NetworkImage(msg['userImage']),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: (msg['userImage'] == null ||
+                            msg['userImage'].toString().isEmpty)
+                        ? Center(
+                            child: Icon(
+                              Icons.person,
+                              color: configProvider.iconColor,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 18, horizontal: 0),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: configProvider.secondaryColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: isImage
+                  ? Image.network(
+                      messageText,
+                      errorBuilder: (_, __, ___) {
+                        return Text(
+                          'Erro ao carregar imagem',
+                          style: TextStyle(color: configProvider.textColor),
+                        );
+                      },
+                    )
+                  : Text(
+                      messageText,
+                      style: TextStyle(
+                        color: configProvider.textColor,
+                      ),
+                    ),
+            ),
+          ),
+        ],
       );
     }
-
-    return ListTile(
-      title: Text(
-        msg['userName'] ?? '',
-        style: TextStyle(color: configProvider.textColor),
-      ),
-      subtitle: Text(
-        msg['message'] ?? '',
-        style: TextStyle(color: configProvider.textColor),
-      ),
-      trailing: isMine && msg['message'] != "Mensagem excluída"
-          ? IconButton(
-              icon: Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _deleteMessage(msg['id']),
-            )
-          : null,
-    );
   }
 
   @override
@@ -229,12 +367,22 @@ class _PartyChatPageState extends State<PartyChatPage> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                   child: Row(
                     children: [
-                      // Botão para enviar imagem
-                      IconButton(
-                        icon:
-                            Icon(Icons.photo, color: configProvider.iconColor),
-                        onPressed: _sendImage,
-                      ),
+                      _isSendingImage
+                          ? SizedBox(
+                              width: 30,
+                              height: 30,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: configProvider.iconColor,
+                              ),
+                            )
+                          : IconButton(
+                              icon: Icon(
+                                Icons.photo,
+                                color: configProvider.iconColor,
+                              ),
+                              onPressed: _sendImage,
+                            ),
                       Expanded(
                         child: TextField(
                           controller: _messageController,
@@ -248,6 +396,12 @@ class _PartyChatPageState extends State<PartyChatPage> {
                             fillColor:
                                 configProvider.secondaryColor.withOpacity(0.1),
                             border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide(
+                                color: configProvider.secondaryColor,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(30),
                               borderSide: BorderSide(
                                 color: configProvider.secondaryColor,
