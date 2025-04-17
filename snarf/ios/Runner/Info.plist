@@ -1,7 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
+	<dict>
+		<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Este app precisa acessar sua localização para mostrar conteúdo relevante.</string>
+
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Este app precisa acessar sua localização mesmo em segundo plano.</string>
+
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Este app precisa acessar o microfone para gravar áudio.</string>
+
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

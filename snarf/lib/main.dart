@@ -94,7 +94,7 @@ Future<void> _setupFirebaseMessaging() async {
 void _configureApiConstants() {
   const isRelease = bool.fromEnvironment('dart.vm.product');
   ApiConstants.baseUrl =
-      isRelease ? "https://snarf.inovitech.inf.br/api" : ApiConstants.baseUrl;
+      !isRelease ? "https://snarf.inovitech.inf.br/api" : ApiConstants.baseUrl;
 }
 
 Future<void> _initializeSignalR() async {
