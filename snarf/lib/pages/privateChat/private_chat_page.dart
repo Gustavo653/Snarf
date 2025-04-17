@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter/return_code.dart';
+//import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
+//import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -697,7 +697,8 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<File?> _resizeVideo(File inputFile) async {
-    final String outputPath = '${inputFile.path}_square.mp4';
+    return inputFile;
+    /*final String outputPath = '${inputFile.path}_square.mp4';
 
     final String inPath = "'${inputFile.path}'";
     final String outPath = "'$outputPath'";
@@ -713,7 +714,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         return file;
       }
     }
-    return null;
+    return null;*/
   }
 
   Future<bool> _checkVideoDuration(File file) async {
