@@ -31,6 +31,8 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+    <string>Este app precisa acessar sua galeria de fotos para que você possa selecionar e enviar imagens.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Este app precisa acessar sua localização mesmo em segundo plano.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
