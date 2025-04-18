@@ -47,6 +47,9 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Este app precisa acessar sua localização para mostrar conteúdo relevante.</string>
 
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription </key>
+    <string>Este app precisa acessar sua localização para mostrar conteúdo relevante.</string>
+
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Este app precisa acessar o microfone para gravar áudio.</string>
 
