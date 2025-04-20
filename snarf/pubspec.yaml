@@ -3,7 +3,7 @@ description: "snarf"
 
 publish_to: 'none'
 
-version: 1.3.9+39
+version: 1.4.0+40
 
 environment:
   sdk: ^3.6.0
