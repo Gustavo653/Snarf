@@ -49,6 +49,7 @@ dependencies:
   in_app_purchase: ^3.2.1
   jwt_decoder: ^2.0.1
   font_awesome_flutter: ^10.8.0
+  dropdown_button2: ^2.3.9
 
 dev_dependencies:
   flutter_test:

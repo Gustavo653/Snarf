@@ -68,6 +68,38 @@ class ConfigProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  List<bool> _statisticsList = List.filled(5, false);
+  bool getStatistic(int index) => _statisticsList[index];
+
+  void toggleStatistic(int index){
+    _statisticsList[index] = !_statisticsList[index];
+    notifyListeners();
+  }
+
+  List<bool> _sexualityList = List.filled(3, false);
+  bool getSexuality(int index) => _sexualityList[index];
+
+  void toggleSexuality(int index){
+    _sexualityList[index] = !_sexualityList[index];
+    notifyListeners();
+  }
+
+  List<bool> _sceneList = List.filled(7, false);
+  bool getScene(int index) => _sceneList[index];
+
+  void toggleScene(int index){
+    _sceneList[index] = !_sceneList[index];
+    notifyListeners();
+  }
+
+  List<bool> _preferencesList = List.filled(7, false);
+  bool getPreferences(int index) => _preferencesList[index];
+
+  void togglePreferences(int index){
+    _preferencesList[index] = !_preferencesList[index];
+    notifyListeners();
+  }
+
   bool _isSubscriber = false;
 
   void setIsSubscriber(bool subscriber){
