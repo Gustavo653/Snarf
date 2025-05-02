@@ -6,8 +6,8 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/config_profile_page.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
@@ -39,7 +39,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final _locationService = LocationService();
-  late LocationData _currentLocation;
+  late Position _currentLocation;
   bool _isLocationLoaded = false;
   late MapController _mapController;
   Marker? _userLocationMarker;

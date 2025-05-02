@@ -2,10 +2,8 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/buy_subscription_page.dart';
-
 import 'package:snarf/pages/account/view_user_page.dart';
 import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/config_provider.dart';

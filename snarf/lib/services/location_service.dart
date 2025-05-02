@@ -1,41 +1,52 @@
 import 'dart:async';
-import 'package:location/location.dart';
+import 'package:geolocator/geolocator.dart';
 
 class LocationService {
-  final Location _location = Location();
-  final _controller = StreamController<LocationData>.broadcast();
-  StreamSubscription<LocationData>? _subscription;
+  final _controller = StreamController<Position>.broadcast();
+  StreamSubscription<Position>? _subscription;
 
-  Stream<LocationData> get onLocationChanged => _controller.stream;
+  Stream<Position> get onLocationChanged => _controller.stream;
 
   Future<bool> initialize() async {
-    if (!await _location.serviceEnabled()) {
-      if (!await _location.requestService()) {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return false;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
         return false;
       }
     }
-    var permission = await _location.hasPermission();
-    if (permission == PermissionStatus.denied) {
-      permission = await _location.requestPermission();
-      if (permission != PermissionStatus.granted) {
-        return false;
-      }
+
+    if (permission == LocationPermission.deniedForever) {
+      return false;
     }
+
     return true;
   }
 
-  Future<LocationData> getCurrentLocation() async {
-    final loc = await _location.getLocation();
-    _controller.add(loc);
-    return loc;
+  Future<Position> getCurrentLocation() async {
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+    _controller.add(position);
+    return position;
   }
 
   void startUpdates({
     LocationAccuracy accuracy = LocationAccuracy.high,
-    int interval = 20000,
+    int intervalMs = 20000,
   }) {
-    _location.changeSettings(accuracy: accuracy, interval: interval);
-    _subscription = _location.onLocationChanged.listen(_controller.add);
+    _subscription = Geolocator.getPositionStream(
+      locationSettings: LocationSettings(
+        accuracy: accuracy,
+        distanceFilter: 10,
+        timeLimit: Duration(milliseconds: intervalMs),
+      ),
+    ).listen(_controller.add);
   }
 
   void dispose() {
