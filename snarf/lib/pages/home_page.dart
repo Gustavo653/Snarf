@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -133,7 +134,14 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _getFcmToken() async {
-    final fcmToken = await FirebaseMessaging.instance.getToken();
+    String? fcmToken = "";
+    if (Platform.isIOS) {
+      fcmToken = await FirebaseMessaging.instance.getAPNSToken();
+    } else if (Platform.isAndroid) {
+      fcmToken = await FirebaseMessaging.instance.getToken();
+    } else {
+      throw Exception("Plataforma não suportada ${Platform.operatingSystem}");
+    }
     if (fcmToken != null) {
       _fcmToken = fcmToken;
       await _analytics.logEvent(
