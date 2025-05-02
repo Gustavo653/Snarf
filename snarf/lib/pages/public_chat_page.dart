@@ -11,6 +11,7 @@ import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
+import 'package:snarf/services/location_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/distance_utils.dart';
@@ -28,10 +29,9 @@ class PublicChatPage extends StatefulWidget {
 
 class _PublicChatPageState extends State<PublicChatPage> {
   final TextEditingController _messageController = TextEditingController();
+  final _locationService = LocationService();
   final List<Map<String, dynamic>> _messages = [];
-
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
-
   String? _userId;
   bool _isLoading = true;
   double? _myLatitude;
@@ -58,18 +58,28 @@ class _PublicChatPageState extends State<PublicChatPage> {
   }
 
   Future<void> _initLocation() async {
-    Location location = Location();
-    var position = await location.getLocation();
-    _myLatitude = position.latitude;
-    _myLongitude = position.longitude;
+    final ok = await _locationService.initialize();
+    if (ok) {
+      final loc = await _locationService.getCurrentLocation();
+      setState(() {
+        _myLatitude = loc.latitude;
+        _myLongitude = loc.longitude;
+      });
+      _locationService.onLocationChanged.listen((loc) {
+        setState(() {
+          _myLatitude = loc.latitude;
+          _myLongitude = loc.longitude;
+        });
+      });
 
-    await _analytics.logEvent(
-      name: 'public_chat_location_obtained',
-      parameters: {
-        'latitude': _myLatitude!,
-        'longitude': _myLongitude!,
-      },
-    );
+      await _analytics.logEvent(
+        name: 'public_chat_location_obtained',
+        parameters: {
+          'latitude': _myLatitude!,
+          'longitude': _myLongitude!,
+        },
+      );
+    }
   }
 
   Future<void> _setupSignalRConnection() async {

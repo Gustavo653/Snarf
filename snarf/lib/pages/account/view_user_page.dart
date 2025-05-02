@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/buy_subscription_page.dart';
 import 'package:snarf/pages/privateChat/private_chat_page.dart';
@@ -10,6 +9,7 @@ import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
+import 'package:snarf/services/location_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
@@ -36,6 +36,7 @@ class _ViewUserPageState extends State<ViewUserPage> {
   double? _myLatitude;
   double? _myLongitude;
   bool _isFavorite = false;
+  final _locationService = LocationService();
 
   bool get _isOnline {
     if (_lastActivity == null) return false;
@@ -52,10 +53,20 @@ class _ViewUserPageState extends State<ViewUserPage> {
   }
 
   Future<void> _initLocation() async {
-    Location location = Location();
-    var position = await location.getLocation();
-    _myLatitude = position.latitude;
-    _myLongitude = position.longitude;
+    final ok = await _locationService.initialize();
+    if (ok) {
+      final loc = await _locationService.getCurrentLocation();
+      setState(() {
+        _myLatitude = loc.latitude;
+        _myLongitude = loc.longitude;
+      });
+      _locationService.onLocationChanged.listen((loc) {
+        setState(() {
+          _myLatitude = loc.latitude;
+          _myLongitude = loc.longitude;
+        });
+      });
+    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -89,7 +100,10 @@ class _ViewUserPageState extends State<ViewUserPage> {
       final String? eventType = data['Type'];
       if (eventType == null) return;
       if (eventType ==
-          SignalREventType.MapReceiveLocation.toString().split('.').last) {
+          SignalREventType.MapReceiveLocation
+              .toString()
+              .split('.')
+              .last) {
         final mapData = data['Data'] as Map<String, dynamic>;
         final String userId = mapData['userId'];
         if (userId == widget.userId) {
@@ -107,7 +121,10 @@ class _ViewUserPageState extends State<ViewUserPage> {
               });
         }
       } else if (eventType ==
-          SignalREventType.UserDisconnected.toString().split('.').last) {
+          SignalREventType.UserDisconnected
+              .toString()
+              .split('.')
+              .last) {
         final mapData = data['Data'] as Map<String, dynamic>;
         final String userId = mapData['userId'];
         if (userId == widget.userId) {
@@ -119,7 +136,8 @@ class _ViewUserPageState extends State<ViewUserPage> {
               parameters: {'userId': widget.userId});
         }
       } else if (eventType ==
-          SignalREventType.PrivateChatReceiveFavorites.toString()
+          SignalREventType.PrivateChatReceiveFavorites
+              .toString()
               .split('.')
               .last) {
         final List<dynamic> favorites = data['Data'] as List<dynamic>;
@@ -202,15 +220,15 @@ class _ViewUserPageState extends State<ViewUserPage> {
         border: Border.all(color: config.secondaryColor, width: 2),
         image: _userImageUrl != null
             ? DecorationImage(
-                image: InterceptedImageProvider(
-                    originalProvider: NetworkImage(_userImageUrl!),
-                    hideImages: config.hideImages),
-                fit: BoxFit.cover,
-              )
+          image: InterceptedImageProvider(
+              originalProvider: NetworkImage(_userImageUrl!),
+              hideImages: config.hideImages),
+          fit: BoxFit.cover,
+        )
             : const DecorationImage(
-                image: AssetImage('assets/images/user_anonymous.png'),
-                fit: BoxFit.cover,
-              ),
+          image: AssetImage('assets/images/user_anonymous.png'),
+          fit: BoxFit.cover,
+        ),
       ),
     );
   }
@@ -240,77 +258,82 @@ class _ViewUserPageState extends State<ViewUserPage> {
       body: _isLoading
           ? Center(child: CircularProgressIndicator(color: config.iconColor))
           : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SingleChildScrollView(
-                child: Center(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _buildUserImage(),
-                      const SizedBox(height: 20),
-                      Text(
-                        _userName ?? 'Nome não disponível',
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: config.textColor),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        _userEmail ?? 'E-mail não disponível',
-                        style: TextStyle(
-                            fontSize: 16,
-                            color: config.textColor.withOpacity(0.6)),
-                      ),
-                      const SizedBox(height: 10),
-                      if (_latitude != null && _longitude != null) ...[
-                        Text(
-                          'Distância: ${DistanceUtils.calculateDistance(_myLatitude!, _myLongitude!, _latitude!, _longitude!).toStringAsFixed(2)} km',
-                          style: TextStyle(color: config.textColor),
-                        ),
-                      ] else ...[
-                        Text('Distância indisponível',
-                            style: TextStyle(color: config.textColor)),
-                      ],
-                      const SizedBox(height: 10),
-                      Text(
-                        _isOnline ? 'Online' : 'Offline',
-                        style: TextStyle(
-                          color: _isOnline
-                              ? config.customGreen
-                              : config.customOrange,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: config.secondaryColor,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30)),
-                        ),
-                        onPressed: _userName != null && _userImageUrl != null
-                            ? () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => PrivateChatPage(
-                                      userId: widget.userId,
-                                      userName: _userName!,
-                                      userImage: _userImageUrl!,
-                                    ),
-                                  ),
-                                );
-                              }
-                            : null,
-                        child: Text('Iniciar Chat Privado',
-                            style: TextStyle(color: config.textColor)),
-                      ),
-                    ],
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Center(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildUserImage(),
+                const SizedBox(height: 20),
+                Text(
+                  _userName ?? 'Nome não disponível',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: config.textColor),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _userEmail ?? 'E-mail não disponível',
+                  style: TextStyle(
+                      fontSize: 16,
+                      color: config.textColor.withOpacity(0.6)),
+                ),
+                const SizedBox(height: 10),
+                if (_latitude != null && _longitude != null) ...[
+                  Text(
+                    'Distância: ${DistanceUtils
+                        .calculateDistance(
+                        _myLatitude!, _myLongitude!, _latitude!, _longitude!)
+                        .toStringAsFixed(2)} km',
+                    style: TextStyle(color: config.textColor),
+                  ),
+                ] else
+                  ...[
+                    Text('Distância indisponível',
+                        style: TextStyle(color: config.textColor)),
+                  ],
+                const SizedBox(height: 10),
+                Text(
+                  _isOnline ? 'Online' : 'Offline',
+                  style: TextStyle(
+                    color: _isOnline
+                        ? config.customGreen
+                        : config.customOrange,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: config.secondaryColor,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30)),
+                  ),
+                  onPressed: _userName != null && _userImageUrl != null
+                      ? () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            PrivateChatPage(
+                              userId: widget.userId,
+                              userName: _userName!,
+                              userImage: _userImageUrl!,
+                            ),
+                      ),
+                    );
+                  }
+                      : null,
+                  child: Text('Iniciar Chat Privado',
+                      style: TextStyle(color: config.textColor)),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
     );
   }
 }
