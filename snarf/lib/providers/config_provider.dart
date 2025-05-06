@@ -77,17 +77,12 @@ class ConfigProvider with ChangeNotifier {
 
   bool get isSubscriber => _isSubscriber;
 
-  int _countNotificationMessage = 0;
+  bool _notificationMessage = false;
 
-  int get countNotificationMessage => _countNotificationMessage;
+  bool get notificationMessage => _notificationMessage;
 
-  void AddNotificationMessage(){
-    _countNotificationMessage ++;
-    notifyListeners();
-  }
-
-  void ClearNotification(){
-    _countNotificationMessage = 0;
+  void SetNotificationMessage(bool value){
+    _notificationMessage =value;
     notifyListeners();
   }
 
