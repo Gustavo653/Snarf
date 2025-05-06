@@ -82,6 +82,12 @@ class CallManager extends ChangeNotifier {
         case SignalREventType.VideoCallEnd:
           _handleVideoCallEnd(data);
           break;
+          case SignalREventType.PrivateChatReceiveMessage:
+          _handleReceivedNewMessage(data);
+          break;
+        case SignalREventType.PrivateChatReceiveRecentChats:
+          _handleRecentChats(data);
+          break;
         default:
           break;
       }
@@ -91,6 +97,30 @@ class CallManager extends ChangeNotifier {
         s,
         reason: "Erro ao processar mensagem SignalR",
       );
+    }
+  }
+
+  void _handleReceivedNewMessage(dynamic data) {
+    configProvider.SetNotificationMessage(true);
+  }
+
+  void _handleRecentChats(List<Object?>? data) {
+    try {
+      final parsedData = data as List<dynamic>;
+      parsedData.map((item) {
+        final mapItem = item is Map<String, dynamic>
+            ? item
+            : Map<String, dynamic>.from(item);
+        
+        var count = mapItem['UnreadCount'];
+        
+        if(count > 0){
+          configProvider.SetNotificationMessage(true);
+        }
+      }).toList();
+    } catch (e, s) {
+      FirebaseCrashlytics.instance
+          .recordError(e, s, reason: "Erro ao iniciar chamada");
     }
   }
 
