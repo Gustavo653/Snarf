@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
+import 'package:snarf/services/location_service.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 
 class CreateEditPlacePage extends StatefulWidget {
@@ -19,7 +20,7 @@ class CreateEditPlacePage extends StatefulWidget {
 
 class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
   final _formKey = GlobalKey<FormState>();
-
+  final _locationService = LocationService();
   late TextEditingController _titleController;
   late TextEditingController _descController;
 
@@ -30,7 +31,7 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
   String? _base64Image;
   bool _isLoading = false;
 
-  late Location _location;
+  late Position _location;
 
   int _selectedType = 0;
 
@@ -83,36 +84,19 @@ class _CreateEditPlacePageState extends State<CreateEditPlacePage> {
   }
 
   Future<void> _obterLocalizacao() async {
-    _location = Location();
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
-
-    serviceEnabled = await _location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await _location.requestService();
-      if (!serviceEnabled) {
-        showErrorSnackbar(context, "Precisamos que seu GPS esteja ligado.");
-        return;
-      }
-    }
-
-    permissionGranted = await _location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await _location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        showErrorSnackbar(context, "Precisamos da permissão de localização.");
-        return;
-      }
-    }
-
-    try {
-      final locationData = await _location.getLocation();
+    final ok = await _locationService.initialize();
+    if (ok) {
+      final loc = await _locationService.getCurrentLocation();
       setState(() {
-        _latitude = locationData.latitude;
-        _longitude = locationData.longitude;
+        _latitude = loc.latitude;
+        _longitude = loc.longitude;
       });
-    } catch (e) {
-      showErrorSnackbar(context, "Erro ao obter localização: $e");
+      _locationService.onLocationChanged.listen((loc) {
+        setState(() {
+          _latitude = loc.latitude;
+          _longitude = loc.longitude;
+        });
+      });
     }
   }
 

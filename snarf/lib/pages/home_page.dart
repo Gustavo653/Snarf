@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:location/location.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/config_profile_page.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
@@ -21,6 +22,7 @@ import 'package:snarf/pages/public_chat_page.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
 import 'package:snarf/services/api_service.dart';
+import 'package:snarf/services/location_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/signalr_event_type.dart';
@@ -36,21 +38,19 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late LocationData _currentLocation;
+  final _locationService = LocationService();
+  late Position _currentLocation;
   bool _isLocationLoaded = false;
   late MapController _mapController;
   Marker? _userLocationMarker;
   final Map<String, Marker> _userMarkers = {};
   final Map<String, Marker> _partyMarkers = {};
   final Map<String, Marker> _placeMarkers = {};
-  final Location _location = Location();
-  StreamSubscription<LocationData>? _locationSubscription;
   late String userImage = '';
   double _opacity = 0.0;
   late Timer _timer;
   String? _fcmToken;
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
-  final Map<String, int> _markerOverlap = {};
 
   IconData getPartyTypeIcon(int type) {
     switch (type) {
@@ -138,7 +138,14 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _getFcmToken() async {
-    final fcmToken = await FirebaseMessaging.instance.getToken();
+    String? fcmToken = "";
+    if (Platform.isIOS) {
+      fcmToken = await FirebaseMessaging.instance.getAPNSToken();
+    } else if (Platform.isAndroid) {
+      fcmToken = await FirebaseMessaging.instance.getToken();
+    } else {
+      throw Exception("Plataforma não suportada ${Platform.operatingSystem}");
+    }
     if (fcmToken != null) {
       _fcmToken = fcmToken;
       await _analytics.logEvent(
@@ -178,70 +185,32 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _initializeLocation() async {
-    if (await _checkLocationPermissions()) {
-      await _getCurrentLocation();
-      if (_currentLocation.latitude != null &&
-          _currentLocation.longitude != null) {
-        await _sendLocationUpdate();
-      }
-      Timer(const Duration(seconds: 60), () {
-        _startLocationUpdates();
-      });
-    }
-  }
-
-  Future<bool> _checkLocationPermissions() async {
-    bool serviceEnabled = await _location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await _location.requestService();
-      if (!serviceEnabled) {
-        await _analytics.logEvent(name: 'location_service_disabled');
-        return false;
-      }
-    }
-    PermissionStatus permissionGranted = await _location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await _location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        await _analytics.logEvent(name: 'location_permission_denied');
-        return false;
-      }
-    }
-    return true;
-  }
-
-  Future<void> _getCurrentLocation() async {
-    try {
-      _currentLocation = await _location.getLocation();
+    final ok = await _locationService.initialize();
+    if (ok) {
+      _currentLocation = await _locationService.getCurrentLocation();
       setState(() {
         _isLocationLoaded = true;
         _updateUserMarker(
-            _currentLocation.latitude!, _currentLocation.longitude!);
+          _currentLocation.latitude!,
+          _currentLocation.longitude!,
+        );
       });
-      await _analytics.logEvent(name: 'location_obtained', parameters: {
-        'latitude': _currentLocation.latitude!,
-        'longitude': _currentLocation.longitude!
-      });
-    } catch (err) {
-      showErrorSnackbar(context, "Erro ao recuperar localização: $err");
-      await _analytics.logEvent(
-          name: 'location_error', parameters: {'error': err.toString()});
-    }
-  }
 
-  void _startLocationUpdates() {
-    _location.changeSettings(accuracy: LocationAccuracy.high, interval: 20000);
-    _locationSubscription =
-        _location.onLocationChanged.listen((LocationData newLocation) async {
-      setState(() {
-        _currentLocation = newLocation;
-        _updateUserMarker(newLocation.latitude!, newLocation.longitude!);
+      Future.delayed(const Duration(seconds: 60), () {
+        _locationService.startUpdates();
       });
-      if (_currentLocation.longitude != null &&
-          _currentLocation.latitude != null) {
+
+      _locationService.onLocationChanged.listen((loc) async {
+        setState(() {
+          _currentLocation = loc;
+          _updateUserMarker(loc.latitude!, loc.longitude!);
+        });
         await _sendLocationUpdate();
-      }
-    });
+      });
+    }
+    else{
+      throw Exception("Erro ao inicializar localização");
+    }
   }
 
   Future<void> _setupSignalRConnection() async {
@@ -808,7 +777,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _locationSubscription?.cancel();
+    _locationService.dispose();
     _timer.cancel();
     super.dispose();
   }
