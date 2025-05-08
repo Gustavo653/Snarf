@@ -79,6 +79,7 @@ class _RecentChatPageState extends State<RecentPage> {
   }
 
   void _handleRecentChats(List<Object?>? data) {
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
     try {
       final parsedData = data as List<dynamic>;
       setState(() {
@@ -97,6 +98,11 @@ class _RecentChatPageState extends State<RecentPage> {
             }
           }
 
+          var unread = mapItem['UnreadCount'];
+          if(unread > 0){
+            configProvider.setNotificationMessage(true);
+          }
+          
           return {
             'UserId': mapItem['UserId'],
             'UserName': mapItem['UserName'],
@@ -127,8 +133,6 @@ class _RecentChatPageState extends State<RecentPage> {
   }
 
   Future<void> _receiveNewMessages(dynamic data) async {
-    final configProvider = Provider.of<ConfigProvider>(context);
-    configProvider.AddNotificationMessage();
     await SignalRManager()
         .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {});
   }

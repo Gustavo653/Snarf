@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -24,6 +26,40 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+
+    <key>NSCameraUsageDescription</key>
+    <string>Este app utiliza a câmera para que você possa tirar fotos e gravar vídeos e enviá-los em tempo real nas conversas com outros usuários.</string>
+
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Este app acessa sua galeria para que você possa escolher fotos e vídeos existentes e compartilhá-los em suas conversas.</string>
+
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Este app precisa acessar o microfone para que você possa gravar mensagens de voz e enviá-las em tempo real para seus contatos.</string>
+
+    <key>NSCalendarsUsageDescription</key>
+    <string>Este app pode acessar seu calendário para permitir a criação e o compartilhamento de eventos com outros usuários diretamente nas conversas.</string>
+
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Este app acessa sua localização enquanto está em uso para exibir sua posição no mapa em tempo real e permitir que você veja a localização de outros usuários.</string>
+
+    <key>NSLocationAlwaysUsageDescription</key>
+    <string>Este app pode acessar sua localização mesmo em segundo plano para manter sua posição atualizada no mapa em tempo real e compartilhada com seus contatos, se essa opção estiver ativada.</string>
+
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Este app utiliza sua localização em tempo real, tanto em primeiro plano quanto em segundo plano, para atualizar seu posicionamento no mapa e compartilhar com outros usuários, conforme suas configurações de privacidade.</string>
+
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -41,9 +77,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
 </dict>
 </plist>

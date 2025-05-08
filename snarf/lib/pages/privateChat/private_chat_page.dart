@@ -2,14 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter/return_code.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:location/location.dart' as loc;
+import 'package:pro_image_editor/plugins/emoji_picker_flutter/src/config.dart';
+import 'package:pro_image_editor/plugins/emoji_picker_flutter/src/emoji_picker.dart';
 import 'package:pro_image_editor/pro_image_editor.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/buy_subscription_page.dart';
@@ -18,6 +16,7 @@ import 'package:snarf/pages/home_page.dart';
 import 'package:snarf/providers/call_manager.dart';
 import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/providers/intercepted_image_provider.dart';
+import 'package:snarf/services/location_service.dart';
 import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
 import 'package:snarf/utils/date_utils.dart';
@@ -102,6 +101,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  final _locationService = LocationService();
   List<PrivateChatMessageModel> _messages = [];
   final _record = AudioRecorder();
   bool _isRecording = false;
@@ -164,10 +164,20 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
   }
 
   Future<void> _initLocation() async {
-    loc.Location location = loc.Location();
-    var position = await location.getLocation();
-    _myLatitude = position.latitude;
-    _myLongitude = position.longitude;
+    final ok = await _locationService.initialize();
+    if (ok) {
+      final loc = await _locationService.getCurrentLocation();
+      setState(() {
+        _myLatitude = loc.latitude;
+        _myLongitude = loc.longitude;
+      });
+      _locationService.onLocationChanged.listen((loc) {
+        setState(() {
+          _myLatitude = loc.latitude;
+          _myLongitude = loc.longitude;
+        });
+      });
+    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -426,7 +436,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<bool> _canSendMessage() async {
     final config = Provider.of<ConfigProvider>(context, listen: false);
-    DateTime? firstMessageDate = config.FirstMessageToday;
+    DateTime? firstMessageDate = config.firstMessageToday;
     DateTime now = DateTime.now().toUtc();
 
     if (firstMessageDate == null) {
@@ -678,8 +688,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
         showErrorSnackbar(context, "Falha ao comprimir vídeo");
         return;
       }
-      final resizedFile = await _resizeVideo(compressedFile);
-      final fileBytes = await resizedFile!.readAsBytes();
+      final fileBytes = await compressedFile!.readAsBytes();
       final base64Video = base64Encode(fileBytes);
       await SignalRManager().sendSignalRMessage(
         SignalREventType.PrivateChatSendVideo,
@@ -694,26 +703,6 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
     } finally {
       if (mounted) setState(() => _isSendingMedia = false);
     }
-  }
-
-  Future<File?> _resizeVideo(File inputFile) async {
-    final String outputPath = '${inputFile.path}_square.mp4';
-
-    final String inPath = "'${inputFile.path}'";
-    final String outPath = "'$outputPath'";
-    final String command =
-        '-y -i $inPath -vf "crop=min(iw\\,ih):min(iw\\,ih),scale=720:720" -c:a copy $outPath';
-
-    final session = await FFmpegKit.execute(command);
-
-    final returnCode = await session.getReturnCode();
-    if (ReturnCode.isSuccess(returnCode)) {
-      final file = File(outputPath);
-      if (file.existsSync()) {
-        return file;
-      }
-    }
-    return null;
   }
 
   Future<bool> _checkVideoDuration(File file) async {

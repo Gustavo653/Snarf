@@ -77,17 +77,12 @@ class ConfigProvider with ChangeNotifier {
 
   bool get isSubscriber => _isSubscriber;
 
-  int _countNotificationMessage = 0;
+  bool _notificationMessage = false;
 
-  int get countNotificationMessage => _countNotificationMessage;
+  bool get notificationMessage => _notificationMessage;
 
-  void AddNotificationMessage(){
-    _countNotificationMessage ++;
-    notifyListeners();
-  }
-
-  void ClearNotification(){
-    _countNotificationMessage = 0;
+  void setNotificationMessage(bool value){
+    _notificationMessage =value;
     notifyListeners();
   }
 
@@ -98,5 +93,14 @@ class ConfigProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  DateTime? get FirstMessageToday => _firstMessageToday;
+  DateTime? get firstMessageToday => _firstMessageToday;
+
+
+  bool _usePreciseLocation = false;
+  bool get usePreciseLocation => _usePreciseLocation;
+
+  void toggleUsePreciseLocation() {
+    _usePreciseLocation = !_usePreciseLocation;
+    notifyListeners();
+  }
 }
