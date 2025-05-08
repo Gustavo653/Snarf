@@ -908,7 +908,7 @@ class _HomePageState extends State<HomePage> {
         showUnselectedLabels: false,
         onTap: (index) async {
           if (index == 0) {
-            configProvider.SetNotificationMessage(false);
+            configProvider.setNotificationMessage(false);
             _openPrivateChat(context);
           } else if (index == 1) {
             _openPublicChat(context);

@@ -81,7 +81,7 @@ class ConfigProvider with ChangeNotifier {
 
   bool get notificationMessage => _notificationMessage;
 
-  void SetNotificationMessage(bool value){
+  void setNotificationMessage(bool value){
     _notificationMessage =value;
     notifyListeners();
   }

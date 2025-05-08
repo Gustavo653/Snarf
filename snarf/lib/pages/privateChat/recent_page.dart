@@ -100,7 +100,7 @@ class _RecentChatPageState extends State<RecentPage> {
 
           var unread = mapItem['UnreadCount'];
           if(unread > 0){
-            configProvider.SetNotificationMessage(true);
+            configProvider.setNotificationMessage(true);
           }
           
           return {
