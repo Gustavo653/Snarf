@@ -113,7 +113,7 @@ class ConfigProvider with ChangeNotifier {
 
   bool get notificationMessage => _notificationMessage;
 
-  void SetNotificationMessage(bool value){
+  void setNotificationMessage(bool value){
     _notificationMessage =value;
     notifyListeners();
   }
@@ -125,5 +125,14 @@ class ConfigProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  DateTime? get FirstMessageToday => _firstMessageToday;
+  DateTime? get firstMessageToday => _firstMessageToday;
+
+
+  bool _usePreciseLocation = false;
+  bool get usePreciseLocation => _usePreciseLocation;
+
+  void toggleUsePreciseLocation() {
+    _usePreciseLocation = !_usePreciseLocation;
+    notifyListeners();
+  }
 }

@@ -101,7 +101,7 @@ class CallManager extends ChangeNotifier {
   }
 
   void _handleReceivedNewMessage(dynamic data) {
-    configProvider.SetNotificationMessage(true);
+    configProvider.setNotificationMessage(true);
   }
 
   void _handleRecentChats(List<Object?>? data) {
@@ -115,7 +115,7 @@ class CallManager extends ChangeNotifier {
         var count = mapItem['UnreadCount'];
         
         if(count > 0){
-          configProvider.SetNotificationMessage(true);
+          configProvider.setNotificationMessage(true);
         }
       }).toList();
     } catch (e, s) {
