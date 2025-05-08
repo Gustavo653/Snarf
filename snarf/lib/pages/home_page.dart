@@ -38,7 +38,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final _locationService = LocationService();
+  late LocationService _locationService;
   late Position _currentLocation;
   bool _isLocationLoaded = false;
   late MapController _mapController;
@@ -107,6 +107,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    final cfg = Provider.of<ConfigProvider>(context, listen: false);
+    _locationService = LocationService(usePrecise: cfg.usePreciseLocation);
+    _initializeApp();
     _mapController = MapController();
     _initializeApp();
     _startOpacityAnimation();
@@ -130,7 +133,7 @@ class _HomePageState extends State<HomePage> {
     await _getAllPlaces();
     await _analytics
         .logEvent(name: 'app_initialized', parameters: {'screen': 'HomePage'});
-    
+
     await Future.wait([
       SignalRManager()
           .sendSignalRMessage(SignalREventType.PrivateChatGetRecentChats, {})
@@ -207,8 +210,7 @@ class _HomePageState extends State<HomePage> {
         });
         await _sendLocationUpdate();
       });
-    }
-    else{
+    } else {
       throw Exception("Erro ao inicializar localização");
     }
   }
@@ -675,6 +677,26 @@ class _HomePageState extends State<HomePage> {
         PopupMenuItem(
           enabled: true,
           child: SwitchListTile(
+            title: Text("Localização Precisa",
+                style:
+                    TextStyle(fontSize: 16, color: configProvider.textColor)),
+            secondary: Icon(Icons.location_on, color: configProvider.iconColor),
+            value: configProvider.usePreciseLocation,
+            onChanged: (_) async {
+              Navigator.pop(context);
+              configProvider.toggleUsePreciseLocation();
+              await _analytics.logEvent(
+                  name: 'toggle_precise_location');
+              _locationService.dispose();
+              _locationService = LocationService(
+                  usePrecise: configProvider.usePreciseLocation);
+              await _initializeLocation();
+            },
+          ),
+        ),
+        PopupMenuItem(
+          enabled: true,
+          child: SwitchListTile(
             title: Text("Modo Noturno",
                 style:
                     TextStyle(fontSize: 16, color: configProvider.textColor)),
@@ -925,16 +947,15 @@ class _HomePageState extends State<HomePage> {
                     right: -4,
                     top: -6,
                     child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      )
-                    ),
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        )),
                   ),
               ],
             ),

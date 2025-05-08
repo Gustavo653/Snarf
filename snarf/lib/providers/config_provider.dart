@@ -93,5 +93,14 @@ class ConfigProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  DateTime? get FirstMessageToday => _firstMessageToday;
+  DateTime? get firstMessageToday => _firstMessageToday;
+
+
+  bool _usePreciseLocation = false;
+  bool get usePreciseLocation => _usePreciseLocation;
+
+  void toggleUsePreciseLocation() {
+    _usePreciseLocation = !_usePreciseLocation;
+    notifyListeners();
+  }
 }

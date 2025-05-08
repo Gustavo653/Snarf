@@ -436,7 +436,7 @@ class _PrivateChatPageState extends State<PrivateChatPage> {
 
   Future<bool> _canSendMessage() async {
     final config = Provider.of<ConfigProvider>(context, listen: false);
-    DateTime? firstMessageDate = config.FirstMessageToday;
+    DateTime? firstMessageDate = config.firstMessageToday;
     DateTime now = DateTime.now().toUtc();
 
     if (firstMessageDate == null) {
