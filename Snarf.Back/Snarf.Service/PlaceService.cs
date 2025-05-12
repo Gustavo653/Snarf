@@ -271,7 +271,7 @@ namespace Snarf.Service
                     {
                         id = u.Id,
                         name = u.Name,
-                        imageUrl = u.ImageUrl
+                        imageUrl = u.GetFirstPhoto
                     })
                     .ToList();
 

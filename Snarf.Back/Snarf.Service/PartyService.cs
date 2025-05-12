@@ -532,7 +532,7 @@ namespace Snarf.Service
                 {
                     u.Id,
                     u.Name,
-                    u.ImageUrl
+                    u.GetFirstPhoto
                 }).ToList();
 
                 var inviteds = new List<object>();
@@ -543,7 +543,7 @@ namespace Snarf.Service
                     {
                         u.Id,
                         u.Name,
-                        u.ImageUrl
+                        u.GetFirstPhoto
                     }).ToList<object>();
                 }
 

@@ -238,7 +238,7 @@ namespace Snarf.API.Controllers
                 Latitude = location.Latitude,
                 Longitude = location.Longitude,
                 user.Name,
-                userImage = user.ImageUrl,
+                userImage = user.GetFirstPhoto,
                 videoCall = location.VideoCall
             });
             await Clients.Others.SendAsync("ReceiveMessage", jsonResponse2);
@@ -279,7 +279,7 @@ namespace Snarf.API.Controllers
                 CreatedAt = DateTime.Now,
                 UserId = userId,
                 UserName = user.Name,
-                UserImage = user.ImageUrl,
+                UserImage = user.GetFirstPhoto,
                 Latitude = user.LastLatitude,
                 Longitude = user.LastLongitude,
                 Message = text
@@ -323,7 +323,7 @@ namespace Snarf.API.Controllers
                     CreatedAt = x.CreatedAt.ToUniversalTime(),
                     UserId = x.Sender.Id,
                     UserName = x.Sender.Name,
-                    UserImage = x.Sender.ImageUrl,
+                    UserImage = x.Sender.GetFirstPhoto,
                     Latitude = x.Sender.LastLatitude,
                     Longitude = x.Sender.LastLongitude,
                     x.Message
@@ -380,7 +380,7 @@ namespace Snarf.API.Controllers
                 CreatedAt = DateTime.Now,
                 UserId = userId,
                 UserName = user.Name,
-                UserImage = user.ImageUrl,
+                UserImage = user.GetFirstPhoto,
                 Latitude = user.LastLatitude,
                 Longitude = user.LastLongitude,
                 Message = text
@@ -431,7 +431,7 @@ namespace Snarf.API.Controllers
                 CreatedAt = DateTime.Now,
                 UserId = userId,
                 UserName = user.Name,
-                UserImage = user.ImageUrl,
+                UserImage = user.GetFirstPhoto,
                 Latitude = user.LastLatitude,
                 Longitude = user.LastLongitude,
                 Message = imageUrl,
@@ -496,7 +496,7 @@ namespace Snarf.API.Controllers
                     CreatedAt = x.CreatedAt.ToUniversalTime(),
                     UserId = x.Sender.Id,
                     UserName = x.Sender.Name,
-                    UserImage = x.Sender.ImageUrl,
+                    UserImage = x.Sender.GetFirstPhoto,
                     Latitude = x.Sender.LastLatitude,
                     Longitude = x.Sender.LastLongitude,
                     x.Message
@@ -552,7 +552,7 @@ namespace Snarf.API.Controllers
                 CreatedAt = DateTime.Now,
                 UserId = userId,
                 UserName = user.Name,
-                UserImage = user.ImageUrl,
+                UserImage = user.GetFirstPhoto,
                 Latitude = user.LastLatitude,
                 Longitude = user.LastLongitude,
                 Message = text
@@ -603,7 +603,7 @@ namespace Snarf.API.Controllers
                     CreatedAt = x.CreatedAt.ToUniversalTime(),
                     UserId = x.Sender.Id,
                     UserName = x.Sender.Name,
-                    UserImage = x.Sender.ImageUrl,
+                    UserImage = x.Sender.GetFirstPhoto,
                     Latitude = x.Sender.LastLatitude,
                     Longitude = x.Sender.LastLongitude,
                     x.Message
@@ -693,12 +693,12 @@ namespace Snarf.API.Controllers
                 {
                     SenderId = m.Sender.Id,
                     SenderName = m.Sender.Name,
-                    SenderImage = m.Sender.ImageUrl,
+                    SenderImage = m.Sender.GetFirstPhoto,
                     SenderLastActivity = m.Sender.LastActivity,
 
                     ReceiverId = m.Receiver.Id,
                     ReceiverName = m.Receiver.Name,
-                    ReceiverImage = m.Receiver.ImageUrl,
+                    ReceiverImage = m.Receiver.GetFirstPhoto,
                     ReceiverLastActivity = m.Receiver.LastActivity,
 
                     m.Message,

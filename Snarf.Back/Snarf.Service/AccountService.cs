@@ -127,17 +127,17 @@ namespace Snarf.Service
                         LastActivity = x.LastActivity.GetValueOrDefault().ToUniversalTime(),
                         x.LastLatitude,
                         x.LastLongitude,
-                        x.ImageUrl,
+                        x.GetFirstPhoto,
 
                         BlockedUsers = showSensitiveInfo
                                                    ? x.BlockedUsers
-                                                        .Select(b => new { b.Blocked.Id, b.Blocked.Name, b.Blocked.ImageUrl })
+                                                        .Select(b => new { b.Blocked.Id, b.Blocked.Name, b.Blocked.GetFirstPhoto })
                                                         .ToList()
                                                    : null,
                         BlockedByCount = showSensitiveInfo ? x.BlockedBy.Count : 0,
                         FavoriteChats = showSensitiveInfo
                                                    ? x.FavoriteChats
-                                                        .Select(f => new { f.ChatUser.Name, f.ChatUser.ImageUrl })
+                                                        .Select(f => new { f.ChatUser.Name, f.ChatUser.GetFirstPhoto })
                                                         .ToList()
                                                    : null,
                         FavoritedByCount = showSensitiveInfo ? x.FavoritedBy.Count : 0,
@@ -167,43 +167,69 @@ namespace Snarf.Service
 
         public async Task<ResponseDTO> CreateUser(UserDTO userDTO)
         {
-            ResponseDTO responseDTO = new();
+            var responseDTO = new ResponseDTO();
+
             try
             {
                 if (string.IsNullOrEmpty(userDTO.Password))
                 {
-                    responseDTO.SetBadInput($"A senha é obrigatória para criar um usuário");
+                    responseDTO.SetBadInput("A senha é obrigatória para criar um usuário");
                     return responseDTO;
                 }
 
-                var user = await userManager.FindByEmailAsync(userDTO.Email);
-                if (user != null)
+                if (await userManager.FindByEmailAsync(userDTO.Email) != null)
                 {
                     responseDTO.SetBadInput($"Já existe um usuário cadastrado com este email: {userDTO.Email}!");
                     return responseDTO;
                 }
 
-                var imageBytes = Convert.FromBase64String(userDTO.Image);
-                var imageStream = new MemoryStream(imageBytes);
-                var s3Service = new S3Service();
-                var imageUrl = await s3Service.UploadFileAsync($"userImages/{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
-
                 var userEntity = new User
                 {
-                    ImageUrl = imageUrl,
                     Name = userDTO.Name,
-                    Role = RoleName.User,
                     Email = userDTO.Email,
                     NormalizedEmail = userDTO.Email.ToUpper(),
-                    NormalizedUserName = userDTO.Email.ToUpper()
+                    NormalizedUserName = userDTO.Email.ToUpper(),
+                    Role = RoleName.User,
+
+                    Description = userDTO.Description,
+                    BirthLatitude = userDTO.BirthLatitude,
+                    BirthLongitude = userDTO.BirthLongitude,
+                    LocationAvailability = userDTO.LocationAvailability,
+                    Age = userDTO.Age,
+                    Height = userDTO.Height,
+                    Weight = userDTO.Weight,
+                    IsCircumcised = userDTO.IsCircumcised,
+                    CircumferenceCm = userDTO.CircumferenceCm,
+                    BodyType = userDTO.BodyType
                 };
 
                 userEntity.PasswordHash = userManager.PasswordHasher.HashPassword(userEntity, userDTO.Password);
 
+                if (userDTO.Images != null && userDTO.Images.Any())
+                {
+                    int ordem = 1;
+                    foreach (var base64 in userDTO.Images.Take(4))
+                    {
+                        var bytes = Convert.FromBase64String(base64);
+                        using var stream = new MemoryStream(bytes);
+                        var url = await s3Service.UploadFileAsync(
+                            $"userImages/{Guid.NewGuid()}",
+                            stream,
+                            "image/jpeg"
+                        );
+
+                        userEntity.Photos.Add(new UserPhoto
+                        {
+                            Id = Guid.NewGuid(),
+                            Url = url,
+                            Order = ordem++
+                        });
+                    }
+                }
+
                 await userRepository.InsertAsync(userEntity);
                 await userRepository.SaveChangesAsync();
                 await userManager.UpdateSecurityStampAsync(userEntity);
-                Log.Information("Usuário persistido id: {id}", userEntity.Id);
 
                 responseDTO.Object = userDTO;
             }
@@ -217,39 +243,70 @@ namespace Snarf.Service
 
         public async Task<ResponseDTO> UpdateUser(Guid id, UserDTO userDTO)
         {
-            ResponseDTO responseDTO = new();
+            var responseDTO = new ResponseDTO();
+
             try
             {
-                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id.ToString());
+                var userEntity = await userRepository
+                    .GetTrackedEntities()
+                    .Include(u => u.Photos)
+                    .FirstOrDefaultAsync(x => x.Id == id.ToString());
+
                 if (userEntity == null)
                 {
-                    responseDTO.SetBadInput($"Usuário não encotrado com este id: {id}!");
+                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {id}!");
                     return responseDTO;
                 }
 
-                var imageBytes = Convert.FromBase64String(userDTO.Image);
-                var imageStream = new MemoryStream(imageBytes);
-                var s3Service = new S3Service();
-                try
-                {
-                    await s3Service.DeleteFileAsync(userEntity.ImageUrl);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "Erro ao deletar arquivo {media}", userEntity.ImageUrl);
-                }
-                var imageUrl = await s3Service.UploadFileAsync($"userImages/{Guid.NewGuid()}{Guid.NewGuid()}", imageStream, "image/jpeg");
-
-                userEntity.ImageUrl = imageUrl;
                 userEntity.Name = userDTO.Name;
-                if (userDTO.Password != null)
+                if (!string.IsNullOrEmpty(userDTO.Password))
                 {
                     userEntity.PasswordHash = userManager.PasswordHasher.HashPassword(userEntity, userDTO.Password);
                     await userManager.UpdateSecurityStampAsync(userEntity);
                 }
 
+                userEntity.Description = userDTO.Description;
+                userEntity.BirthLatitude = userDTO.BirthLatitude;
+                userEntity.BirthLongitude = userDTO.BirthLongitude;
+                userEntity.LocationAvailability = userDTO.LocationAvailability;
+                userEntity.Age = userDTO.Age;
+                userEntity.Height = userDTO.Height;
+                userEntity.Weight = userDTO.Weight;
+                userEntity.IsCircumcised = userDTO.IsCircumcised;
+                userEntity.CircumferenceCm = userDTO.CircumferenceCm;
+                userEntity.BodyType = userDTO.BodyType;
+
+                foreach (var photo in userEntity.Photos.ToList())
+                {
+                    try { await s3Service.DeleteFileAsync(photo.Url); }
+                    catch { /* log de erro se quiser */ }
+                    userEntity.Photos.Remove(photo);
+                }
+
+                if (userDTO.Images != null && userDTO.Images.Any())
+                {
+                    int ordem = 1;
+                    foreach (var base64 in userDTO.Images.Take(4))
+                    {
+                        var bytes = Convert.FromBase64String(base64);
+                        using var stream = new MemoryStream(bytes);
+                        var url = await s3Service.UploadFileAsync(
+                            $"userImages/{Guid.NewGuid()}",
+                            stream,
+                            "image/jpeg"
+                        );
+
+                        userEntity.Photos.Add(new UserPhoto
+                        {
+                            Id = Guid.NewGuid(),
+                            Url = url,
+                            Order = ordem++
+                        });
+                    }
+                }
+
                 await userRepository.SaveChangesAsync();
-                Log.Information("Usuário persistido id: {id}", userEntity.Id);
+                responseDTO.Object = new { userEntity.Id };
             }
             catch (Exception ex)
             {
@@ -264,7 +321,7 @@ namespace Snarf.Service
             ResponseDTO responseDTO = new();
             try
             {
-                var userEntity = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == id.ToString());
+                var userEntity = await userRepository.GetTrackedEntities().Include(x => x.Photos).FirstOrDefaultAsync(x => x.Id == id.ToString());
                 if (userEntity == null)
                 {
                     responseDTO.SetBadInput($"Usuário não encontrado com este id: {id}!");
@@ -275,7 +332,7 @@ namespace Snarf.Service
                 var privateMessages = await privateChatMessageRepository.GetTrackedEntities().Where(x => x.Sender.Id == id.ToString() || x.Receiver.Id == id.ToString()).ToListAsync();
 
                 var medias = privateMessages.Where(x => x.Message.StartsWith("http")).Select(x => x.Message).ToList();
-                medias.Add(userEntity.ImageUrl);
+                medias.AddRange(userEntity.Photos.Select(x => x.Url));
                 var tasks = medias.Select(async media =>
                 {
                     try
@@ -289,6 +346,8 @@ namespace Snarf.Service
                     }
                 });
                 await Task.WhenAll(tasks);
+
+                userEntity.Photos.Clear();
 
                 publicChatMessageRepository.DeleteRange(publicMessages.ToArray());
                 privateChatMessageRepository.DeleteRange(privateMessages.ToArray());

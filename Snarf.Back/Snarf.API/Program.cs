@@ -275,7 +275,7 @@ namespace Snarf.API
             var adminEmail = GetAdminEmail();
 
             var adminUser = await userManager.FindByEmailAsync(adminEmail);
-            var user = new User { Name = "Admin", ImageUrl = "", UserName = "admin", Email = adminEmail, Role = RoleName.Admin, EmailConfirmed = true };
+            var user = new User { Name = "Admin", UserName = "admin", Email = adminEmail, Role = RoleName.Admin, EmailConfirmed = true };
             if (adminUser == null)
                 await userManager.CreateAsync(user, GetAdminPassword());
         }

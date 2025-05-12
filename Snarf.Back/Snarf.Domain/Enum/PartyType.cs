@@ -5,16 +5,16 @@ namespace Snarf.Domain.Enum
     public enum PartyType
     {
         [Description("Orgia")]
-        Orgy = 0,
+        Orgy,
         [Description("Bomba e Despejo")]
-        PumpDump = 1,
+        PumpDump,
         [Description("Masturbação Coletiva")]
-        CollectiveMasturbation = 2,
+        CollectiveMasturbation,
         [Description("Grupo de Bukkake")]
-        BukkakeGroup = 3,
+        BukkakeGroup,
         [Description("Grupo Fetiche")]
-        FetishGroup = 4,
+        FetishGroup,
         [Description("Evento Especial")]
-        SpecialEvent = 5
+        SpecialEvent
     }
 }
