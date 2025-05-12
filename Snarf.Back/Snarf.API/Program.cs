@@ -247,6 +247,7 @@ namespace Snarf.API
         {
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IVideoCallLogRepository, VideoCallLogRepository>();
+            builder.Services.AddScoped<IVideoCallPurchaseRepository, VideoCallPurchaseRepository>();
             builder.Services.AddScoped<IPrivateChatMessageRepository, PrivateChatMessageRepository>();
             builder.Services.AddScoped<IPublicChatMessageRepository, PublicChatMessageRepository>();
             builder.Services.AddScoped<IPartyChatMessageRepository, PartyChatMessageRepository>();

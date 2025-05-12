@@ -2,6 +2,7 @@ using Hangfire;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Snarf.DataAccess;
 using Snarf.Domain.Base;
 using Snarf.Domain.Entities;
 using Snarf.Domain.Enum;
@@ -21,6 +22,8 @@ namespace Snarf.Service
                                 IPrivateChatMessageRepository privateChatMessageRepository,
                                 IPublicChatMessageRepository publicChatMessageRepository,
                                 IBlockedUserRepository blockUserRepository,
+                                IVideoCallLogRepository videoCallLogRepository,
+                                IVideoCallPurchaseRepository videoCallPurchaseRepository,
                                 S3Service s3Service) : IAccountService
     {
         private async Task<SignInResult> CheckUserPassword(User user, UserLoginDTO userLoginDTO)
@@ -83,34 +86,74 @@ namespace Snarf.Service
 
             return responseDTO;
         }
-
         public async Task<ResponseDTO> GetUserInfo(Guid id, bool showSensitiveInfo)
         {
-            ResponseDTO responseDTO = new();
+            var responseDTO = new ResponseDTO();
+
             try
             {
-                Log.Information("Obtendo o usuário atual: {email}", id);
+                var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
 
+                int usedMinutes = 0;
+                int purchasedMinutes = 0;
+                int totalMonthlyLimit = 360;
+                bool isVideoCallLimitReached = false;
+
+                if (showSensitiveInfo)
+                {
+                    usedMinutes = await videoCallLogRepository.GetEntities()
+                        .Where(x =>
+                            (x.Caller.Id == id.ToString() || x.Callee.Id == id.ToString()) &&
+                            x.StartTime >= startOfMonth &&
+                            x.EndTime != null)
+                        .SumAsync(x => x.DurationMinutes);
+
+                    purchasedMinutes = await videoCallPurchaseRepository.GetEntities()
+                        .Where(p =>
+                            p.UserId == id.ToString() &&
+                            p.PurchaseDate >= startOfMonth)
+                        .SumAsync(p => p.Minutes);
+
+                    totalMonthlyLimit = 360 + purchasedMinutes;
+                    isVideoCallLimitReached = usedMinutes >= totalMonthlyLimit;
+                }
 
                 var data = await userRepository.GetEntities()
-                                                          .Select(x => new
-                                                          {
-                                                              x.Id,
-                                                              x.Email,
-                                                              x.Name,
-                                                              LastActivity = x.LastActivity.GetValueOrDefault().ToUniversalTime(),
-                                                              x.LastLatitude,
-                                                              x.LastLongitude,
-                                                              x.ImageUrl,
-                                                              BlockedUsers = showSensitiveInfo ? x.BlockedUsers.Select(x => new { x.Blocked.Id, x.Blocked.Name, x.Blocked.ImageUrl }) : null,
-                                                              BlockedBy = showSensitiveInfo ? x.BlockedBy.Count : 0,
-                                                              FavoriteChats = showSensitiveInfo ? x.FavoriteChats.Select(x => new { x.ChatUser.Name, x.ChatUser.ImageUrl }) : null,
-                                                              FavoritedBy = showSensitiveInfo ? x.FavoritedBy.Count : 0,
-                                                              ExtraVideoCallMinutes = showSensitiveInfo ? x.ExtraVideoCallMinutes : 0
-                                                          })
-                                                          .FirstOrDefaultAsync(x => x.Id == id.ToString());
-                var a = JsonSerializer.Serialize(data);
-                Log.Information(a);
+                    .Select(x => new
+                    {
+                        x.Id,
+                        x.Email,
+                        x.Name,
+                        LastActivity = x.LastActivity.GetValueOrDefault().ToUniversalTime(),
+                        x.LastLatitude,
+                        x.LastLongitude,
+                        x.ImageUrl,
+
+                        BlockedUsers = showSensitiveInfo
+                                                   ? x.BlockedUsers
+                                                        .Select(b => new { b.Blocked.Id, b.Blocked.Name, b.Blocked.ImageUrl })
+                                                        .ToList()
+                                                   : null,
+                        BlockedByCount = showSensitiveInfo ? x.BlockedBy.Count : 0,
+                        FavoriteChats = showSensitiveInfo
+                                                   ? x.FavoriteChats
+                                                        .Select(f => new { f.ChatUser.Name, f.ChatUser.ImageUrl })
+                                                        .ToList()
+                                                   : null,
+                        FavoritedByCount = showSensitiveInfo ? x.FavoritedBy.Count : 0,
+
+                        ExtraVideoCallMinutes = showSensitiveInfo ? purchasedMinutes : 0,
+                        UsedVideoCallMinutes = showSensitiveInfo ? usedMinutes : 0,
+                        MonthlyVideoCallLimit = showSensitiveInfo ? totalMonthlyLimit : 0,
+                        IsVideoCallLimitReached = showSensitiveInfo ? isVideoCallLimitReached : false
+                    })
+                    .FirstOrDefaultAsync(x => x.Id == id.ToString());
+
+                if (data == null)
+                {
+                    responseDTO.SetBadInput($"Usuário não encontrado com este id: {id}!");
+                    return responseDTO;
+                }
 
                 responseDTO.Object = data;
             }
@@ -406,24 +449,43 @@ namespace Snarf.Service
 
         public async Task<ResponseDTO> AddExtraMinutes(AddExtraMinutesDTO addExtraMinutesDTO)
         {
-            ResponseDTO responseDTO = new();
+            var response = new ResponseDTO();
             try
             {
-                var user = await userRepository.GetTrackedEntities().FirstOrDefaultAsync(x => x.Id == addExtraMinutesDTO.UserId.ToString());
+                var user = await userRepository
+                    .GetTrackedEntities()
+                    .FirstOrDefaultAsync(u => u.Id == addExtraMinutesDTO.UserId.ToString());
                 if (user == null)
                 {
-                    responseDTO.SetBadInput("Usuário não encontrado!");
-                    return responseDTO;
+                    response.SetBadInput($"Usuário não encontrado: {addExtraMinutesDTO.UserId}");
+                    return response;
                 }
-                Log.Information($"Adicionando {addExtraMinutesDTO.Minutes} minutos ao usuário {user.Id} ID assinatura:{addExtraMinutesDTO.SubscriptionId} Token:{addExtraMinutesDTO.Token}");
-                user.ExtraVideoCallMinutes += addExtraMinutesDTO.Minutes;
-                await userRepository.SaveChangesAsync();
+
+                var purchase = new VideoCallPurchase
+                {
+                    UserId = user.Id,
+                    Minutes = addExtraMinutesDTO.Minutes,
+                    PurchaseDate = DateTime.UtcNow,
+                    SubscriptionId = addExtraMinutesDTO.SubscriptionId,
+                    Token = addExtraMinutesDTO.Token
+                };
+
+                await videoCallPurchaseRepository.InsertAsync(purchase);
+                await videoCallPurchaseRepository.SaveChangesAsync();
+
+                response.Object = new
+                {
+                    purchase.Id,
+                    purchase.Minutes,
+                    purchase.PurchaseDate
+                };
             }
             catch (Exception ex)
             {
-                responseDTO.SetError(ex);
+                response.SetError(ex);
             }
-            return responseDTO;
+
+            return response;
         }
 
         public async Task<ResponseDTO> ChangeEmail(Guid userId, string newEmail, string currentPassword)

@@ -1,9 +1,7 @@
 ﻿using FirebaseAdmin.Messaging;
-using Google.Apis.Storage.v1.Data;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using Snarf.DataAccess;
 using Snarf.Domain.Entities;
 using Snarf.DTO;
 using Snarf.Infrastructure.Repository;
@@ -21,6 +19,7 @@ namespace Snarf.API.Controllers
         IPrivateChatMessageRepository _privateChatMessageRepository,
         IBlockedUserRepository _blockedUserRepository,
         IVideoCallLogRepository _videoCallLogRepository,
+        IVideoCallPurchaseRepository _videoCallPurchaseRepository,
         IFavoriteChatRepository _favoriteChatRepository,
         IPlaceChatMessageRepository _placeChatMessageRepository,
         IPlaceRepository _placeRepository,
@@ -1330,22 +1329,22 @@ namespace Snarf.API.Controllers
 
         private async Task<bool> IsMonthlyLimitReached(string userId)
         {
-            var startOfMonth = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
 
-            var totalMinutesUsedThisMonth = await _videoCallLogRepository.GetEntities()
-                .Where(x => (x.Caller.Id == userId || x.Callee.Id == userId)
-                            && x.StartTime >= startOfMonth
-                            && x.EndTime != null)
+            var usedMinutes = await _videoCallLogRepository.GetEntities()
+                .Where(x =>
+                    (x.Caller.Id == userId || x.Callee.Id == userId) &&
+                    x.StartTime >= startOfMonth &&
+                    x.EndTime != null)
                 .SumAsync(x => x.DurationMinutes);
 
-            var user = await _userRepository.GetTrackedEntities()
-                .FirstOrDefaultAsync(u => u.Id == userId);
+            var purchasedMinutes = await _videoCallPurchaseRepository.GetEntities()
+                .Where(p => p.UserId == userId && p.PurchaseDate >= startOfMonth)
+                .SumAsync(p => p.Minutes);
 
-            if (user == null) return true;
+            var totalLimit = 360 + purchasedMinutes;
 
-            var totalMonthlyLimit = 360 + user.ExtraVideoCallMinutes;
-
-            return totalMinutesUsedThisMonth >= totalMonthlyLimit;
+            return usedMinutes >= totalLimit;
         }
 
         private double DistanceInMeters(double lat1, double lon1, double lat2, double lon2)
@@ -1369,8 +1368,6 @@ namespace Snarf.API.Controllers
         {
             return Math.PI * angle / 180.0;
         }
-
-
 
         private string GetUserId()
         {

@@ -11,6 +11,7 @@ namespace Snarf.Persistence
         public DbSet<PublicChatMessage> PublicChatMessages { get; set; }
         public DbSet<FavoriteChat> FavoriteChats { get; set; }
         public DbSet<BlockedUser> BlockedUsers { get; set; }
+        public DbSet<VideoCallPurchase> VideoCallPurchases { get; set; }
         public DbSet<VideoCallLog> VideoCallLogs { get; set; }
         public DbSet<Party> Parties { get; set; }
         public DbSet<PartyChatMessage> PartyChatMessages { get; set; }
@@ -42,6 +43,12 @@ namespace Snarf.Persistence
                 .HasOne(b => b.ChatUser)
                 .WithMany(u => u.FavoritedBy)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<VideoCallPurchase>()
+                .HasOne(x => x.User)
+                .WithMany(u => u.VideoCallPurchases)
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Party>()
                 .HasOne(p => p.Owner)
