@@ -13,6 +13,9 @@ namespace Snarf.Domain.Base
         public string? FcmToken { get; set; }
         public required RoleName Role { get; set; }
 
+
+
+
         public string? Description { get; set; }
 
         public double? BirthLatitude { get; set; }
@@ -20,23 +23,27 @@ namespace Snarf.Domain.Base
 
         public LocationAvailability? LocationAvailability { get; set; }
 
+
+
         public int? Age { get; set; }
         public bool ShowAge { get; set; }
 
-        public decimal? Height { get; set; }
-        public bool ShowHeight { get; set; }
+        public decimal? HeightInCm { get; set; }
+        public bool ShowHeightInCm { get; set; }
 
-        public decimal? Weight { get; set; }
-        public bool ShowWeight { get; set; }
+        public decimal? WeightInKg { get; set; }
+        public bool ShowWeightInKg { get; set; }
 
         public bool? IsCircumcised { get; set; }
         public bool ShowIsCircumcised { get; set; }
 
-        public decimal? CircumferenceCm { get; set; }
-        public bool ShowCircumferenceCm { get; set; }
+        public decimal? SizeInCm { get; set; }
+        public bool ShowSizeInCm { get; set; }
 
         public BodyType? BodyType { get; set; }
         public bool ShowBodyType { get; set; }
+
+
 
         public SexualSpectrum? Spectrum { get; set; }
         public bool ShowSpectrum { get; set; }
@@ -47,6 +54,27 @@ namespace Snarf.Domain.Base
         public List<ExpressionStyle> Expressions { get; set; } = [];
         public bool ShowExpressions { get; set; }
 
+
+        public HostingStatus HostingStatus { get; set; }
+        public bool ShowHostingStatus { get; set; }
+
+        public PublicPlace PublicPlace { get; set; }
+        public bool ShowPublicPlace { get; set; }
+
+        public List<ExpressionStyle> LookingFor { get; set; } = [];
+        public bool ShowLookingFor { get; set; }
+
+        public List<Kink> Kinks { get; set; } = [];
+        public bool ShowKinks { get; set; }
+
+        public List<Fetish> Fetishes { get; set; } = [];
+        public bool ShowFetishes { get; set; }
+
+        public List<ActionLike> ActionsLiked { get; set; } = [];
+        public bool ShowActionsLiked { get; set; }
+
+        public List<Interaction> Interactions { get; set; } = [];
+        public bool ShowInteractions { get; set; }
 
 
 
@@ -70,23 +98,6 @@ namespace Snarf.Domain.Base
 
         public List<Carrying> CarryingItems { get; set; } = [];
         public bool ShowCarryingItems { get; set; }
-
-        public List<Interaction> Interactions { get; set; } = [];
-        public bool ShowInteractions { get; set; }
-
-        public List<ActionLike> ActionsLiked { get; set; } = [];
-        public bool ShowActionsLiked { get; set; }
-
-        public List<Kink> Kinks { get; set; } = [];
-        public bool ShowKinks { get; set; }
-
-        public List<Fetish> Fetishes { get; set; } = [];
-        public bool ShowFetishes { get; set; }
-
-        public List<LookingFor> LookingFor { get; set; } = [];
-        public bool ShowLookingFor { get; set; }
-
-
 
 
 
