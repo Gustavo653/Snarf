@@ -2,7 +2,6 @@ using Hangfire;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using Snarf.DataAccess;
 using Snarf.Domain.Base;
 using Snarf.Domain.Entities;
 using Snarf.Domain.Enum;
@@ -10,7 +9,6 @@ using Snarf.DTO;
 using Snarf.DTO.Base;
 using Snarf.Infrastructure.Repository;
 using Snarf.Infrastructure.Service;
-using System.Text.Json;
 
 namespace Snarf.Service
 {

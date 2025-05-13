@@ -1,4 +1,4 @@
-using Snarf.Domain.Enum;
+using Snarf.Domain.Enum.UserDetails;
 using System.ComponentModel.DataAnnotations;
 
 namespace Snarf.DTO

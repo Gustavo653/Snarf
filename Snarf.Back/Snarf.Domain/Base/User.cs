@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Snarf.Domain.Entities;
 using Snarf.Domain.Enum;
+using Snarf.Domain.Enum.UserDetails;
 
 namespace Snarf.Domain.Base
 {

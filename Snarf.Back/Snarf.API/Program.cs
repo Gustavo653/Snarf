@@ -20,7 +20,6 @@ using Snarf.Persistence;
 using Snarf.Service;
 using Snarf.Utils;
 using System.Text;
-using System.Text.Json.Serialization;
 
 namespace Snarf.API
 {
@@ -75,10 +74,10 @@ namespace Snarf.API
             builder.Services.AddSession();
 
             builder.Services.AddControllers();
-                            //.AddJsonOptions(options =>
-                            //{
-                            //    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                            //});
+            //.AddJsonOptions(options =>
+            //{
+            //    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            //});
 
             builder.Services.AddOutputCache(x =>
             {

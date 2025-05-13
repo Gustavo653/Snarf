@@ -1,7 +1,4 @@
 ﻿using Snarf.Domain.Base;
-using Snarf.Domain.Enum;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Security.AccessControl;
 
 namespace Snarf.Domain.Entities
 {

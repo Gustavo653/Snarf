@@ -1,6 +1,4 @@
-﻿using System.Runtime.Serialization;
-
-namespace Snarf.Domain.Enum
+﻿namespace Snarf.Domain.Enum.UserDetails
 {
     public enum ActionLike
     {
