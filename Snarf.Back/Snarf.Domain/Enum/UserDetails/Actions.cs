@@ -1,6 +1,6 @@
 ﻿namespace Snarf.Domain.Enum.UserDetails
 {
-    public enum ActionLike
+    public enum Actions
     {
         BallPlay,
         Cuddle,
