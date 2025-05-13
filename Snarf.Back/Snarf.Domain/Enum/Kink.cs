@@ -1,0 +1,55 @@
+﻿using System.Runtime.Serialization;
+
+namespace Snarf.Domain.Enum
+{
+    public enum Kink
+    {
+        Bdsm,
+        Bondage,
+        Chastity,
+        Cmnm,
+        CumPlay,
+        Edging,
+        Enimas,
+        Exhibitionism,
+        Facials,
+        Fisting,
+        Freeballing,
+        Fleshlights,
+        GagsTape,
+        GasMasks,
+        Gloryholes,
+        Groups,
+        Humiliation,
+        MirrorPlay,
+        PigPlay,
+        Porn,
+        SexToys,
+        SexDolls,
+        Shaving,
+        Sounding,
+        Spanking,
+        Voyeurism,
+        Watersports,
+        Wedgies,
+        Whipping,
+        AgePlay,
+        Classrooms,
+        CostumePlay,
+        DeliveryGuy,
+        DoctorPatient,
+        FirstTime,
+        Furry,
+        HandyMan,
+        PublicLockerRooms,
+        PublicNudity,
+        PublicRestrooms,
+        PublicShowers,
+        PupPlay,
+        SlaveMaster,
+        SleepPlay,
+        SlumberParty,
+        Superhero
+    }
+
+}

@@ -37,6 +37,7 @@ namespace Snarf.Domain.Base
 
         public BodyType? BodyType { get; set; }
         public bool ShowBodyType { get; set; }
+
         public SexualSpectrum? Spectrum { get; set; }
         public bool ShowSpectrum { get; set; }
 
@@ -45,6 +46,49 @@ namespace Snarf.Domain.Base
 
         public List<ExpressionStyle> Expressions { get; set; } = [];
         public bool ShowExpressions { get; set; }
+
+
+
+
+        public Practice? Practice { get; set; }
+        public bool ShowPractice { get; set; }
+
+        public HivStatus? HivStatus { get; set; }
+        public bool ShowHivStatus { get; set; }
+
+        public DateTime? HivTestedDate { get; set; }
+        public bool ShowHivTestedDate { get; set; }
+
+        public DateTime? StiTestedDate { get; set; }
+        public bool ShowStiTestedDate { get; set; }
+
+        public List<ImmunizationStatus> Immunizations { get; set; } = [];
+        public bool ShowImmunizations { get; set; }
+
+        public List<DrugAbuse> DrugComfort { get; set; } = [];
+        public bool ShowDrugComfort { get; set; }
+
+        public List<Carrying> CarryingItems { get; set; } = [];
+        public bool ShowCarryingItems { get; set; }
+
+        public List<Interaction> Interactions { get; set; } = [];
+        public bool ShowInteractions { get; set; }
+
+        public List<ActionLike> ActionsLiked { get; set; } = [];
+        public bool ShowActionsLiked { get; set; }
+
+        public List<Kink> Kinks { get; set; } = [];
+        public bool ShowKinks { get; set; }
+
+        public List<Fetish> Fetishes { get; set; } = [];
+        public bool ShowFetishes { get; set; }
+
+        public List<LookingFor> LookingFor { get; set; } = [];
+        public bool ShowLookingFor { get; set; }
+
+
+
+
 
         public string GetFirstPhoto => Photos.FirstOrDefault(x => x.Order == 1)?.Url ?? string.Empty;
         public IList<UserPhoto> Photos { get; set; } = [];
