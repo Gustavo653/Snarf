@@ -85,18 +85,18 @@ namespace Snarf.Service
 
             return responseDTO;
         }
+
         public async Task<ResponseDTO> GetUserInfo(Guid id, bool showSensitiveInfo)
         {
             var responseDTO = new ResponseDTO();
-
             try
             {
                 var startOfMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
 
-                int usedMinutes = 0;
-                int purchasedMinutes = 0;
-                int totalMonthlyLimit = 360;
-                bool isVideoCallLimitReached = false;
+                var usedMinutes = 0;
+                var purchasedMinutes = 0;
+                var totalMonthlyLimit = 360;
+                var isVideoCallLimitReached = false;
 
                 if (showSensitiveInfo)
                 {
@@ -108,9 +108,7 @@ namespace Snarf.Service
                         .SumAsync(x => x.DurationMinutes);
 
                     purchasedMinutes = await videoCallPurchaseRepository.GetEntities()
-                        .Where(p =>
-                            p.UserId == id.ToString() &&
-                            p.PurchaseDate >= startOfMonth)
+                        .Where(p => p.UserId == id.ToString() && p.PurchaseDate >= startOfMonth)
                         .SumAsync(p => p.Minutes);
 
                     totalMonthlyLimit = 360 + purchasedMinutes;
@@ -128,17 +126,49 @@ namespace Snarf.Service
                         x.LastLongitude,
                         x.GetFirstPhoto,
 
+                        Description = showSensitiveInfo ? x.Description : null,
+                        BirthLatitude = showSensitiveInfo ? x.BirthLatitude : null,
+                        BirthLongitude = showSensitiveInfo ? x.BirthLongitude : null,
+                        LocationAvailability = showSensitiveInfo ? x.LocationAvailability : null,
+
+                        Age = (showSensitiveInfo || x.ShowAge) ? x.Age : null,
+                        HeightInCm = (showSensitiveInfo || x.ShowHeightInCm) ? x.HeightInCm : null,
+                        WeightInKg = (showSensitiveInfo || x.ShowWeightInKg) ? x.WeightInKg : null,
+                        BodyType = (showSensitiveInfo || x.ShowBodyType) ? x.BodyType : null,
+                        IsCircumcised = (showSensitiveInfo || x.ShowIsCircumcised) ? x.IsCircumcised : null,
+                        SizeInCm = (showSensitiveInfo || x.ShowSizeInCm) ? x.SizeInCm : null,
+
+                        Spectrum = (showSensitiveInfo || x.ShowSpectrum) ? x.Spectrum : null,
+                        Attitude = (showSensitiveInfo || x.ShowAttitude) ? x.Attitude : null,
+                        Expressions = (showSensitiveInfo || x.ShowExpressions) ? x.Expressions : null,
+
+                        HostingStatus = (showSensitiveInfo || x.ShowHostingStatus) ? x.HostingStatus : null,
+                        PublicPlace = (showSensitiveInfo || x.ShowPublicPlace) ? x.PublicPlace : null,
+                        LookingFor = (showSensitiveInfo || x.ShowLookingFor) ? x.LookingFor : null,
+                        Kinks = (showSensitiveInfo || x.ShowKinks) ? x.Kinks : null,
+                        Fetishes = (showSensitiveInfo || x.ShowFetishes) ? x.Fetishes : null,
+                        Actions = (showSensitiveInfo || x.ShowActions) ? x.Actions : null,
+                        Interactions = (showSensitiveInfo || x.ShowInteractions) ? x.Interactions : null,
+
+                        Practice = (showSensitiveInfo || x.ShowPractice) ? x.Practice : null,
+                        HivStatus = (showSensitiveInfo || x.ShowHivStatus) ? x.HivStatus : null,
+                        HivTestedDate = (showSensitiveInfo || x.ShowHivTestedDate) ? x.HivTestedDate : null,
+                        StiTestedDate = (showSensitiveInfo || x.ShowStiTestedDate) ? x.StiTestedDate : null,
+                        Immunizations = (showSensitiveInfo || x.ShowImmunizations) ? x.Immunizations : null,
+                        DrugAbuse = (showSensitiveInfo || x.ShowDrugAbuse) ? x.DrugAbuse : null,
+                        Carrying = (showSensitiveInfo || x.ShowCarrying) ? x.Carrying : null,
+
                         BlockedUsers = showSensitiveInfo
-                                                   ? x.BlockedUsers
-                                                        .Select(b => new { b.Blocked.Id, b.Blocked.Name, b.Blocked.GetFirstPhoto })
-                                                        .ToList()
-                                                   : null,
+                                                ? x.BlockedUsers
+                                                     .Select(b => new { b.Blocked.Id, b.Blocked.Name, b.Blocked.GetFirstPhoto })
+                                                     .ToList()
+                                                : null,
                         BlockedByCount = showSensitiveInfo ? x.BlockedBy.Count : 0,
                         FavoriteChats = showSensitiveInfo
-                                                   ? x.FavoriteChats
-                                                        .Select(f => new { f.ChatUser.Name, f.ChatUser.GetFirstPhoto })
-                                                        .ToList()
-                                                   : null,
+                                                ? x.FavoriteChats
+                                                     .Select(f => new { f.ChatUser.Name, f.ChatUser.GetFirstPhoto })
+                                                     .ToList()
+                                                : null,
                         FavoritedByCount = showSensitiveInfo ? x.FavoritedBy.Count : 0,
 
                         ExtraVideoCallMinutes = showSensitiveInfo ? purchasedMinutes : 0,
@@ -351,7 +381,6 @@ namespace Snarf.Service
                 userEntity.Interactions = userDTO.Interactions ?? new List<Interaction>();
                 userEntity.ShowInteractions = userDTO.ShowInteractions ?? false;
 
-                // Saúde
                 userEntity.Practice = userDTO.Practice;
                 userEntity.ShowPractice = userDTO.ShowPractice ?? false;
                 userEntity.HivStatus = userDTO.HivStatus;

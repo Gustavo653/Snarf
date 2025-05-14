@@ -351,7 +351,6 @@ namespace Snarf.Service
 
                 if (wasInvitedByHost)
                 {
-                    // Convidado => user pode se confirmar, ou o host confirma
                     if (!isHost && !isSameUser)
                     {
                         responseDTO.SetBadInput("Apenas o convidado ou o anfitrião podem confirmar.");
