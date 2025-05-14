@@ -56,10 +56,10 @@ namespace Snarf.Domain.Base
 
 
         // SCENE
-        public HostingStatus HostingStatus { get; set; }
+        public HostingStatus? HostingStatus { get; set; }
         public bool ShowHostingStatus { get; set; }
 
-        public PublicPlace PublicPlace { get; set; }
+        public PublicPlace? PublicPlace { get; set; }
         public bool ShowPublicPlace { get; set; }
 
         public List<ExpressionStyle> LookingFor { get; set; } = [];

@@ -5,6 +5,7 @@ using Serilog;
 using Snarf.Domain.Base;
 using Snarf.Domain.Entities;
 using Snarf.Domain.Enum;
+using Snarf.Domain.Enum.UserDetails;
 using Snarf.DTO;
 using Snarf.DTO.Base;
 using Snarf.Infrastructure.Repository;
@@ -166,7 +167,6 @@ namespace Snarf.Service
         public async Task<ResponseDTO> CreateUser(UserDTO userDTO)
         {
             var responseDTO = new ResponseDTO();
-
             try
             {
                 if (string.IsNullOrEmpty(userDTO.Password))
@@ -193,12 +193,59 @@ namespace Snarf.Service
                     BirthLatitude = userDTO.BirthLatitude,
                     BirthLongitude = userDTO.BirthLongitude,
                     LocationAvailability = userDTO.LocationAvailability,
+
                     Age = userDTO.Age,
-                    Height = userDTO.Height,
-                    Weight = userDTO.Weight,
+                    ShowAge = userDTO.ShowAge ?? false,
+                    HeightInCm = userDTO.Height,
+                    ShowHeightInCm = userDTO.ShowHeightInCm ?? false,
+                    WeightInKg = userDTO.Weight,
+                    ShowWeightInKg = userDTO.ShowWeightInKg ?? false,
+                    BodyType = userDTO.BodyType,
+                    ShowBodyType = userDTO.ShowBodyType ?? false,
+
                     IsCircumcised = userDTO.IsCircumcised,
-                    CircumferenceCm = userDTO.CircumferenceCm,
-                    BodyType = userDTO.BodyType
+                    ShowIsCircumcised = userDTO.ShowIsCircumcised ?? false,
+                    SizeInCm = userDTO.CircumferenceCm,
+                    ShowSizeInCm = userDTO.ShowSizeInCm ?? false,
+
+                    Spectrum = userDTO.Spectrum,
+                    ShowSpectrum = userDTO.ShowSpectrum ?? false,
+                    Attitude = userDTO.Attitude,
+                    ShowAttitude = userDTO.ShowAttitude ?? false,
+                    Expressions = userDTO.Expressions ?? new List<ExpressionStyle>(),
+                    ShowExpressions = userDTO.ShowExpressions ?? false,
+
+                    HostingStatus = userDTO.HostingStatus,
+                    ShowHostingStatus = userDTO.ShowHostingStatus ?? false,
+                    PublicPlace = userDTO.PublicPlace,
+                    ShowPublicPlace = userDTO.ShowPublicPlace ?? false,
+                    LookingFor = userDTO.LookingFor ?? new List<ExpressionStyle>(),
+                    ShowLookingFor = userDTO.ShowLookingFor ?? false,
+
+                    Kinks = userDTO.Kinks ?? new List<Kink>(),
+                    ShowKinks = userDTO.ShowKinks ?? false,
+                    Fetishes = userDTO.Fetishes ?? new List<Fetish>(),
+                    ShowFetishes = userDTO.ShowFetishes ?? false,
+                    Actions = userDTO.Actions ?? new List<Actions>(),
+                    ShowActions = userDTO.ShowActions ?? false,
+                    Interactions = userDTO.Interactions ?? new List<Interaction>(),
+                    ShowInteractions = userDTO.ShowInteractions ?? false,
+
+                    Practice = userDTO.Practice,
+                    ShowPractice = userDTO.ShowPractice ?? false,
+                    HivStatus = userDTO.HivStatus,
+                    ShowHivStatus = userDTO.ShowHivStatus ?? false,
+                    HivTestedDate = userDTO.HivTestedDate,
+                    ShowHivTestedDate = userDTO.ShowHivTestedDate ?? false,
+                    StiTestedDate = userDTO.StiTestedDate,
+                    ShowStiTestedDate = userDTO.ShowStiTestedDate ?? false,
+
+                    Immunizations = userDTO.Immunizations ?? new List<ImmunizationStatus>(),
+                    ShowImmunizations = userDTO.ShowImmunizations ?? false,
+                    DrugAbuse = userDTO.DrugAbuse ?? new List<DrugAbuse>(),
+                    ShowDrugAbuse = userDTO.ShowDrugAbuse ?? false,
+                    Carrying = userDTO.Carrying ?? new List<Carrying>(),
+                    ShowCarrying = userDTO.ShowCarrying ?? false
                 };
 
                 userEntity.PasswordHash = userManager.PasswordHasher.HashPassword(userEntity, userDTO.Password);
@@ -242,7 +289,6 @@ namespace Snarf.Service
         public async Task<ResponseDTO> UpdateUser(Guid id, UserDTO userDTO)
         {
             var responseDTO = new ResponseDTO();
-
             try
             {
                 var userEntity = await userRepository
@@ -267,20 +313,66 @@ namespace Snarf.Service
                 userEntity.BirthLatitude = userDTO.BirthLatitude;
                 userEntity.BirthLongitude = userDTO.BirthLongitude;
                 userEntity.LocationAvailability = userDTO.LocationAvailability;
+
                 userEntity.Age = userDTO.Age;
-                userEntity.Height = userDTO.Height;
-                userEntity.Weight = userDTO.Weight;
-                userEntity.IsCircumcised = userDTO.IsCircumcised;
-                userEntity.CircumferenceCm = userDTO.CircumferenceCm;
+                userEntity.ShowAge = userDTO.ShowAge ?? false;
+                userEntity.HeightInCm = userDTO.Height;
+                userEntity.ShowHeightInCm = userDTO.ShowHeightInCm ?? false;
+                userEntity.WeightInKg = userDTO.Weight;
+                userEntity.ShowWeightInKg = userDTO.ShowWeightInKg ?? false;
                 userEntity.BodyType = userDTO.BodyType;
+                userEntity.ShowBodyType = userDTO.ShowBodyType ?? false;
+
+                userEntity.IsCircumcised = userDTO.IsCircumcised;
+                userEntity.ShowIsCircumcised = userDTO.ShowIsCircumcised ?? false;
+                userEntity.SizeInCm = userDTO.CircumferenceCm;
+                userEntity.ShowSizeInCm = userDTO.ShowSizeInCm ?? false;
+
+                userEntity.Spectrum = userDTO.Spectrum;
+                userEntity.ShowSpectrum = userDTO.ShowSpectrum ?? false;
+                userEntity.Attitude = userDTO.Attitude;
+                userEntity.ShowAttitude = userDTO.ShowAttitude ?? false;
+                userEntity.Expressions = userDTO.Expressions ?? new List<ExpressionStyle>();
+                userEntity.ShowExpressions = userDTO.ShowExpressions ?? false;
+
+                userEntity.HostingStatus = userDTO.HostingStatus;
+                userEntity.ShowHostingStatus = userDTO.ShowHostingStatus ?? false;
+                userEntity.PublicPlace = userDTO.PublicPlace;
+                userEntity.ShowPublicPlace = userDTO.ShowPublicPlace ?? false;
+                userEntity.LookingFor = userDTO.LookingFor ?? new List<ExpressionStyle>();
+                userEntity.ShowLookingFor = userDTO.ShowLookingFor ?? false;
+
+                userEntity.Kinks = userDTO.Kinks ?? new List<Kink>();
+                userEntity.ShowKinks = userDTO.ShowKinks ?? false;
+                userEntity.Fetishes = userDTO.Fetishes ?? new List<Fetish>();
+                userEntity.ShowFetishes = userDTO.ShowFetishes ?? false;
+                userEntity.Actions = userDTO.Actions ?? new List<Actions>();
+                userEntity.ShowActions = userDTO.ShowActions ?? false;
+                userEntity.Interactions = userDTO.Interactions ?? new List<Interaction>();
+                userEntity.ShowInteractions = userDTO.ShowInteractions ?? false;
+
+                // Saúde
+                userEntity.Practice = userDTO.Practice;
+                userEntity.ShowPractice = userDTO.ShowPractice ?? false;
+                userEntity.HivStatus = userDTO.HivStatus;
+                userEntity.ShowHivStatus = userDTO.ShowHivStatus ?? false;
+                userEntity.HivTestedDate = userDTO.HivTestedDate;
+                userEntity.ShowHivTestedDate = userDTO.ShowHivTestedDate ?? false;
+                userEntity.StiTestedDate = userDTO.StiTestedDate;
+                userEntity.ShowStiTestedDate = userDTO.ShowStiTestedDate ?? false;
+
+                userEntity.Immunizations = userDTO.Immunizations ?? new List<ImmunizationStatus>();
+                userEntity.ShowImmunizations = userDTO.ShowImmunizations ?? false;
+                userEntity.DrugAbuse = userDTO.DrugAbuse ?? new List<DrugAbuse>();
+                userEntity.ShowDrugAbuse = userDTO.ShowDrugAbuse ?? false;
+                userEntity.Carrying = userDTO.Carrying ?? new List<Carrying>();
+                userEntity.ShowCarrying = userDTO.ShowCarrying ?? false;
 
                 foreach (var photo in userEntity.Photos.ToList())
                 {
-                    try { await s3Service.DeleteFileAsync(photo.Url); }
-                    catch { /* log de erro se quiser */ }
+                    try { await s3Service.DeleteFileAsync(photo.Url); } catch { }
                     userEntity.Photos.Remove(photo);
                 }
-
                 if (userDTO.Images != null && userDTO.Images.Any())
                 {
                     int ordem = 1;
@@ -293,7 +385,6 @@ namespace Snarf.Service
                             stream,
                             "image/jpeg"
                         );
-
                         userEntity.Photos.Add(new UserPhoto
                         {
                             Id = Guid.NewGuid(),
@@ -310,7 +401,6 @@ namespace Snarf.Service
             {
                 responseDTO.SetError(ex);
             }
-
             return responseDTO;
         }
 
