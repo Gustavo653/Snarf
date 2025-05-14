@@ -31,7 +31,6 @@ namespace Snarf.Persistence
 
             modelBuilder.Entity<UserPhoto>(x =>
             {
-                x.ToTable(t => t.HasCheckConstraint("CK_UserPhoto_Order", "Order BETWEEN 1 AND 4"));
                 x.HasIndex(x => new { x.UserId, x.Order }).IsUnique();
             });
 
