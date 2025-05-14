@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/config_profile_page.dart';
+import 'package:snarf/pages/account/config_profile_preferences_page.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
@@ -176,7 +177,7 @@ class _HomePageState extends State<HomePage> {
     }
     final userInfo = await ApiService.getUserInfoById(userId);
     if (userInfo != null) {
-      userImage = userInfo['imageUrl'];
+      userImage = userInfo['getFirstPhoto'];
     } else {
       showErrorSnackbar(context, 'Erro ao carregar informações do usuário');
       await _analytics.logEvent(name: 'error', parameters: {
@@ -614,7 +615,50 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showCustomMenu(BuildContext context, Offset offset) {
+  void _showConfigProfile(BuildContext context) async {
+    await _analytics.logEvent(name: 'open_config_profile');
+    final configProvider = Provider.of<ConfigProvider>(context, listen: false);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => GestureDetector(
+        onTap: () => Navigator.pop(context),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 50),
+          child: GestureDetector(
+            onTap: () {},
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30.0),
+                border: Border.symmetric(
+                    horizontal: BorderSide(
+                        color: configProvider.secondaryColor, width: 5)),
+              ),
+              child: DraggableScrollableSheet(
+                initialChildSize: 0.9,
+                minChildSize: 0.9,
+                maxChildSize: 0.9,
+                expand: false,
+                builder: (context, scrollController) {
+                  return ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(30), bottom: Radius.circular(30)),
+                    child: Scaffold(
+                      body: ConfigProfilePreferencesPage(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCustomMenu(BuildContext context, Offset offset) { //mostra o menu
     final configProvider = Provider.of<ConfigProvider>(context, listen: false);
     showMenu(
       context: context,
@@ -753,9 +797,10 @@ class _HomePageState extends State<HomePage> {
         Navigator.push(context,
             MaterialPageRoute(builder: (context) => const EditUserPage()));
       } else if (value == 'profile_settings') {
-        await _analytics.logEvent(name: 'open_profile_settings');
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const ConfigProfilePage()));
+        // await _analytics.logEvent(name: 'open_profile_settings');
+        // Navigator.push(context,
+        //     MaterialPageRoute(builder: (context) => const ConfigProfilePage()));
+        _showConfigProfile(context);
       } else if (value == 'create_party') {
         await _analytics.logEvent(name: 'open_create_party');
         Navigator.push(
