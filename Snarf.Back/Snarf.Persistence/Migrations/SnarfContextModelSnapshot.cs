@@ -18,7 +18,7 @@ namespace Snarf.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.4")
+                .HasAnnotation("ProductVersion", "9.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "hstore");
@@ -194,39 +194,9 @@ namespace Snarf.Persistence.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("integer");
 
-                    b.PrimitiveCollection<int[]>("Actions")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
-
-                    b.Property<int?>("Age")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("Attitude")
-                        .HasColumnType("integer");
-
-                    b.Property<double?>("BirthLatitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<double?>("BirthLongitude")
-                        .HasColumnType("double precision");
-
-                    b.Property<int?>("BodyType")
-                        .HasColumnType("integer");
-
-                    b.PrimitiveCollection<int[]>("Carrying")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
-
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.PrimitiveCollection<int[]>("DrugAbuse")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -235,43 +205,15 @@ namespace Snarf.Persistence.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
 
-                    b.PrimitiveCollection<int[]>("Expressions")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
+                    b.Property<int>("ExtraVideoCallMinutes")
+                        .HasColumnType("integer");
 
                     b.Property<string>("FcmToken")
                         .HasColumnType("text");
 
-                    b.PrimitiveCollection<int[]>("Fetishes")
+                    b.Property<string>("ImageUrl")
                         .IsRequired()
-                        .HasColumnType("integer[]");
-
-                    b.Property<decimal?>("HeightInCm")
-                        .HasColumnType("numeric");
-
-                    b.Property<int?>("HivStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("HivTestedDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<int?>("HostingStatus")
-                        .HasColumnType("integer");
-
-                    b.PrimitiveCollection<int[]>("Immunizations")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
-
-                    b.PrimitiveCollection<int[]>("Interactions")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
-
-                    b.Property<bool?>("IsCircumcised")
-                        .HasColumnType("boolean");
-
-                    b.PrimitiveCollection<int[]>("Kinks")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("LastActivity")
                         .HasColumnType("timestamp without time zone");
@@ -282,18 +224,11 @@ namespace Snarf.Persistence.Migrations
                     b.Property<double?>("LastLongitude")
                         .HasColumnType("double precision");
 
-                    b.Property<int?>("LocationAvailability")
-                        .HasColumnType("integer");
-
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("timestamp with time zone");
-
-                    b.PrimitiveCollection<int[]>("LookingFor")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -316,95 +251,11 @@ namespace Snarf.Persistence.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean");
 
-                    b.Property<int?>("Practice")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PublicPlace")
-                        .HasColumnType("integer");
-
                     b.Property<int>("Role")
                         .HasColumnType("integer");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
-
-                    b.Property<bool>("ShowActions")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowAge")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowAttitude")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowBodyType")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowCarrying")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowDrugAbuse")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowExpressions")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowFetishes")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowHeightInCm")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowHivStatus")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowHivTestedDate")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowHostingStatus")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowImmunizations")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowInteractions")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowIsCircumcised")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowKinks")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowLookingFor")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowPractice")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowPublicPlace")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowSizeInCm")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowSpectrum")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowStiTestedDate")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ShowWeightInKg")
-                        .HasColumnType("boolean");
-
-                    b.Property<decimal?>("SizeInCm")
-                        .HasColumnType("numeric");
-
-                    b.Property<int?>("Spectrum")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("StiTestedDate")
-                        .HasColumnType("timestamp without time zone");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("boolean");
@@ -412,9 +263,6 @@ namespace Snarf.Persistence.Migrations
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
-
-                    b.Property<decimal?>("WeightInKg")
-                        .HasColumnType("numeric");
 
                     b.HasKey("Id");
 
@@ -757,40 +605,6 @@ namespace Snarf.Persistence.Migrations
                     b.ToTable("PublicChatMessages");
                 });
 
-            modelBuilder.Entity("Snarf.Domain.Entities.UserPhoto", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "Order")
-                        .IsUnique();
-
-                    b.ToTable("UserPhotos", t =>
-                        {
-                            t.HasCheckConstraint("CK_UserPhoto_Order", "Order BETWEEN 1 AND 4");
-                        });
-                });
-
             modelBuilder.Entity("Snarf.Domain.Entities.VideoCallLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -831,41 +645,6 @@ namespace Snarf.Persistence.Migrations
                     b.HasIndex("CallerId");
 
                     b.ToTable("VideoCallLogs");
-                });
-
-            modelBuilder.Entity("Snarf.Domain.Entities.VideoCallPurchase", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("Minutes")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("PurchaseDate")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("SubscriptionId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Token")
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("VideoCallPurchases");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -954,13 +733,13 @@ namespace Snarf.Persistence.Migrations
                     b.HasOne("Snarf.Domain.Base.User", "Blocked")
                         .WithMany("BlockedBy")
                         .HasForeignKey("BlockedId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Snarf.Domain.Base.User", "Blocker")
                         .WithMany("BlockedUsers")
                         .HasForeignKey("BlockerId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Blocked");
@@ -973,13 +752,13 @@ namespace Snarf.Persistence.Migrations
                     b.HasOne("Snarf.Domain.Base.User", "ChatUser")
                         .WithMany("FavoritedBy")
                         .HasForeignKey("ChatUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Snarf.Domain.Base.User", "User")
                         .WithMany("FavoriteChats")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("ChatUser");
@@ -992,7 +771,7 @@ namespace Snarf.Persistence.Migrations
                     b.HasOne("Snarf.Domain.Base.User", "Owner")
                         .WithMany("OwnedParties")
                         .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Owner");
@@ -1092,17 +871,6 @@ namespace Snarf.Persistence.Migrations
                     b.Navigation("Sender");
                 });
 
-            modelBuilder.Entity("Snarf.Domain.Entities.UserPhoto", b =>
-                {
-                    b.HasOne("Snarf.Domain.Base.User", "User")
-                        .WithMany("Photos")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Snarf.Domain.Entities.VideoCallLog", b =>
                 {
                     b.HasOne("Snarf.Domain.Base.User", "Callee")
@@ -1122,17 +890,6 @@ namespace Snarf.Persistence.Migrations
                     b.Navigation("Caller");
                 });
 
-            modelBuilder.Entity("Snarf.Domain.Entities.VideoCallPurchase", b =>
-                {
-                    b.HasOne("Snarf.Domain.Base.User", "User")
-                        .WithMany("VideoCallPurchases")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Snarf.Domain.Base.User", b =>
                 {
                     b.Navigation("BlockedBy");
@@ -1144,10 +901,6 @@ namespace Snarf.Persistence.Migrations
                     b.Navigation("FavoritedBy");
 
                     b.Navigation("OwnedParties");
-
-                    b.Navigation("Photos");
-
-                    b.Navigation("VideoCallPurchases");
                 });
 
             modelBuilder.Entity("Snarf.Domain.Entities.Party", b =>
