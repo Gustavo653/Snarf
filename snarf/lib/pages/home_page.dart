@@ -11,6 +11,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:snarf/pages/account/config_profile_page.dart';
 import 'package:snarf/pages/account/config_profile_preferences_page.dart';
+import 'package:snarf/pages/account/edit_profile_page.dart';
 import 'package:snarf/pages/account/edit_user_page.dart';
 import 'package:snarf/pages/account/initial_page.dart';
 import 'package:snarf/pages/account/view_user_page.dart';
@@ -26,7 +27,7 @@ import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/location_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/show_snackbar.dart';
-import 'package:snarf/utils/signalr_event_type.dart';
+import 'package:snarf/enums/signalr_event_type.dart';
 
 class HomePage extends StatefulWidget {
   final double? initialLatitude;
@@ -795,7 +796,7 @@ class _HomePageState extends State<HomePage> {
       if (value == 'config') {
         await _analytics.logEvent(name: 'open_profile_edit');
         Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const EditUserPage()));
+            MaterialPageRoute(builder: (context) => const EditProfilePage()));
       } else if (value == 'profile_settings') {
         // await _analytics.logEvent(name: 'open_profile_settings');
         // Navigator.push(context,

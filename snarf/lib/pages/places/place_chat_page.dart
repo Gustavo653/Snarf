@@ -7,7 +7,7 @@ import 'package:snarf/providers/config_provider.dart';
 import 'package:snarf/services/api_service.dart';
 import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
-import 'package:snarf/utils/signalr_event_type.dart';
+import 'package:snarf/enums/signalr_event_type.dart';
 
 class PlaceChatPage extends StatefulWidget {
   final String placeId;

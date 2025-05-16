@@ -1,0 +1,51 @@
+enum Interaction {
+  anonymous,
+  blindfolded,
+  bukkake,
+  cumAndGo,
+  dirtyTalk,
+  doorOpen,
+  dropPants,
+  edging,
+  eyeContact,
+  flip,
+  gloryhole,
+  gooning,
+  noRecip,
+  mildToWild,
+  mutual,
+  pumpAndDump,
+  rough,
+  understall,
+  vanilla,
+  watchOnly,
+  worship,
+}
+
+extension InteractionLabel on Interaction {
+  static const _pt = {
+    Interaction.anonymous: 'Anônimo',
+    Interaction.blindfolded: 'Vendado',
+    Interaction.bukkake: 'Bukake',
+    Interaction.cumAndGo: 'Gozar e ir',
+    Interaction.dirtyTalk: 'Conversa Suja',
+    Interaction.doorOpen: 'Porta Aberta',
+    Interaction.dropPants: 'Tire as Calças',
+    Interaction.edging: 'Edging',
+    Interaction.eyeContact: 'Contato Visual',
+    Interaction.flip: 'Troca',
+    Interaction.gloryhole: 'Buraco da Glória',
+    Interaction.gooning: 'Gooning',
+    Interaction.noRecip: 'Dê só',
+    Interaction.mildToWild: 'Leve a Selvagem',
+    Interaction.mutual: 'Jogada Mútua',
+    Interaction.pumpAndDump: 'Pump and Dump (Gozada Dentro)',
+    Interaction.rough: 'Bruto/Agressivo',
+    Interaction.understall: 'Banheiro',
+    Interaction.vanilla: 'Vanilla',
+    Interaction.watchOnly: 'Assistir apenas',
+    Interaction.worship: 'Adoração',
+  };
+
+  String get label => _pt[this]!;
+}

@@ -24,7 +24,7 @@ import 'package:snarf/services/signalr_manager.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:image/image.dart' as img;
-import 'package:snarf/utils/signalr_event_type.dart';
+import 'package:snarf/enums/signalr_event_type.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';

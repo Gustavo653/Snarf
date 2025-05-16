@@ -1,18 +1,7 @@
 import "package:in_app_purchase/in_app_purchase.dart";
 import "package:in_app_purchase_android/in_app_purchase_android.dart";
 import "package:in_app_purchase_android/src/billing_client_wrappers/subscription_offer_details_wrapper.dart";
-
-enum BasePlanLength {
-  weekly,
-  everyFourWeeks,
-  monthly,
-  everyTwoMonths,
-  everyThreeMonths,
-  everyFourMonths,
-  everySixMonths,
-  everyEightMonths,
-  yearly,
-}
+import "package:snarf/enums/base_plan_length.dart";
 
 class SubscriptionBasePlanDetails {
   final ProductDetails productDetails;

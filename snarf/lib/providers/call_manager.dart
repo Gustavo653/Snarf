@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:snarf/providers/config_provider.dart';
 
 import 'package:snarf/services/signalr_manager.dart';
-import 'package:snarf/utils/signalr_event_type.dart';
+import 'package:snarf/enums/signalr_event_type.dart';
 
 class CallManager extends ChangeNotifier {
   final JitsiMeet jitsiMeet = JitsiMeet();

@@ -14,7 +14,7 @@ import 'package:snarf/services/signalr_manager.dart';
 import 'package:snarf/utils/date_utils.dart';
 import 'package:snarf/utils/distance_utils.dart';
 import 'package:snarf/utils/show_snackbar.dart';
-import 'package:snarf/utils/signalr_event_type.dart';
+import 'package:snarf/enums/signalr_event_type.dart';
 
 class PublicChatPage extends StatefulWidget {
   final ScrollController scrollController;
