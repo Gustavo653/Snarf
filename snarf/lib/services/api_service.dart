@@ -44,8 +44,12 @@ class ApiService {
       String email, String name, String password, String image) async {
     final url = Uri.parse('${ApiConstants.baseUrl}/Account');
     final headers = {'Content-Type': 'application/json'};
-    final body = jsonEncode(
-        {'email': email, 'name': name, 'password': password, 'image': image});
+    final body = jsonEncode({
+      'email': email,
+      'name': name,
+      'password': password,
+      'images': [image]
+    });
     try {
       await _analytics.logEvent(name: 'api_register_attempt');
       final response = await http.post(url, headers: headers, body: body);

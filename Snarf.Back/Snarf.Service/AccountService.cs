@@ -116,6 +116,7 @@ namespace Snarf.Service
                 }
 
                 var data = await userRepository.GetEntities()
+                    .Include(x => x.Photos)
                     .Select(x => new
                     {
                         x.Id,

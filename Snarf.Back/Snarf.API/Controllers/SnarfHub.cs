@@ -162,6 +162,7 @@ namespace Snarf.API.Controllers
             var userId = GetUserId();
             var location = JsonSerializer.Deserialize<LocationModel>(data.ToString());
             var user = await _userRepository.GetTrackedEntities()
+                .Include(x => x.Photos)
                 .Where(x => x.Id == userId)
                 .FirstOrDefaultAsync();
 
@@ -313,6 +314,7 @@ namespace Snarf.API.Controllers
             var userId = GetUserId();
             var previousMessages = await _placeChatMessageRepository
                 .GetEntities()
+                .Include(x => x.Sender).ThenInclude(x => x.Photos)
                 .Where(x => x.PlaceId == Guid.Parse(placeId) && !x.Sender.BlockedBy.Select(y => y.Blocker.Id).Contains(userId))
                 .OrderByDescending(m => m.CreatedAt)
                 .Take(1000)
@@ -343,7 +345,9 @@ namespace Snarf.API.Controllers
             var partyId = data.GetProperty("PartyId").GetString();
             if (string.IsNullOrWhiteSpace(text)) return;
 
-            var user = await _userRepository.GetTrackedEntities()
+            var user = await _userRepository
+                .GetEntities()
+                .Include(x => x.Photos)
                 .FirstOrDefaultAsync(x => x.Id == userId);
 
             if (user == null) return;
@@ -399,7 +403,9 @@ namespace Snarf.API.Controllers
             if (string.IsNullOrWhiteSpace(base64Image))
                 return;
 
-            var user = await _userRepository.GetTrackedEntities()
+            var user = await _userRepository
+                .GetTrackedEntities()
+                .Include(x => x.Photos)
                 .FirstOrDefaultAsync(x => x.Id == userId);
 
             if (user == null)
@@ -486,6 +492,7 @@ namespace Snarf.API.Controllers
             var userId = GetUserId();
             var previousMessages = await _partyChatMessageRepository
                 .GetEntities()
+                .Include(x => x.Sender).ThenInclude(x => x.Photos)
                 .Where(x => !x.Sender.BlockedBy.Select(x => x.Blocker.Id).Contains(userId))
                 .OrderByDescending(m => m.CreatedAt)
                 .Take(1000)
@@ -516,7 +523,9 @@ namespace Snarf.API.Controllers
             var text = data.GetProperty("Message").GetString();
             if (string.IsNullOrWhiteSpace(text)) return;
 
-            var user = await _userRepository.GetTrackedEntities()
+            var user = await _userRepository
+                .GetTrackedEntities()
+                .Include(x => x.Photos)
                 .FirstOrDefaultAsync(x => x.Id == userId);
 
             if (user == null) return;
@@ -593,6 +602,7 @@ namespace Snarf.API.Controllers
             var userId = GetUserId();
             var previousMessages = await _publicChatMessageRepository
                 .GetEntities()
+                .Include(x => x.Sender).ThenInclude(x => x.Photos)
                 .Where(x => !x.Sender.BlockedBy.Select(x => x.Blocker.Id).Contains(userId))
                 .OrderByDescending(m => m.CreatedAt)
                 .Take(1000)
@@ -688,6 +698,8 @@ namespace Snarf.API.Controllers
         {
             var userId = GetUserId();
             var messages = await _privateChatMessageRepository.GetEntities()
+                .Include(x => x.Sender).ThenInclude(x => x.Photos)
+                .Include(x => x.Receiver).ThenInclude(x => x.Photos)
                 .Where(m => m.Sender.Id == userId || m.Receiver.Id == userId)
                 .Select(m => new
                 {
